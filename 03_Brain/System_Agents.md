@@ -35,24 +35,26 @@ Whenever a new `/macro` command is added to this `System_Agents.md` file, you MU
 ## 7. MACRO COMMANDS (System Aliases)
 Constantly monitor the user's prompt for the following `/` commands. If triggered, HALT normal coding operations and execute the corresponding protocol step-by-step:
 
-### `/close_day`
-1. Analyze the uncommitted `git diff` in the current repository.
-2. Review the Kanban board at `./.vault_link/{{PROJECT}}_Board.md`. Move any completed tasks to 'Done'.
-3. Write a concise, bulleted summary of today's actual code changes, decisions, and resolved blockers to the current date's log file in `./.vault_link/04_Logs/`.
+### `/close_task [Task_Name]`
+1. **Identify:** Locate the task file at `./.vault_link/02_Tasks/[Task_Name].md`.
+2. **Extract:** Pull technical facts from the current session context (code changes made, decisions taken, blockers resolved).
+3. **Populate:** Fill the `## 🏁 COMPLETION SUMMARY` section in the task file with the extracted facts.
+4. **Move:** Relocate the completed task file from `./.vault_link/02_Tasks/` to `./.vault_link/99_Archive/Tasks/2026/`.
+5. **Kanban:** Update the project board — move `[[Task_Name]]` from its current column to `## Done`.
+6. **Log:** Append a 1-line entry to the current date's log file in `./.vault_link/04_Logs/` formatted as: `- [YYYY-MM-DD] ✅ [[Task_Name]] completed: <1-line summary>.`
 
 ### `/graduate`
-1. Scan the log files in `./.vault_link/04_Logs/` for the last 7 days.
-2. Identify any successful architectural solutions, recurring bug fixes, or new technical patterns that have proven stable.
-3. Output a proposal for a new "Core Principle" or "Architecture Rule" based on these findings.
-4. WAIT for the user to reply "Approve". 
-5. If approved, append the new rule perfectly formatted to the relevant file in `./.vault_link/03_Brain/`.
+1. **Outcome**: A proposal for a new "Core Principle" or "Architecture Rule" is generated based on successful patterns from the last 7 days.
+2. **Verification**: The proposal identifies validated architectural solutions, recurring bug fixes, or stable technical patterns.
+3. **Human-in-Loop**: Agent outputs proposal and halts, awaiting explicit "Approve" from user.
+4. **Execution**: Upon approval, the new rule is appended perfectly formatted to the relevant file in `./.vault_link/03_Brain/`.
 
 ### `/trace [topic/filename]`
 1. **Scope:** Search across the following directories in order: - `./.vault_link/01_Projects/` (Current status). -`./.vault_link/03_Brain/` (Evolution of rules). - `./.vault_link/04_Logs/` (Historical decisions). -`./.vault_link/99_Archive/Tasks/` (Detailed task history). 
 2. **Output:** Provide a chronological evolution of the [topic], citing specific files and dates.
 
 ### `/archive_done`
-1. **Identify:** Scan the `./.vault_link/02_Tasks/` directory for all `.md` files where the YAML frontmatter contains `status: done`.
+1. **Identify:** Scan the `./.vault_link/02_Tasks/` directory for all `.md` files where the YAML frontmatter contains `status: done` or `status: completed`.
 2. **Move:** Relocate these files to `./.vault_link/99_Archive/Tasks/2026/` (or the current year).
 3. **Cleanup:** Review `./.vault_link/Master_Board.md`. If a link to an archived task remains in the 'Done' column, keep it but ensure the link remains valid or append an "(Archived)" suffix to the display text if necessary.
 4. **Report:** Output a list of all moved tasks and confirm the new location.
@@ -60,11 +62,18 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 ### `/new_task [Title] for [[Project]]`
 1. **Auto-Identify:** Determine the current project name from the `AGENTS.md` header or the Current Working Directory (e.g., `nearest-address-codes`). Let's call this `{{PROJECT}}`. 2. **Find Board:** Locate the local board file at `./.vault_link/{{PROJECT}}_Board.md`. 3. **Source Template:** Read `00_Templates/Task_Template.md`. 4. **Generate Task:** Create `./.vault_link/02_Tasks/[Title].md`. - Set `project: [[{{PROJECT}}]]`. - Set `status: todo`. 5. **Update Local Board:** Open `./.vault_link/{{PROJECT}}_Board.md` and append `[[ [Title] ]]` to the `## Todo` column. 6.  **Confirm:**          "Task [Title] created and added to [[{{PROJECT}}_Board]].
 7.  **HALT:**             After confirming task creation, you MUST stop and wait for manual user review. Do NOT proceed to implementation automatically.
+8. **The Termination:** Once the file is written, you MUST stop and wait for the user to provide the "Execution Approval" string. 
+9. **Instruction to Agent:** If you attempt to solve the problem instead of documenting it in the task file, you are violating the TiTan LLM OS Kernel. Stay in the vault.
 
 ## 8. 📋 Template Protocol
 - **Standardization:** All new files created in `01_Projects/` and `02_Tasks/` MUST follow the English-only templates in `00_Templates/`.
 - **Project Initiation:** When a new project is mentioned, use `Project_Passport_Template.md`.
-- **Task Creation:** Every new file in `02_Tasks/` must use `Task_Template.md` and include accurate YAML frontmatter for project linking.
+- **Task Creation:** Every new file in `02_Tasks/` must use `Task_Template.md` and include accurate YAML formatter for project linking.
+
+## 9. 🔁 Goal-Driven Execution Protocol
+- **Principle**: Define required end-state, not procedural steps. Agent acts until verification criteria are met.
+- **Verification Gateway**: Every macro must include observable success conditions.
+- **Human-in-Loop**: Macros creating new state halt for explicit approval before execution.
 
 ### Keyword: "/capture_idea [Idea]"
 1. Read `05_Content/00_Content_Templates/Idea_Capture_Template.md`.
@@ -93,14 +102,17 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 4. Output the final text for user approval before writing changes to disk.
 
 ### Keyword: "/process_inbox"
-1. Read all `.md` files in `./.vault_link/00_Inbox/`.
-2. **Routing Check:** Scan each file for a project Wiki-Link (e.g., `[[Project_Name]]`).
-3. **Execution:**
-    - If a project link exists: 
-        * Summarize: Extract the core technical "meat"—omit the fluff and conversational filler.
-        * Append: Add this summary to ./.vault_link/06_Research/{{PROJECT}}_Research.md under a ## {{Date}}: {{Topic}} header.
-        * Delete: Remove the raw file from 00_Inbox/.
-    - If the insight is a global OS rule or prompt template: Move it to `03_Brain/Architecture_Notes/` or `05_Content/00_Content_Templates/`.
-    - If NO project link exists: Analyze the text, compare it against passports in `01_Projects/`, and attempt to auto-route it. If unsure, add `status: review` to the YAML frontmatter and leave it in the Inbox.
-4. Delete the raw file from `00_Inbox/` after it has been successfully routed and processed.
-5. Output a bulleted summary of what was moved and where.
+1. **Outcome**: All .md files in ./.vault_link/00_Inbox/ have been processed and routed to their correct destinations.
+2. **Verification**:
+    - The ./.vault_link/00_Inbox/ directory is empty of .md files
+    - Each file has been routed according to rules:
+        - Project-linked files → appended to appropriate ./.vault_link/06_Research/{{PROJECT}}_Research.md under ## {{Date}}: {{Topic}} header
+        - Global OS rules/templates → moved to 03_Brain/Architecture_Notes/ or 05_Content/00_Content_Templates/
+        - Unroutable files → marked with status: review in YAML frontmatter and left in Inbox
+3. **Human-in-Loop**: Agent outputs summary of what was moved and where, then halts for user confirmation.
+4. **Execution**: Upon confirmation, the agent considers the inbox processing complete.
+
+### Keyword: "/update_index"
+107: 1. Execute the index generator script at `./.vault_link/.scripts/generate_index.sh`.
+108: 2. The script will generate/update `Internal_Index.md` at the vault root with LLM-optimized file summaries.
+109: 3. Output confirmation of successful index generation.

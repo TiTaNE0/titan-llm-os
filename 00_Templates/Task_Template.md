@@ -8,16 +8,24 @@ type: task
 
 # ⚡ Task: {{title}}
 
-## 📋 Objective
-- [ ] Clearly state the desired outcome.
+## 📋 Declarative Objective
+- [ ] (What we want to achieve)
 
-## 🛠 Requirements
-- [ ] Requirement 1
-- [ ] Requirement 2
+## 🎯 Definition of Done (Success Criteria)
+- [ ] (Success criteria)
 
-## 📝 Implementation Notes
-- (To be filled by the agent during the planning phase)
+## 🧪 Verification Gateway
+- [ ] **Test Command:** (Command to run)
+- [ ] **Protocol:** Execute and verify exit code 0.
+
+## 📝 Agent Implementation Plan
+- (Filled by agent during planning)
+
+## 🏁 COMPLETION SUMMARY (Post-Mortem)
+- **Technical Meat:** (Filled by agent: What was actually changed? Any new dependencies?)
+- **Deviations:** (Did the plan change? Why?)
+- **Debt/Future:** (What should we clean up later?)
+- **Verification Proof:** (Paste the final success output/hash here.)
 
 ## 🔗 Related Context
 - **Skills:** [[.agent/skills/Relevant_Skill/SKILL]]
-- **Documentation:** [[03_Brain/Relevant_Topic]]

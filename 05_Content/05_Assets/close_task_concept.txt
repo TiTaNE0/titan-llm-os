@@ -1,0 +1,5 @@
+# Asset: close_task_concept.png
+# Concept illustration: Before/after of daily summary vs atomic task closing
+# Before: Frantic developer trying to remember work from hours ago
+# After: Developer pointing at single completed task with checkmark
+# Style: Simple line drawing, practical Israeli dev aesthetic

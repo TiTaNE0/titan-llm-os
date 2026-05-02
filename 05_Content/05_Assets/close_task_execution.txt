@@ -1,0 +1,4 @@
+# Asset: close_task_execution.png  
+# Screenshot concept: Terminal showing /close_task command execution
+# Shows: Command prompt, task file being edited, move to archive confirmation
+# Style: Clean terminal aesthetic with syntax highlighting

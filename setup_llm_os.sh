@@ -1,32 +1,13 @@
-#!/bin/bash
+# --- MISSION_CONTROL VAULT LINKING ---
+# The OS is hosted natively in iCloud for mobile sync
+OS_VAULT_PATH="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/Mission_Control"
 
-# Путь к твоему "Мозгу" (Obsidian Vault)
-VAULT_PATH="/Users/titane0/Programming/Mission_Control/TiTan"
-LINK_NAME=".vault_link"
-
-echo "🔍 Проверка подключения к LLM OS..."
-
-# 1. Проверка и создание симлинка
-if [ -L "$LINK_NAME" ]; then
-    echo "✅ Мост уже установлен. Указывает на: $(readlink $LINK_NAME)"
+echo "🔗 Connecting project to Mission_Control Brain..."
+if [ -d "$OS_VAULT_PATH" ]; then
+    ln -sfn "$OS_VAULT_PATH" .vault_link
+    echo "✅ Symlink created successfully: .vault_link -> $OS_VAULT_PATH"
 else
-    echo "⚙️ Создаю симлинк к Obsidian Vault..."
-    ln -s "$VAULT_PATH" "$LINK_NAME"
-    echo "✅ Мост успешно прокинут."
+    echo "⚠️  WARNING: Mission_Control vault not found at $OS_VAULT_PATH."
+    echo "Please ensure iCloud Drive is synced and the folder exists."
+    exit 1
 fi
-
-# 2. Безопасность: прячем от Git
-echo "🛡 Проверка .gitignore..."
-
-if ! grep -q "$LINK_NAME" .gitignore 2>/dev/null; then
-    echo "$LINK_NAME" >> .gitignore
-    echo "✅ $LINK_NAME добавлен в .gitignore"
-fi
-
-# Прячем локальный загрузчик агента
-if ! grep -q "AGENTS.md" .gitignore 2>/dev/null; then
-    echo "AGENTS.md" >> .gitignore
-    echo "✅ AGENTS.md добавлен в .gitignore"
-fi
-
-echo "🚀 Проект успешно подключен к единой базе знаний."
