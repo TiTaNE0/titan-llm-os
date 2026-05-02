@@ -15,6 +15,7 @@ kanban-plugin: board
 ## Drafting
 
 - [ ] [[[close_task_macro]]]
+- [ ] [[[iCloud_Sync_Implementation_Story]]]
 
 
 ## Ready
