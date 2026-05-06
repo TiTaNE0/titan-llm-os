@@ -1,3 +1,5 @@
+> ⚠️ Pre-voice-file draft — review against `05_Content/personalization/voice_evgeny.md` before posting.
+
 ---
 title: Building iCloud Sync for Intuiscale (Zero Backend)
 status: Draft

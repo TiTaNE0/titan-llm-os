@@ -1,0 +1,6 @@
+{"ts":"2026-05-04T21:24:10Z","macro":"smoke_test","status":"success","duration_ms":42,"error_class":null,"persona":"Executioner"}
+{"ts":"2026-05-04T21:25:29Z","macro":"metrics","status":"success","duration_ms":1800,"error_class":null,"persona":"Executioner"}
+{"ts":"2026-05-04T21:25:59Z","macro":"metrics","status":"success","duration_ms":35,"error_class":null,"persona":"Executioner"}
+{"ts":"2026-05-04T21:26:21Z","macro":"metrics","status":"success","duration_ms":62,"error_class":null,"persona":"Executioner"}
+{"ts":"2026-05-06T08:47:22Z","macro":"new_task","status":"success","duration_ms":1200,"error_class":null,"persona":"Executioner"}
+{"ts":"2026-05-06T09:01:47Z","macro":"close_task","status":"success","duration_ms":25,"error_class":null,"persona":"Executioner"}

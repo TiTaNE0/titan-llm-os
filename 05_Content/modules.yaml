@@ -1,0 +1,19 @@
+# 05_Content/modules.yaml — Content Pipeline Registry
+#
+# Canonical source of truth for which content channels (modules) are active
+# and which personalization (voice) is loaded.
+#
+# Edited directly OR via /enable_module, /disable_module, /set_voice macros.
+
+default_module: twitter
+
+active_modules:
+  - twitter
+
+inactive_modules:
+  - video
+  - article
+
+voice:
+  active: voice_evgeny
+  path: personalization/voice_evgeny.md   # relative to 05_Content/

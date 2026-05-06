@@ -1,0 +1,70 @@
+# Context Injection Protocol
+
+> **Karpathy's Rule:** *"The bottleneck is not the LLM; it's the context. Fill it strategically before the work starts."*
+
+This protocol defines what an agent MUST load into context during the boot handshake — BEFORE responding to the first user instruction. Treat this as filling the LLM's RAM with the right facts so it doesn't have to keep re-reading the disk.
+
+---
+
+## 1. Boot Sequence (Mandatory Order)
+
+| Step | File | Required? | Purpose |
+|------|------|-----------|---------|
+| 1 | `AGENTS.md` (root) | ✅ Always | Identifies project, points to vault |
+| 2 | `03_Brain/System_Agents.md` | ✅ Always | Kernel rules + macro definitions |
+| 3 | `03_Brain/Agent_Roles.md` | ✅ Always | Identifies which persona is active |
+| 4 | `04_Logs/<latest>.md` | ✅ Always | Hot-cache of recent decisions |
+| 5 | `01_Projects/{{PROJECT}}.md` | ✅ Always | Project mission + constraints |
+| 6 | `{{PROJECT}}_Board.md` | ✅ Always | Current Kanban state |
+| 7 | `06_Research/{{PROJECT}}_Research.md` | ⚠️ If exists | Deep technical context |
+| 8 | `03_Brain/Weekly_Synthesis/<latest>.json` | ⚠️ If exists | Synthesized memory |
+
+After step 8, agent confirms: **"Mission_Control rules loaded. Persona: {{ROLE}}. Project: {{PROJECT}}. Context primed."**
+
+---
+
+## 2. Token Budget Guidance
+
+- Cap injected context at **~30% of context window** — leave the other 70% for the conversation and tool outputs.
+- If total injection exceeds budget, drop in this order: Research → Weekly_Synthesis → older log lines (keep header + last 50 lines of latest log).
+- NEVER drop steps 1–3 to save tokens. They are the kernel.
+
+---
+
+## 3. Conditional Rules
+
+- **Multi-day session:** Only inject the latest log file, not the full history. Use `/trace` macro on demand if older context is needed.
+- **Cold start (no prior log today):** Inject the most recent log and prepend the line `> COLD START — last activity {{date}}`.
+- **Cross-project switch:** Re-run steps 5–8 with new `{{PROJECT}}`. Steps 1–4 stay loaded.
+- **Macro-only invocation (e.g., `/metrics`):** Skip steps 5–8; load only kernel + role.
+
+---
+
+## 4. Refresh Triggers
+
+Re-inject context when:
+- User issues `/refresh_context`
+- Agent has been idle > 30 minutes (cache likely cold)
+- User explicitly switches project via `/switch_project [[Name]]`
+- Conversation crosses 50% of context window (compaction risk)
+
+---
+
+## 5. What NOT to Pre-Inject
+
+- Full task files in `02_Tasks/` — load on demand via Wiki-Link traversal
+- Archived tasks in `99_Archive/` — only via `/trace`
+- Templates in `00_Templates/` — read at macro execution time
+- All log files in `04_Logs/` — only the latest one
+
+---
+
+## 6. Verification
+
+After handshake, agent should be able to answer without re-reading files:
+1. "What is the active project?"
+2. "What was the last decision logged?"
+3. "What's in the Todo column right now?"
+4. "Which persona am I operating as?"
+
+If any answer requires a fresh file read, the injection failed.

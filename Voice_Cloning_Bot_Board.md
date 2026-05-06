@@ -12,6 +12,9 @@ kanban-plugin: board
 
 
 ## Todo
+- [[Smallest_Drop_Legacy_Fallback_With_V31_Retry]]
+- [[GDPR_Reset_Consent_On_Data_Deletion]]
+- [[Synth_Retry_On_NoSuchKey_With_Broken_Voice_Recovery]]
 - [[Voice_Migration_Tool_Engine_Switching]]
 - [[Provider_Registry_Plugin_Architecture]]
 
@@ -47,6 +50,8 @@ kanban-plugin: board
 
 
 ## In Progress
+- [[Fix_Onboarding_Leak_Into_Groups_Causing_Crash]]
+- [[Engine_Aware_Clone_Audio_Duration_And_Scripts]]
 
 
 

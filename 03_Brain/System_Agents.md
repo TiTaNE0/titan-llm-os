@@ -8,6 +8,31 @@
 **Project Discovery:** To identify the current project name, check the current working directory (CWD). Match the folder name to a corresponding file in `./.vault_link/01_Projects/`. If you are in `/Users/titane0/Programming/PWA_Courier`, the project name is `[[PWA_Courier]]`
 
 
+### 1.1 Boot Protocol & Persona (CRITICAL)
+- **Context Injection:** At handshake, follow [[Context_Injection_Protocol]] strictly. Pre-load kernel + role + latest log + project state BEFORE responding to first user instruction.
+- **Active Persona:** [[Agent_Roles]] defines all personas (Executioner, Architect, Researcher, Synthesizer, Content Producer). Default = `Executioner`. Switch via `role=<Name>` in handshake.
+- **Error Framework:** Every macro inherits [[Error_Recovery]]. On failure: classify (E1–E5), write report from `00_Templates/Error_Report_Template.md`, HALT. No silent failures.
+- **Tool Atoms:** Macros compose tools from [[Tool_Registry]]. No inline shell logic in macro definitions.
+- **Memory:** Synthesized facts live in `03_Brain/Weekly_Synthesis/`. See [[Memory_Schema]] for fact format and decay rules.
+- **Observability:** Every macro emits a telemetry record via `emit_telemetry`. See [[Observability]].
+
+### 1.2 Macro Execution Contract (CRITICAL)
+Every macro execution MUST follow this lifecycle:
+
+1. **Capture start timestamp** (epoch ms) before any work begins.
+2. **Execute the macro steps.** On any failure, classify per [[Error_Recovery]] (E1–E5) and HALT.
+3. **Emit telemetry** AS THE FINAL STEP, regardless of outcome:
+   ```bash
+   ./.vault_link/.scripts/emit_telemetry.sh <macro_name> <success|error> <duration_ms> <error_class|null> <persona>
+   ```
+   The helper script is best-effort — it never blocks or fails the macro.
+
+4. **Telemetry is mandatory.** A macro that completes without emitting telemetry violates the kernel contract. Treat omission as E2 Tool Failure.
+
+5. **Confirm completion** to the user with: `"Macro <name> completed in <ms> ms. Telemetry emitted."`
+
+Macros that don't write any vault state (e.g., `/trace`, `/refresh_context`) still emit telemetry — the data is useful for measuring read-only usage too.
+
 ## 2. Vault Security Protocol (CRITICAL)
 - **READ-ONLY:** You have strictly read-only access to `./.vault_link/01_Projects/` (Project Passports) and `./.vault_link/03_Brain/` (Architecture Rules). Do NOT modify files in these directories during standard coding sessions.
 - **READ/WRITE:** You may read and write to `./.vault_link/02_Tasks/`, `./.vault_link/04_Logs/`, - and the current project's board (e.g., `[[nearest-address-codes_Board]]`).
@@ -42,6 +67,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 4. **Move:** Relocate the completed task file from `./.vault_link/02_Tasks/` to `./.vault_link/99_Archive/Tasks/2026/`.
 5. **Kanban:** Update the project board — move `[[Task_Name]]` from its current column to `## Done`.
 6. **Log:** Append a 1-line entry to the current date's log file in `./.vault_link/04_Logs/` formatted as: `- [YYYY-MM-DD] ✅ [[Task_Name]] completed: <1-line summary>.`
+7. **Telemetry:** `./.vault_link/.scripts/emit_telemetry.sh close_task <success|error> <duration_ms> <error_class|null> <persona>`
 
 ### `/graduate`
 1. **Outcome**: A proposal for a new "Core Principle" or "Architecture Rule" is generated based on successful patterns from the last 7 days.
@@ -64,6 +90,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 7.  **HALT:**             After confirming task creation, you MUST stop and wait for manual user review. Do NOT proceed to implementation automatically.
 8. **The Termination:** Once the file is written, you MUST stop and wait for the user to provide the "Execution Approval" string. 
 9. **Instruction to Agent:** If you attempt to solve the problem instead of documenting it in the task file, you are violating the TiTan LLM OS Kernel. Stay in the vault.
+10. **Telemetry:** `./.vault_link/.scripts/emit_telemetry.sh new_task <success|error> <duration_ms> <error_class|null> <persona>`
 
 ## 8. 📋 Template Protocol
 - **Standardization:** All new files created in `01_Projects/` and `02_Tasks/` MUST follow the English-only templates in `00_Templates/`.
@@ -81,24 +108,26 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 3. Add `[[[Idea]]]` to Ideas column in `Content_Board.md`.
 
 ### Keyword: "/new_thread [Topic] from [[Source_Project]]"
-1. Read `05_Content/00_Content_Templates/X_Thread_Template.md`.
-2. Generate 5-7 tweet draft in `05_Content/03_Drafts/[Topic].md`.
-3. Tone: Practical Israeli dev, slightly sarcastic, short punchy sentences, zero corporate fluff.
+1. **Module check:** Read `05_Content/modules.yaml`. Verify `twitter` is in `active_modules`. If not, refuse with E1.
+2. **Template:** Read `05_Content/modules/twitter/templates/Thread_Template.md`.
+3. **Voice:** Resolve `voice.path` from `05_Content/modules.yaml` (currently `personalization/voice_evgeny.md`). Read that file. Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
+4. **Strategy:** Read `05_Content/modules/twitter/strategy.md` for channel tactics. Voice file wins on conflict.
+5. Generate the draft in `05_Content/03_Drafts/[Topic].md` using the template structure.
 **This macro is a READ-ONLY operation for project and research files. Do NOT delete or modify any files in 01_Projects/ or 06_Research/.**
-4. Extract technical context from BOTH:
+6. Extract technical context from BOTH:
    - [[Source_Project]] (for goals and mission)
    - [[06_Research/Source_Project_Research]] (for technical details and research)
-5. Require at least 2 visual assets logged in `05_Content/05_Assets/`.
-6. Append `[[[Topic]]]` to Drafting column in `Content_Board.md`.
+7. Require at least 2 visual assets logged in `05_Content/05_Assets/`.
+8. Append `[[[Topic]]]` to Drafting column in `Content_Board.md`.
 
 ### Keyword: "/refactor_thread [[Target_File]]"
 1. Read the draft located at `[[Target_File]]`.
 1.5. Before refactoring, identify the project via the [[Project_Link]] in the draft's frontmatter. Read the corresponding 01_Projects/{{PROJECT}}.md (for mission) and 06_Research/{{PROJECT}}_Research.md (for technical precision).
 2. Rewrite the file in place enforcing these strict constraints:
     - Eradicate "Local LLM" framing. Clarify that the vault is local memory, but the agent can be any cloud LLM (OpenCode, Claude Code, whatever).
-    - Enforce Tone: Practical Israeli dev, slightly sarcastic, short punchy sentences, zero corporate fluff.
+    - **Voice:** Read `05_Content/modules.yaml` to resolve `voice.path`, then read that voice file (currently `05_Content/personalization/voice_evgeny.md`). Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
     - Cut the fat and tighten every paragraph.
-3. Instruction: Ensure the refactored version remains technically accurate to the research while improving tone and punchiness.
+3. Instruction: Ensure the refactored version remains technically accurate to the research while preserving voice fidelity.
 4. Output the final text for user approval before writing changes to disk.
 
 ### Keyword: "/process_inbox"
@@ -113,6 +142,79 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 4. **Execution**: Upon confirmation, the agent considers the inbox processing complete.
 
 ### Keyword: "/update_index"
-107: 1. Execute the index generator script at `./.vault_link/.scripts/generate_index.sh`.
-108: 2. The script will generate/update `Internal_Index.md` at the vault root with LLM-optimized file summaries.
-109: 3. Output confirmation of successful index generation.
+1. Execute the index generator script at `./.vault_link/.scripts/generate_index.sh`.
+2. The script will generate/update `Internal_Index.md` at the vault root with LLM-optimized file summaries.
+3. Output confirmation of successful index generation.
+
+### `/synthesize [iso_week]`
+1. **Persona Gate:** Must be `Synthesizer` (or fail E4).
+2. **Inputs:** ISO week (e.g., `2026-W18`); defaults to the current week.
+3. **Read:** All log files in `04_Logs/` matching that week.
+4. **Extract:** Candidate facts using [[Memory_Schema]] format.
+5. **Reconcile:** Match against `03_Brain/Weekly_Synthesis/facts.jsonl` (increment citations, detect contradictions).
+6. **Decay:** Apply rules from [[Memory_Schema]] § Decay Rules.
+7. **Output:** Two files per week:
+   - `03_Brain/Weekly_Synthesis/<iso_week>.synthesis.md` (human report)
+   - `03_Brain/Weekly_Synthesis/<iso_week>.synthesis.json` (structured: facts_added, contradictions, proposals)
+8. **HALT:** If proposals[] non-empty, stop and surface to user. Promotion to Brain rules requires Architect + `/graduate`.
+9. **Telemetry:** Emit `synthesize` record.
+
+### `/refresh_context`
+1. Re-execute the [[Context_Injection_Protocol]] boot sequence in-session.
+2. Replaces stale context with fresh reads of latest log, project, board.
+3. **Use when:** session has been idle, user switched directories, or context feels drifty.
+
+### `/switch_project [[Project_Name]]`
+1. **Validate:** `[[Project_Name]]` exists in `01_Projects/`.
+2. **Re-inject:** Steps 5–8 of [[Context_Injection_Protocol]] using new project. Steps 1–4 (kernel + role + latest log) remain loaded.
+3. **Confirm:** "Project switched to [[Project_Name]]. Persona retained."
+
+### `/resume_macro [macro_name]`
+1. Read latest checkpoint from `04_Logs/Checkpoints/<macro_name>_*.json`.
+2. **If none:** error E1, suggest fresh macro invocation.
+3. **If found:** Resume from `last_completed_step + 1` using saved state.
+4. Continue checkpointing for remaining steps.
+5. On completion: clear the checkpoint file, emit telemetry.
+
+### `/delegate [[Task_Name]] to @<RoleName>`
+1. Follow [[Delegation_Protocol]] handoff rules.
+2. Validate target role exists in [[Agent_Roles]] and can accept the work.
+3. Move task to `[Delegated]` column on its board.
+4. Write handoff record to `04_Logs/Delegations/`.
+5. **HALT** — wait for user to re-handshake with target role OR `/recall`.
+
+### `/recall [[Task_Name]]`
+1. Read latest delegation record for the task.
+2. Move task back to its prior Kanban column.
+3. Append recall record alongside original delegation.
+4. Confirm + emit telemetry.
+
+### `/metrics [period]`
+1. **Persona Gate:** Any.
+2. `period` ∈ {`day`, `week`, `month`}; default `week`.
+3. **Execute:** `PERSONA=<persona> ./.vault_link/.scripts/metrics_aggregate.sh <period>`
+4. The script aggregates `04_Logs/Telemetry/*.jsonl` over the rolling window, writes CSV to `04_Logs/Telemetry/reports/<period>_<YYYY-MM-DD>.csv`, prints a console table, and self-emits telemetry on completion.
+5. Surface top error classes and duration outliers from the table.
+6. See [[Observability]] for full schema.
+7. **Telemetry:** handled by the script itself (see step 3); no separate emit needed.
+
+### `/enable_module <name>`
+1. **Persona Gate:** Architect or Content Producer.
+2. **Validate:** `05_Content/modules/<name>/README.md` exists.
+3. **Update:** Edit `05_Content/modules.yaml`. Move `<name>` from `inactive_modules` to `active_modules`. Idempotent (no-op if already active).
+4. **Confirm:** Output `"Module <name> activated. Active modules: [list]."`
+5. **Telemetry:** `./.vault_link/.scripts/emit_telemetry.sh enable_module success <duration_ms> null <persona>`
+
+### `/disable_module <name>`
+1. **Persona Gate:** Architect or Content Producer.
+2. **Update:** Edit `05_Content/modules.yaml`. Move `<name>` from `active_modules` to `inactive_modules`. Idempotent.
+3. **Warning:** If `<name> == default_module`, refuse with E3 unless user passes `--force`.
+4. **Confirm:** Output current active list.
+5. **Telemetry:** standard.
+
+### `/set_voice <voice_name>`
+1. **Persona Gate:** Architect or Content Producer.
+2. **Validate:** `05_Content/personalization/<voice_name>.md` exists. Special value `none` is allowed (disables personalization).
+3. **Update:** Edit `05_Content/modules.yaml`. Set `voice.active = <voice_name>` and `voice.path = personalization/<voice_name>.md` (or `none` if `<voice_name> == none`).
+4. **Confirm:** Output `"Active voice: <voice_name>. Path: <path>."`
+5. **Telemetry:** standard.
