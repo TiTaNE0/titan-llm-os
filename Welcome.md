@@ -95,14 +95,14 @@ The 6-step ritual to keep the OS coherent:
 | `/recall [[Task]]` | Pull a delegated task back to its previous persona |
 
 ### Content Pipeline
-| Macro | Purpose |
-|-------|---------|
-| `/capture_idea [Idea]` | Append to `01_Content_Ideas.md`, add to Content Board |
-| `/new_thread [Topic] from [[Project]]` | Generate thread draft via active module + voice file |
-| `/refactor_thread [[File]]` | Rewrite draft applying active voice file; preserve facts |
-| `/enable_module <name>` | Activate a content module (e.g. `twitter`, `video`, `article`) |
-| `/disable_module <name>` | Deactivate a content module |
-| `/set_voice <voice_name>` | Swap the active personalization voice (e.g. `voice_evgeny`) |
+| Macro                                  | Purpose                                                        |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `/capture_idea [Idea]`                 | Append to `01_Content_Ideas.md`, add to Content Board          |
+| `/new_thread [Topic] from [[Project]]` | Generate thread draft via active module + voice file           |
+| `/refactor_thread [[File]]`            | Rewrite draft applying active voice file; preserve facts       |
+| `/enable_module <name>`                | Activate a content module (e.g. `twitter`, `video`, `article`) |
+| `/disable_module <name>`               | Deactivate a content module                                    |
+| `/set_voice <voice_name>`              | Swap the active personalization voice (e.g. `voice_evgeny`)    |
 
 **Pipeline registry:** `05_Content/modules.yaml` (canonical — which module is active, which voice is loaded)
 **Active voice (default):** `05_Content/personalization/voice_evgeny.md` — silent load, never narrate the rules

@@ -9,6 +9,7 @@ default_module: twitter
 
 active_modules:
   - twitter
+  - linkedin   # Phase E (2026-05-07) — vault-driven posting via anchor_workflow
 
 inactive_modules:
   - video
