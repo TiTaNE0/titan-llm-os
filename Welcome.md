@@ -85,7 +85,6 @@ The 6-step ritual to keep the OS coherent:
 ### Reliability
 | Macro | Purpose |
 |-------|---------|
-| `/resume_macro [name]` | Resume a multi-step macro from its last checkpoint |
 | `/metrics [day\|week\|month]` | Aggregate telemetry into success rate / duration / errors |
 
 ### Multi-Agent (Phase 2)

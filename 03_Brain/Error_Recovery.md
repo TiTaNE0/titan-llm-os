@@ -37,7 +37,6 @@ When a macro fails, the agent MUST:
 1. Retry the failed step ONCE with verbose logging
 2. If second attempt fails:
    - Write Error Report
-   - If checkpoint exists for this macro, leave checkpoint intact for `/resume_macro`
    - Output the exact failed command + output to user
    - **HALT**
 3. Do NOT proceed to subsequent steps — partial macro execution is forbidden
@@ -85,9 +84,8 @@ When a macro fails, the agent MUST:
 
 **Recovery:**
 1. Write Error Report capturing the last in-progress macro state
-2. Save checkpoint if applicable
-3. Output: `"Context saturating. Recommend: /close_task on active work, then start a fresh session with /resume_macro if needed."`
-4. **HALT** — do not start new macros
+2. Output: `"Context saturating. Recommend: /close_task on active work, then start a fresh session."`
+3. **HALT** — do not start new macros
 
 ---
 

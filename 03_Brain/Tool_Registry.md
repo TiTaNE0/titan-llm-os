@@ -94,24 +94,6 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ---
 
-### `write_checkpoint`
-- **Inputs:** `macro: str`, `step: int`, `state: dict`
-- **Outputs:** `04_Logs/Checkpoints/<macro>_<timestamp>.json`
-- **Errors:** E2 if filesystem write fails
-- **Idempotent:** ✅ (one file per macro invocation, updated each step)
-- **Persona Gate:** Any
-
----
-
-### `read_checkpoint`
-- **Inputs:** `macro: str`
-- **Outputs:** Latest checkpoint state for that macro, or `null`
-- **Errors:** None
-- **Idempotent:** ✅
-- **Persona Gate:** Any
-
----
-
 ### `emit_telemetry`
 - **Inputs:** `record: TelemetryRecord` (see Section "Telemetry Schema")
 - **Outputs:** JSONL line appended to `04_Logs/Telemetry/<YYYY-MM>.jsonl`

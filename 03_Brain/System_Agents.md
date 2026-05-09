@@ -169,13 +169,6 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 2. **Re-inject:** Steps 5–8 of [[Context_Injection_Protocol]] using new project. Steps 1–4 (kernel + role + latest log) remain loaded.
 3. **Confirm:** "Project switched to [[Project_Name]]. Persona retained."
 
-### `/resume_macro [macro_name]`
-1. Read latest checkpoint from `04_Logs/Checkpoints/<macro_name>_*.json`.
-2. **If none:** error E1, suggest fresh macro invocation.
-3. **If found:** Resume from `last_completed_step + 1` using saved state.
-4. Continue checkpointing for remaining steps.
-5. On completion: clear the checkpoint file, emit telemetry.
-
 ### `/delegate [[Task_Name]] to @<RoleName>`
 1. Follow [[Delegation_Protocol]] handoff rules.
 2. Validate target role exists in [[Agent_Roles]] and can accept the work.
