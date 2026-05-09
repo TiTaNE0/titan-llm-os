@@ -40,7 +40,7 @@ Macros that don't write any vault state (e.g., `/trace`, `/refresh_context`) sti
 
 ## 3. Anti-Token-Waste Rules
 - **DO NOT** use `glob` or `find` on the vault. 
-- **DO** use `ls ./.vault_link/02_Tasks/` if you need to see the task list.
+- **DO** use `ls ./.vault_link/02_Tasks/<Project>/` for one project's tasks, or `ls ./.vault_link/02_Tasks/*/` to see all projects. Tasks live in per-project subfolders matching `01_Projects/<Project>.md` basenames.
 - **Session Start:** Always read the latest log file in `04_Logs/` before taking action to restore context.
 
 ## 4. Kanban Management
@@ -61,10 +61,10 @@ Whenever a new `/macro` command is added to this `System_Agents.md` file, you MU
 Constantly monitor the user's prompt for the following `/` commands. If triggered, HALT normal coding operations and execute the corresponding protocol step-by-step:
 
 ### `/close_task [Task_Name]`
-1. **Identify:** Locate the task file at `./.vault_link/02_Tasks/[Task_Name].md`.
+1. **Identify:** Read the task's `project:` YAML field, then locate at `./.vault_link/02_Tasks/<Project>/[Task_Name].md`. If unsure of the project, run `find ./.vault_link/02_Tasks -name '[Task_Name].md'` to resolve (shell-agnostic; works in bash and zsh).
 2. **Extract:** Pull technical facts from the current session context (code changes made, decisions taken, blockers resolved).
 3. **Populate:** Fill the `## 🏁 COMPLETION SUMMARY` section in the task file with the extracted facts.
-4. **Move:** Relocate the completed task file from `./.vault_link/02_Tasks/` to `./.vault_link/99_Archive/Tasks/2026/`.
+4. **Move:** Relocate from `./.vault_link/02_Tasks/<Project>/[Task_Name].md` to `./.vault_link/99_Archive/Tasks/2026/<Project>/[Task_Name].md`. Run `mkdir -p` on the archive subfolder first. The `<Project>` segment MUST match the source.
 5. **Kanban:** Update the project board — move `[[Task_Name]]` from its current column to `## Done`.
 6. **Log:** Append a 1-line entry to the current date's log file in `./.vault_link/04_Logs/` formatted as: `- [YYYY-MM-DD] ✅ [[Task_Name]] completed: <1-line summary>.`
 7. **Telemetry:** `./.vault_link/.scripts/emit_telemetry.sh close_task <success|error> <duration_ms> <error_class|null> <persona>`
@@ -80,13 +80,13 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 2. **Output:** Provide a chronological evolution of the [topic], citing specific files and dates.
 
 ### `/archive_done`
-1. **Identify:** Scan the `./.vault_link/02_Tasks/` directory for all `.md` files where the YAML frontmatter contains `status: done` or `status: completed`.
-2. **Move:** Relocate these files to `./.vault_link/99_Archive/Tasks/2026/` (or the current year).
+1. **Identify:** Recursively scan `./.vault_link/02_Tasks/*/*.md` (one level deep into project subfolders) for all `.md` files where YAML frontmatter contains `status: done` or `status: completed`.
+2. **Move:** For each match, preserve the project subfolder — relocate `02_Tasks/<Project>/<File>.md` → `99_Archive/Tasks/2026/<Project>/<File>.md`. Run `mkdir -p` on the archive subfolder if needed.
 3. **Cleanup:** Review `./.vault_link/Master_Board.md`. If a link to an archived task remains in the 'Done' column, keep it but ensure the link remains valid or append an "(Archived)" suffix to the display text if necessary.
 4. **Report:** Output a list of all moved tasks and confirm the new location.
 
 ### `/new_task [Title] for [[Project]]`
-1. **Auto-Identify:** Determine the current project name from the `AGENTS.md` header or the Current Working Directory (e.g., `nearest-address-codes`). Let's call this `{{PROJECT}}`. 2. **Find Board:** Locate the local board file at `./.vault_link/{{PROJECT}}_Board.md`. 3. **Source Template:** Read `00_Templates/Task_Template.md`. 4. **Generate Task:** Create `./.vault_link/02_Tasks/[Title].md`. - Set `project: [[{{PROJECT}}]]`. - Set `status: todo`. 5. **Update Local Board:** Open `./.vault_link/{{PROJECT}}_Board.md` and append `[[ [Title] ]]` to the `## Todo` column. 6.  **Confirm:**          "Task [Title] created and added to [[{{PROJECT}}_Board]].
+1. **Auto-Identify:** Determine the current project name from the `AGENTS.md` header or the Current Working Directory (e.g., `nearest-address-codes`). Let's call this `{{PROJECT}}`. 2. **Find Board:** Locate the local board file at `./.vault_link/{{PROJECT}}_Board.md`. 3. **Source Template:** Read `00_Templates/Task_Template.md`. 4a. **Uniqueness Guard:** Run `find ./.vault_link/02_Tasks ./.vault_link/99_Archive/Tasks -name '[Title].md' 2>/dev/null`. If anything matches, refuse with E3 (vault-level task name collision — boards rely on basename-unique wiki-links). 4b. **Generate Task:** Run `mkdir -p ./.vault_link/02_Tasks/{{PROJECT}}/`, then create `./.vault_link/02_Tasks/{{PROJECT}}/[Title].md`. Set `project: [[{{PROJECT}}]]`. Set `status: todo`. 5. **Update Local Board:** Open `./.vault_link/{{PROJECT}}_Board.md` and append `[[ [Title] ]]` to the `## Todo` column. 6.  **Confirm:**          "Task [Title] created and added to [[{{PROJECT}}_Board]].
 7.  **HALT:**             After confirming task creation, you MUST stop and wait for manual user review. Do NOT proceed to implementation automatically.
 8. **The Termination:** Once the file is written, you MUST stop and wait for the user to provide the "Execution Approval" string. 
 9. **Instruction to Agent:** If you attempt to solve the problem instead of documenting it in the task file, you are violating the TiTan LLM OS Kernel. Stay in the vault.
