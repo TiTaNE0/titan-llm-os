@@ -98,15 +98,19 @@ The 6-step ritual to keep the OS coherent:
 | Macro                                  | Purpose                                                        |
 | -------------------------------------- | -------------------------------------------------------------- |
 | `/capture_idea [Idea]`                 | Append to `01_Content_Ideas.md`, add to Content Board          |
-| `/new_thread [Topic] from [[Project]]` | Generate thread draft via active module + voice file           |
+| `/new_thread [Topic] from [[Project]]` | Generate X/Twitter thread draft via active module + voice file |
+| `/new_tiktok [Topic] from [[Project]]` | Generate TikTok script + build artifacts *(tiktok module inactive — enable first)* |
+| `/new_landing [Topic] from [[Project]]`| Generate landing page copy *(landing module inactive — enable first)* |
 | `/refactor_thread [[File]]`            | Rewrite draft applying active voice file; preserve facts       |
-| `/enable_module <name>`                | Activate a content module (e.g. `twitter`, `video`, `article`) |
+| `/enable_module <name>`                | Activate a content module (`twitter`, `linkedin`, `tiktok`, `landing`, `article`) |
 | `/disable_module <name>`               | Deactivate a content module                                    |
 | `/set_voice <voice_name>`              | Swap the active personalization voice (e.g. `voice_evgeny`)    |
 
 **Pipeline registry:** `05_Content/modules.yaml` (canonical — which module is active, which voice is loaded)
 **Active voice (default):** `05_Content/personalization/voice_evgeny.md` — silent load, never narrate the rules
-**Active module (default):** `twitter` → `05_Content/modules/twitter/` (templates + strategy + failure log)
+**Active modules:** `twitter`, `linkedin` — `05_Content/modules/<channel>/` (templates + strategy + failure log)
+**Inactive stubs:** `tiktok`, `landing`, `article` — registered, guarded, not yet runnable
+**Agent SOP:** `05_Content/00_AGENT_GUIDE.md` — read before any drafting action
 
 ### Intake
 | Macro | Purpose |
