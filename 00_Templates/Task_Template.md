@@ -22,6 +22,7 @@ type: task
 - (Filled by agent during planning)
 
 ## 🏁 COMPLETION SUMMARY (Post-Mortem)
+> ⚠️ **Completion Gate:** Agents must NOT fill this section and declare the task done autonomously. The user must explicitly trigger `/close_task` after reviewing the Verification Gateway output. Filling this section without user instruction is a kernel violation (§ 1.3).
 - **Technical Meat:** (Filled by agent: What was actually changed? Any new dependencies?)
 - **Deviations:** (Did the plan change? Why?)
 - **Debt/Future:** (What should we clean up later?)

@@ -55,7 +55,8 @@ The 6-step ritual to keep the OS coherent:
 3. **ARCHITECT** — `/new_task [Name]`. Code gate **LOCKED**. Agent writes `.md` and stops.
 4. **REVIEW** — Read agent's Implementation Plan in the task file. Sanity-check assumptions.
 5. **EXECUTE** — Issue `EXECUTE` keyword. Gate unlocks. Agent loops until **Verification Gateway** (test exit code 0) passes.
-6. **CLOSE** — `/close_task [Name]`. Atomic finalize: completion summary, archive, board move, log entry.
+6. **VERIFY** — Agent surfaces Verification Gateway results and **HALTS**. Agent must NOT self-close. You review.
+7. **CLOSE** — YOU trigger `/close_task [Name]`. Atomic finalize: completion summary, archive, board move, log entry.
 
 ---
 

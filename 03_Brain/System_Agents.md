@@ -33,6 +33,15 @@ Every macro execution MUST follow this lifecycle:
 
 Macros that don't write any vault state (e.g., `/trace`, `/refresh_context`) still emit telemetry — the data is useful for measuring read-only usage too.
 
+### 1.3 Task Completion Gate (CRITICAL)
+Agents MUST NOT mark a task as done, archive task files, or move Kanban status to `Done` without **explicit user approval** OR a fully-passed Verification Gateway that the user has reviewed and acknowledged.
+
+- `/close_task` is a **user-triggered macro only.** The agent must NEVER call it autonomously after finishing implementation work.
+- After completing task work, the agent MUST surface the Verification Gateway results and **HALT**, waiting for the user to explicitly trigger `/close_task`.
+- Stating "Done." or "Task complete." in prose without running `/close_task` is NOT task completion — it is a kernel violation.
+- This rule applies even when all success criteria appear to be met.
+- **Session-end scan (graduated 2026-05-16):** At session end, scan the board for any In Progress tasks whose work is visible in the current session context. If the task is complete, surface it to the user and offer to run `/close_task` immediately — do not defer to a future session.
+
 ## 2. Vault Security Protocol (CRITICAL)
 - **READ-ONLY:** You have strictly read-only access to `./.vault_link/01_Projects/` (Project Passports) and `./.vault_link/03_Brain/` (Architecture Rules). Do NOT modify files in these directories during standard coding sessions.
 - **READ/WRITE:** You may read and write to `./.vault_link/02_Tasks/`, `./.vault_link/04_Logs/`, - and the current project's board (e.g., `[[nearest-address-codes_Board]]`).
@@ -60,14 +69,18 @@ Whenever a new `/macro` command is added to this `System_Agents.md` file, you MU
 ## 7. MACRO COMMANDS (System Aliases)
 Constantly monitor the user's prompt for the following `/` commands. If triggered, HALT normal coding operations and execute the corresponding protocol step-by-step:
 
+> **Universal Error Contract:** Every macro below inherits [[Error_Recovery]]. On any step failure: classify (E1–E5), write a report to `04_Logs/Errors/` using `00_Templates/Error_Report_Template.md`, and HALT. No silent failures. Three macros below include explicit `on_error:` lines as exemplars — all others follow the same contract via § 1.2.
+
 ### `/close_task [Task_Name]`
-1. **Identify:** Read the task's `project:` YAML field, then locate at `./.vault_link/02_Tasks/<Project>/[Task_Name].md`. If unsure of the project, run `find ./.vault_link/02_Tasks -name '[Task_Name].md'` to resolve (shell-agnostic; works in bash and zsh).
-2. **Extract:** Pull technical facts from the current session context (code changes made, decisions taken, blockers resolved).
-3. **Populate:** Fill the `## 🏁 COMPLETION SUMMARY` section in the task file with the extracted facts.
-4. **Move:** Relocate from `./.vault_link/02_Tasks/<Project>/[Task_Name].md` to `./.vault_link/99_Archive/Tasks/2026/<Project>/[Task_Name].md`. Run `mkdir -p` on the archive subfolder first. The `<Project>` segment MUST match the source.
-5. **Kanban:** Update the project board — move `[[Task_Name]]` from its current column to `## Done`.
-6. **Log:** Append a 1-line entry to the current date's log file in `./.vault_link/04_Logs/` formatted as: `- [YYYY-MM-DD] ✅ [[Task_Name]] completed: <1-line summary>.`
-7. **Telemetry:** `./.vault_link/.scripts/emit_telemetry.sh close_task <success|error> <duration_ms> <error_class|null> <persona>`
+1. **Identify:** Read the task's `project:` YAML field to resolve `<Project>`. If ambiguous, `Invoke: scan_inbox()` is not applicable — use `find ./.vault_link/02_Tasks -name '[Task_Name].md'` as a one-time lookup only.
+2. **Extract:** Pull technical facts from current session context (code changes, decisions, blockers resolved).
+3. **Populate:** `Invoke: populate_summary(task_path, {technical_meat, deviations, debt, proof})`
+4. **Archive:** `Invoke: archive_file(source=02_Tasks/<Project>/[Task_Name].md, dest=99_Archive/Tasks/2026/<Project>/[Task_Name].md)`
+5. **Kanban:** `Invoke: update_kanban(board_path=<Project>_Board.md, task_link=[[Task_Name]], from_column=current, to_column=Done)`
+6. **Log:** `Invoke: append_log(date=today, entry="✅ [[Task_Name]] completed: <1-line summary>.")`
+7. **Telemetry:** `Invoke: emit_telemetry(macro=close_task, status=success|error, duration_ms, error_class, persona)`
+
+**On error:** E1 if task file or archive parent directory missing (do NOT auto-create); E2 if file move fails (retry once, then halt with exact error); E3 if task YAML status contradicts Kanban column position (halt, surface 3-option reconciliation menu).
 
 ### `/graduate`
 1. **Outcome**: A proposal for a new "Core Principle" or "Architecture Rule" is generated based on successful patterns from the last 7 days.
@@ -86,12 +99,18 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 4. **Report:** Output a list of all moved tasks and confirm the new location.
 
 ### `/new_task [Title] for [[Project]]`
-1. **Auto-Identify:** Determine the current project name from the `AGENTS.md` header or the Current Working Directory (e.g., `nearest-address-codes`). Let's call this `{{PROJECT}}`. 2. **Find Board:** Locate the local board file at `./.vault_link/{{PROJECT}}_Board.md`. 3. **Source Template:** Read `00_Templates/Task_Template.md`. 4a. **Uniqueness Guard:** Run `find ./.vault_link/02_Tasks ./.vault_link/99_Archive/Tasks -name '[Title].md' 2>/dev/null`. If anything matches, refuse with E3 (vault-level task name collision — boards rely on basename-unique wiki-links). 4b. **Generate Task:** Run `mkdir -p ./.vault_link/02_Tasks/{{PROJECT}}/`, then create `./.vault_link/02_Tasks/{{PROJECT}}/[Title].md`. Set `project: [[{{PROJECT}}]]`. Set `status: todo`. 5. **Update Local Board:** Open `./.vault_link/{{PROJECT}}_Board.md` and append `[[ [Title] ]]` to the `## Todo` column. 6.  **Confirm:**          "Task [Title] created and added to [[{{PROJECT}}_Board]].
-7.  **HALT:**             After confirming task creation, you MUST stop and wait for manual user review. Do NOT proceed to implementation automatically.
-8. **The Termination:** Once the file is written, you MUST stop and wait for the user to provide the "Execution Approval" string. 
-9. **Instruction to Agent:** If you attempt to solve the problem instead of documenting it in the task file, you are violating the TiTan LLM OS Kernel. Stay in the vault.
-10. **Telemetry:** `./.vault_link/.scripts/emit_telemetry.sh new_task <success|error> <duration_ms> <error_class|null> <persona>`
+1. **Auto-Identify:** Resolve `{{PROJECT}}` from `AGENTS.md` header or CWD folder name.
+2. **Find Board:** Locate `./.vault_link/{{PROJECT}}_Board.md`.
+3. **Source Template:** Read `00_Templates/Task_Template.md`.
+4a. **Uniqueness Guard:** Run `find ./.vault_link/02_Tasks ./.vault_link/99_Archive/Tasks -name '[Title].md' 2>/dev/null`. If any match → refuse with E3 (basename collision; wiki-links require uniqueness).
+4b. **Create:** `Invoke: create_task(title=[Title], project={{PROJECT}}, priority=medium)`
+5. **Kanban:** `Invoke: update_kanban(board_path={{PROJECT}}_Board.md, task_link=[[Title]], from_column=none, to_column=Todo)`
+6. **Confirm:** Output `"Task [Title] created and added to [[{{PROJECT}}_Board]]."`
+7. **HALT:** You MUST stop here. Do NOT proceed to implementation. Wait for the user to provide "Execution Approval".
+8. **Gate:** Attempting to solve the problem instead of documenting it is a kernel violation (§ 1.3). Stay in the vault.
+9. **Telemetry:** `Invoke: emit_telemetry(macro=new_task, status=success|error, duration_ms, error_class, persona)`
 
+**On error:** E3 if uniqueness guard fires (task name collision — refuse, do NOT create with suffix); E1 if project board file missing (halt, ask user to run `/new_project` first).
 ## 8. 📋 Template Protocol
 - **Standardization:** All new files created in `01_Projects/` and `02_Tasks/` MUST follow the English-only templates in `00_Templates/`.
 - **Project Initiation:** When a new project is mentioned, use `Project_Passport_Template.md`.
@@ -101,6 +120,8 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 - **Principle**: Define required end-state, not procedural steps. Agent acts until verification criteria are met.
 - **Verification Gateway**: Every macro must include observable success conditions.
 - **Human-in-Loop**: Macros creating new state halt for explicit approval before execution.
+
+<!-- CONTENT PIPELINE: Before any drafting macro, read `05_Content/00_AGENT_GUIDE.md` for the full operating procedure: active module check, voice contract, two-pass drafting, frontmatter schema, status lifecycle, and error cases. -->
 
 ### Keyword: "/capture_idea [Idea]"
 1. Read `05_Content/00_Content_Templates/Idea_Capture_Template.md`.
@@ -112,7 +133,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 2. **Template:** Read `05_Content/modules/twitter/templates/Thread_Template.md`.
 3. **Voice:** Resolve `voice.path` from `05_Content/modules.yaml` (currently `personalization/voice_evgeny.md`). Read that file. Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
 4. **Strategy:** Read `05_Content/modules/twitter/strategy.md` for channel tactics. Voice file wins on conflict.
-5. Generate the draft in `05_Content/03_Drafts/[Topic].md` using the template structure.
+5. Generate the draft in `05_Content/03_Drafts/[Topic].md` using the template structure. **Frontmatter:** use `type: twitter` (matches `modules.yaml` registry key).
 **This macro is a READ-ONLY operation for project and research files. Do NOT delete or modify any files in 01_Projects/ or 06_Research/.**
 6. Extract technical context from BOTH:
    - [[Source_Project]] (for goals and mission)
@@ -211,3 +232,13 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 3. **Update:** Edit `05_Content/modules.yaml`. Set `voice.active = <voice_name>` and `voice.path = personalization/<voice_name>.md` (or `none` if `<voice_name> == none`).
 4. **Confirm:** Output `"Active voice: <voice_name>. Path: <path>."`
 5. **Telemetry:** standard.
+
+### `/new_tiktok [Topic] from [[Source_Project]]`
+**TODO — not yet implemented.** Module stub registered 2026-05-17.
+**Guard:** Check `05_Content/modules.yaml`. If `tiktok` is not in `active_modules`, halt immediately: *"tiktok module inactive — enable in modules.yaml before running."* Do not proceed.
+When implemented: mirror `/new_thread` flow using `05_Content/modules/tiktok/templates/Script_Template.md` and `strategy.md`. Draft goes to `05_Content/03_Drafts/tiktok_[Topic].md`.
+
+### `/new_landing [Topic] from [[Source_Project]]`
+**TODO — not yet implemented.** Module stub registered 2026-05-17.
+**Guard:** Check `05_Content/modules.yaml`. If `landing` is not in `active_modules`, halt immediately: *"landing module inactive — enable in modules.yaml before running."* Do not proceed.
+When implemented: mirror `/new_thread` flow using `05_Content/modules/landing/templates/Landing_Template.md` and `strategy.md`. Draft goes to `05_Content/03_Drafts/landing_[Topic].md`.

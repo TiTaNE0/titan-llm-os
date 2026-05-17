@@ -14,6 +14,8 @@ active_modules:
 inactive_modules:
   - video
   - article
+  - tiktok    # stub registered 2026-05-17; activate via /enable_module tiktok
+  - landing   # stub registered 2026-05-17; activate via /enable_module landing
 
 voice:
   active: voice_evgeny
