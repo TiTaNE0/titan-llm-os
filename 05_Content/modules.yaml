@@ -10,11 +10,11 @@ default_module: twitter
 active_modules:
   - twitter
   - linkedin   # Phase E (2026-05-07) — vault-driven posting via anchor_workflow
+  - tiktok     # activated 2026-05-17; /new_tiktok macro implemented
 
 inactive_modules:
   - video
   - article
-  - tiktok    # stub registered 2026-05-17; activate via /enable_module tiktok
   - landing   # stub registered 2026-05-17; activate via /enable_module landing
 
 voice:

@@ -234,9 +234,23 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 5. **Telemetry:** standard.
 
 ### `/new_tiktok [Topic] from [[Source_Project]]`
-**TODO — not yet implemented.** Module stub registered 2026-05-17.
-**Guard:** Check `05_Content/modules.yaml`. If `tiktok` is not in `active_modules`, halt immediately: *"tiktok module inactive — enable in modules.yaml before running."* Do not proceed.
-When implemented: mirror `/new_thread` flow using `05_Content/modules/tiktok/templates/Script_Template.md` and `strategy.md`. Draft goes to `05_Content/03_Drafts/tiktok_[Topic].md`.
+1. **Module check:** Read `05_Content/modules.yaml`. Verify `tiktok` in `active_modules`. If not → halt: *"tiktok module inactive — enable in modules.yaml before running."*
+2. **Voice (person layer):** Load `05_Content/personalization/voice_evgeny.md` + `voice_pass_protocol.md`. Mandatory pair — never one without the other.
+3. **Voice (project layer):** Load `01_Projects/[[Source_Project]]/VOICE.md` if it exists. If absent, warn once and continue with person layer only.
+4. **Design:** Load `01_Projects/[[Source_Project]]/DESIGN.md`. If not found → halt: *"No DESIGN.md for [[Source_Project]] — copy `05_Content/00_Content_Templates/DESIGN_Template.md` to `01_Projects/[[Source_Project]]/DESIGN.md` and fill it in."*
+5. **Strategy:** Read `05_Content/modules/tiktok/strategy.md`.
+6. **Template:** Read `05_Content/modules/tiktok/templates/Script_Template.md`.
+7. **Source:** Read `[[Source_Project]]` passport (`01_Projects/[[Source_Project]].md`) + `06_Research/[[Source_Project]]_Research.md` (if exists).
+8. **Pass 1 (internal):** Technical scratch — scene breakdown, VO lines, on-screen elements. Not emitted.
+9. **Pass 2:** Rewrite applying voice laws. One idea per clip. Hook in first 2s. Run banned-vocab filter. Hallway engineer test.
+10. **Write script:** `05_Content/03_Drafts/tiktok_[Topic].md` with full universal frontmatter (`type: tiktok`, `project:`, `status: draft`, `category:`, `persona:`, `slug:`, `created:`).
+11. **Write build artifacts** → `05_Content/modules/tiktok/build/[slug]/`:
+    - `tts_input.txt` — VO lines only, plain UTF-8, one sentence per line
+    - `captions.srt` — estimated timing @2.7 words/sec, indexed from `00:00:00,000`
+    - `remotion_prompt.md` — per-scene visual brief: scene name / duration / screen content / VO line / caption text / design notes
+12. **Board:** Append `[[[tiktok_[Topic]]]]` to Drafting column in `Content_Board.md`.
+13. **Halt.** Surface all 4 artifact paths. Do NOT set `status: ready`.
+14. **Telemetry:** standard.
 
 ### `/new_landing [Topic] from [[Source_Project]]`
 **TODO — not yet implemented.** Module stub registered 2026-05-17.

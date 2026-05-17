@@ -26,13 +26,24 @@ When activated, macros will:
 3. Read active voice file from `05_Content/personalization/` for tone
 4. Generate a script draft and HALT for user review
 
-## Activation
+## Build Artifacts
 
-1. Set `active: true` in `05_Content/modules.yaml` under `inactive_modules` → move to `active_modules`
-2. Run `/enable_module tiktok`
-3. Implement the `/new_tiktok` macro in `03_Brain/System_Agents.md` (currently a stub)
+Each `/new_tiktok` run creates a build folder at `05_Content/modules/tiktok/build/[slug]/`:
 
-## Inactive Guard
+| File | Purpose |
+|------|---------|
+| `tts_input.txt` | VO lines only, plain UTF-8, one sentence per line. Feed directly to Qwen3-TTS or ElevenLabs. |
+| `captions.srt` | Estimated caption timing @2.7 words/sec. Re-align post-audio via Whisper. |
+| `remotion_prompt.md` | Per-scene visual brief: scene / duration / screen content / VO / design notes. Input for Phase 3 Remotion renderer. |
 
-Any macro that checks `modules.yaml` and finds `tiktok` absent from `active_modules` must halt immediately:
-> "tiktok module inactive — enable in modules.yaml before running."
+The script draft itself lives in `05_Content/03_Drafts/tiktok_[slug].md`.
+
+## Prerequisites Before Running
+
+The macro halts if either of these is missing for the source project:
+- `01_Projects/[[Source_Project]]/DESIGN.md` — copy from `05_Content/00_Content_Templates/DESIGN_Template.md`
+- `01_Projects/[[Source_Project]]/VOICE.md` — copy from `05_Content/00_Content_Templates/VOICE_Template.md` *(optional but recommended)*
+
+## Activation Status
+
+Module is **active** as of 2026-05-17. `/new_tiktok` macro is fully implemented in `03_Brain/System_Agents.md`.
