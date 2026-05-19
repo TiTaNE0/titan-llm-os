@@ -1,0 +1,88 @@
+# titan_proxy — Machine-Readable Persona Manifest
+#
+# Single-read resolution table. Every persona's full binding in one file.
+# Agents should load this once at the start of any account-scoped task
+# instead of grepping the filesystem.
+#
+# Binding model: every vault reference is an Obsidian wikilink "[[path]]"
+# so renames in Obsidian auto-update them. Bare slugs are BANNED — they
+# create a second source of truth that drifts silently on rename.
+# Code paths (src/...) stay as raw strings — they're outside the vault.
+#
+# Edit this AND the matching persona file together — they must stay aligned.
+# Inverse "design → consumers" / "voice → consumers" lookups are derivable
+# from Obsidian's backlinks pane and are NOT duplicated here.
+
+account: "[[accounts/titan_proxy/account]]"
+default_persona: "[[personas/ru_family]]"   # if a task is ambiguous, default here
+
+personas:
+
+  ru_devops:
+    file: "[[personas/ru_devops]]"
+    variant_key: a
+    domain: titanproxy.tech
+    language: ru
+    locale: ru_RU
+    design: "[[design/cyber_overdrive]]"
+    voice: "[[voice/terminal_ru]]"
+    code_anchors:
+      copy_constant: COPY_A
+      faq_constant: FAQ_A
+      status_badge_constant: STATUS_BADGE_A
+      page_file: src/app/a/page.tsx
+      layout_file: src/app/a/layout.tsx
+      css_block: src/app/globals.css [data-variant="a"]
+    channels:
+      landing: "[[channels/landing/ru_devops]]"
+      # video: not yet created
+      # twitter: not yet created
+
+  ru_business:
+    file: "[[personas/ru_business]]"
+    variant_key: b
+    domain: mtproxy.link
+    language: ru
+    locale: ru_RU
+    design: "[[design/sapphire]]"
+    voice: "[[voice/business_ru]]"
+    code_anchors:
+      copy_constant: COPY_B
+      faq_constant: FAQ_B
+      status_badge_constant: STATUS_BADGE_B
+      page_file: src/app/b/page.tsx
+      layout_file: src/app/b/layout.tsx
+      css_block: src/app/globals.css [data-variant="b"]
+    channels:
+      landing: "[[channels/landing/ru_business]]"
+
+  ru_family:
+    file: "[[personas/ru_family]]"
+    variant_key: c
+    domain: mtproxy.guru
+    language: ru
+    locale: ru_RU
+    design: "[[design/ember]]"
+    voice: "[[voice/family_ru]]"
+    code_anchors:
+      copy_constant: COPY_C
+      faq_constant: FAQ_C
+      status_badge_constant: STATUS_BADGE_C
+      page_file: src/app/c/page.tsx
+      layout_file: src/app/c/layout.tsx
+      css_block: src/app/globals.css [data-variant="c"]
+    channels:
+      landing: "[[channels/landing/ru_family]]"
+
+# Channels currently active across the account
+channels:
+  landing:
+    status: active
+    file_pattern: "[[channels/landing/<persona>]]"
+    code_repo: ~/Programming/titan-proxy-landings
+  video:
+    status: stub
+    file_pattern: "[[channels/video/<persona>]]"
+  twitter:
+    status: stub
+    file_pattern: "[[channels/twitter/<persona>]]"
