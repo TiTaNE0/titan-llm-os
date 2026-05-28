@@ -146,22 +146,15 @@ TMP_FILE="$(mktemp "$BOARD.XXXXXX")"
 trap 'rm -f "$TMP_FILE"' EXIT
 
 awk -v from="$FROM" -v to="$TO" -v link="$TASK_LINK" -v task_line="$TASK_LINE_CONTENT" '
-  BEGIN { in_from = 0; in_to = 0; just_entered_to = 0 }
+  BEGIN { in_from = 0 }
   /^## / {
     in_from = ($0 == "## " from)
-    in_to = ($0 == "## " to)
-    just_entered_to = in_to
     print
+    if ($0 == "## " to) print task_line   # insert at top of TO
     next
   }
   in_from && index($0, link) > 0 {
     next   # skip - remove from FROM
-  }
-  just_entered_to {
-    print task_line   # insert at top of TO
-    just_entered_to = 0
-    print
-    next
   }
   { print }
 ' "$BOARD" > "$TMP_FILE"
