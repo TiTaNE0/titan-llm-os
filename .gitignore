@@ -19,6 +19,11 @@
 # (.gitkeep stays so the directory is tracked.)
 04_Logs/Checkpoints/*.json
 
+# Session state file — bound to live persona by the handshake's
+# Post-Boot Ritual (Context_Injection_Protocol.md § 1.5). Per-session,
+# per-clone, never history. Read by every mutating tool atom in .scripts/.
+.session_state.json
+
 # Video binaries (reproducible from scripts; not in git)
 05_Content/modules/video/renders/*.mp4
 05_Content/modules/video/renders/*.mov
