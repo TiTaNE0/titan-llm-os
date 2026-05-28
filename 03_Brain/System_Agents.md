@@ -111,6 +111,50 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 9. **Telemetry:** `Invoke: emit_telemetry(macro=new_task, status=success|error, duration_ms, error_class, persona)`
 
 **On error:** E3 if uniqueness guard fires (task name collision — refuse, do NOT create with suffix); E1 if project board file missing (halt, ask user to run `/new_project` first).
+
+### `/execute_task [[Task_Name]] [--refresh]`
+1. **Persona Gate + start_ts:** Executioner only (E4 otherwise). Capture epoch ms.
+2. **Vault-mode guard:** Verify project root has `.vault_link/`. If not, refuse with E1: *"`/execute_task` requires a vault-aware project. Use `/feature`, `/bugfix`, or `/quick` from the kit instead."*
+3. **Identify:** Resolve `[[Task_Name]]` → `./.vault_link/02_Tasks/<Project>/[Task_Name].md`. On miss → E1.
+4. **Status guard:** Task YAML `status:` must be `todo` or `in_progress` (resuming). Any other value → E3.
+5. **In-Progress lock:** Scan `./.vault_link/02_Tasks/<Project>/*.md` YAML `status:` fields. If any OTHER task in the project has `status: in_progress` → E3: *"Project <Project> already has [[OtherTask]] In Progress. Complete or pause it before starting [[Task_Name]]."* Lock is per-project, enforced cooperatively via YAML.
+6. **Research phase:** Read task .md. If `## Research Notes` is empty OR `--refresh` was passed:
+   - `Invoke: invoke_researcher(task_path, refresh=<flag>)`
+   - `Invoke: write_task_section(task_path, section=research_notes, content=<report>, source_persona=Executioner, overwrite=<flag>)`
+   Else skip (use cached notes; surface "Using cached research notes — pass --refresh to re-run.").
+7. **Spec phase:**
+   - `Invoke: invoke_spec_writer(task_path)`
+   - `Invoke: write_task_section(task_path, section=spec, content=<spec>, source_persona=Executioner)`
+   - `Invoke: update_kanban(board=<Project>_Board.md, task_link=[[Task_Name]], from_column=Todo, to_column="In Progress")` (idempotent if already there)
+   - Update task YAML `status: in_progress` (must match column per § 4)
+8. **HALT for spec gate.** Surface the spec to user. Wait for "approved" keyword OR spec corrections. On corrections: re-run step 7 with the user's notes appended to the spec-writer brief. Loop until approved.
+9. **Build phase:**
+   - `Invoke: invoke_builders(task_path, spec=<approved_spec>)`
+   - (Builders modify repo source code. Source-code gate must be UNLOCKED, else E4.)
+10. **Test phase (loop):**
+    - `Invoke: invoke_test_verifier(task_path, story=<acceptance_criteria_from_task>)`
+    - If `run_result == FAIL` and `bugs[] != []`: route bugs back to the appropriate builder (backend or frontend). Re-run step 9 partial (specific builder only), then step 10. Max 3 iterations; on 4th failure → E5: *"Test-loop convergence failure. Halt for manual review."*
+    - If `run_result == PASS`: continue.
+11. **Validation phase:**
+    - `Invoke: invoke_validator(task_path)`
+    - `Invoke: write_task_section(task_path, section=validator_report, content=<verdict>, source_persona=Executioner)`
+12. **Verification Gateway:** Run the test command listed in the task's `## 🧪 Verification Gateway` section. Capture stdout + exit code.
+    - `Invoke: write_task_section(task_path, section=verification_output, content=<command + stdout + exit_code>, source_persona=Executioner)`
+13. **HALT for close gate.** Surface validator verdict + verification output. Do NOT auto-close (§ 1.3). Tell user: *"Phase complete. Verdict: <SHIP|FIX|BLOCK>. Verification: <PASS|FAIL>. Ready for `/close_task [[Task_Name]]` when you've reviewed."*
+14. **Telemetry:** `Invoke: emit_telemetry(macro=execute_task, status=success|error, duration_ms, error_class, persona=Executioner)`
+15. **Confirm:** `"Macro execute_task completed in <ms> ms. Telemetry emitted. Awaiting /close_task."`
+
+**On error:**
+- E1 if vault missing, task missing, or any phase's pre-conditions fail (e.g. `## Spec` empty when builders try to run)
+- E3 if task status invalid, In-Progress lock fires, or a `## Section` is already populated and `overwrite` was not passed
+- E4 if persona ≠ Executioner OR source-code gate is locked at the build phase
+- E5 if test loop fails to converge after 3 iterations
+
+**Hard constraints:**
+- Vault writes happen ONLY through `write_task_section` and `update_kanban`. Builders, test-verifier, researcher, and validator subagents NEVER write the vault; their output flows through the atoms.
+- One `status: in_progress` task per project. The lock is the only thing preventing two parallel `/execute_task` runs from racing on the board.
+- Researcher cache is the task .md itself, not an out-of-band cache. Single source of truth.
+
 ## 8. 📋 Template Protocol
 - **Standardization:** All new files created in `01_Projects/` and `02_Tasks/` MUST follow the English-only templates in `00_Templates/`.
 - **Project Initiation:** When a new project is mentioned, use `Project_Passport_Template.md`.
@@ -128,25 +172,46 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 2. Append idea and timestamp to `05_Content/01_Content_Ideas.md`.
 3. Add `[[[Idea]]]` to Ideas column in `Content_Board.md`.
 
-### Keyword: "/new_thread [Topic] from [[Source_Project]]"
-1. **Module check:** Read `05_Content/modules.yaml`. Verify `twitter` is in `active_modules`. If not, refuse with E1.
-2. **Template:** Read `05_Content/modules/twitter/templates/Thread_Template.md`.
-3. **Voice:** Resolve `voice.path` from `05_Content/modules.yaml` (currently `personalization/voice_evgeny.md`). Read that file. Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
-4. **Strategy:** Read `05_Content/modules/twitter/strategy.md` for channel tactics. Voice file wins on conflict.
-5. Generate the draft in `05_Content/03_Drafts/[Topic].md` using the template structure. **Frontmatter:** use `type: twitter` (matches `modules.yaml` registry key).
+### Keyword: "/new_thread [Topic] from [[Source_Project]]"  *(optionally `for [[Account]]`)*
+1. **Account:** Resolve `account` from arg `for [[Account]]`, else from `05_Content/modules.yaml → accounts.default` (= `ogrizkov` today). If `05_Content/accounts/<account>/` is missing, refuse with E3 (account unknown — do not silently fall back).
+2. **Module check:** Read `05_Content/modules.yaml`. Verify `twitter` is in `active_modules`. If not, refuse with E1.
+3. **Identity:** Read `05_Content/accounts/<account>/account.md` for identity + hard never-do list.
+4. **Voice:** Read `05_Content/accounts/<account>/voice.md`. Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
+5. **Voice-pass:** Read `05_Content/_shared/voice_pass.md` — universal two-pass procedure, banned assistant-vocab register, hallway test, final checklist.
+6. **Channel mechanics:** Read `05_Content/modules/twitter/drafting_partner.md` — one-round rule, never-fork, output format, workflow.
+7. **Account-channel strategy:** Read `05_Content/accounts/<account>/channels/twitter/strategy.md` for account-channel tactics. Voice file wins on any conflict.
+8. **Drafting contract (optional):** If `05_Content/accounts/<account>/channels/twitter/drafting_contract.md` exists, read it for the account-channel gate and never-list.
+9. **Template:** Read `05_Content/modules/twitter/templates/Thread_Template.md`.
+10. Generate the draft in `05_Content/03_Drafts/[Topic].md` using the template structure. **Frontmatter:** use `type: twitter`, `account: <account>` (matches `modules.yaml` registry key).
 **This macro is a READ-ONLY operation for project and research files. Do NOT delete or modify any files in 01_Projects/ or 06_Research/.**
-6. Extract technical context from BOTH:
+11. Extract technical context from BOTH:
    - [[Source_Project]] (for goals and mission)
    - [[06_Research/Source_Project_Research]] (for technical details and research)
-7. Require at least 2 visual assets logged in `05_Content/05_Assets/`.
-8. Append `[[[Topic]]]` to Drafting column in `Content_Board.md`.
+12. Require at least 2 visual assets logged in `05_Content/05_Assets/`.
+13. Append `[[[Topic]]]` to Drafting column in `Content_Board.md`.
+
+### Keyword: "/new_post [Topic]"  *(optionally `from [[Source_Project]]` and/or `for [[Account]]`)*
+1. **Account:** Resolve `account` from arg `for [[Account]]`, else from `05_Content/modules.yaml → accounts.default` (= `ogrizkov` today). If `05_Content/accounts/<account>/` is missing, refuse with E3 (account unknown — do not silently fall back).
+2. **Module check:** Read `05_Content/modules.yaml`. Verify `twitter` is in `active_modules`. If not, refuse with E1.
+3. **Identity:** Read `05_Content/accounts/<account>/account.md` for identity + hard never-do list.
+4. **Voice:** Read `05_Content/accounts/<account>/voice.md`. Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
+5. **Voice-pass:** Read `05_Content/_shared/voice_pass.md` — universal two-pass procedure, banned assistant-vocab register, hallway test, final checklist.
+6. **Channel mechanics:** Read `05_Content/modules/twitter/drafting_partner.md` — one-round rule, never-fork, output format, workflow.
+7. **Account-channel strategy:** Read `05_Content/accounts/<account>/channels/twitter/strategy.md` for account-channel tactics. Voice file wins on any conflict.
+8. **Drafting contract (optional):** If `05_Content/accounts/<account>/channels/twitter/drafting_contract.md` exists, read it for the account-channel gate and never-list.
+9. **Template:** Read `05_Content/modules/twitter/templates/Tweet_Template.md`.
+10. **Source context (optional):** If `[[Source_Project]]` was supplied, extract technical context from `01_Projects/[[Source_Project]].md` and (if it exists) `06_Research/[[Source_Project]]_Research.md`. **READ-ONLY** — do not modify source or research files.
+11. Generate the draft in `05_Content/03_Drafts/tweet_[Topic].md`. **Frontmatter:** use `type: twitter`, `thread: false`, `account: <account>`. Body is one tweet — 20–45 words; expand only if the material clearly demands it. One idea. Flat open. Lands flat. No thread structure.
+12. Append `[[tweet_[Topic]]]` to Drafting column in `Content_Board.md`.
+13. **HALT.** Emit draft + one assumption line per drafting_partner.md one-round rule. Do NOT set `status: ready`.
+14. **Telemetry:** `Invoke: emit_telemetry(macro=new_post, status=success|error, duration_ms, error_class, persona)`
 
 ### Keyword: "/refactor_thread [[Target_File]]"
 1. Read the draft located at `[[Target_File]]`.
 1.5. Before refactoring, identify the project via the [[Project_Link]] in the draft's frontmatter. Read the corresponding 01_Projects/{{PROJECT}}.md (for mission) and 06_Research/{{PROJECT}}_Research.md (for technical precision).
 2. Rewrite the file in place enforcing these strict constraints:
     - Eradicate "Local LLM" framing. Clarify that the vault is local memory, but the agent can be any cloud LLM (OpenCode, Claude Code, whatever).
-    - **Voice:** Read `05_Content/modules.yaml` to resolve `voice.path`, then read that voice file (currently `05_Content/personalization/voice_evgeny.md`). Apply its `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
+    - **Voice:** Resolve `account` from the draft's frontmatter `account:` field, else from `05_Content/modules.yaml → accounts.default`. Read `05_Content/accounts/<account>/voice.md` and apply `05_Content/_shared/voice_pass.md` (universal two-pass procedure). Apply the voice's `<voice_fingerprint>` and `<writing_laws>` as the tone source. Do not declare tone independently. Do not narrate the rules in output.
     - Cut the fat and tighten every paragraph.
 3. Instruction: Ensure the refactored version remains technically accurate to the research while preserving voice fidelity.
 4. Output the final text for user approval before writing changes to disk.
@@ -226,16 +291,9 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 4. **Confirm:** Output current active list.
 5. **Telemetry:** standard.
 
-### `/set_voice <voice_name>`
-1. **Persona Gate:** Architect or Content Producer.
-2. **Validate:** `05_Content/personalization/<voice_name>.md` exists. Special value `none` is allowed (disables personalization).
-3. **Update:** Edit `05_Content/modules.yaml`. Set `voice.active = <voice_name>` and `voice.path = personalization/<voice_name>.md` (or `none` if `<voice_name> == none`).
-4. **Confirm:** Output `"Active voice: <voice_name>. Path: <path>."`
-5. **Telemetry:** standard.
-
-### `/new_tiktok [Topic] from [[Source_Project]]`
-1. **Module check:** Read `05_Content/modules.yaml`. Verify `tiktok` in `active_modules`. If not → halt: *"tiktok module inactive — enable in modules.yaml before running."*
-2. **Voice (person layer):** Load `05_Content/personalization/voice_evgeny.md` + `voice_pass_protocol.md`. Mandatory pair — never one without the other.
+### `/new_tiktok [Topic] from [[Source_Project]]`  *(optionally `for [[Account]]`)*
+1. **Account & module check:** Resolve `account` from arg `for [[Account]]`, else from `05_Content/modules.yaml → accounts.default` (= `ogrizkov`). If `05_Content/accounts/<account>/` missing, refuse with E3. Verify `tiktok` in `active_modules`. If not → halt: *"tiktok module inactive — enable in modules.yaml before running."*
+2. **Voice (account layer):** Load `05_Content/accounts/<account>/voice.md` + `05_Content/_shared/voice_pass.md`. Mandatory pair — never one without the other.
 3. **Voice (project layer):** Load `01_Projects/[[Source_Project]]/VOICE.md` if it exists. If absent, warn once and continue with person layer only.
 4. **Design:** Load `01_Projects/[[Source_Project]]/DESIGN.md`. If not found → halt: *"No DESIGN.md for [[Source_Project]] — copy `05_Content/00_Content_Templates/DESIGN_Template.md` to `01_Projects/[[Source_Project]]/DESIGN.md` and fill it in."*
 5. **Strategy:** Read `05_Content/modules/tiktok/strategy.md`.
@@ -256,3 +314,77 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 **TODO — not yet implemented.** Module stub registered 2026-05-17.
 **Guard:** Check `05_Content/modules.yaml`. If `landing` is not in `active_modules`, halt immediately: *"landing module inactive — enable in modules.yaml before running."* Do not proceed.
 When implemented: mirror `/new_thread` flow using `05_Content/modules/landing/templates/Landing_Template.md` and `strategy.md`. Draft goes to `05_Content/03_Drafts/landing_[Topic].md`.
+
+### `/x_review`  *(optionally `for [[Account]]`)*
+1. **Persona Gate + start_ts:** Architect or Content Producer. Capture epoch ms.
+2. **Account:** Resolve from arg `for [[Account]]`, else from `05_Content/modules.yaml → accounts.default` (= `ogrizkov` today). If `05_Content/accounts/<account>/` is missing, refuse with E3 (account unknown — do not silently fall back).
+3. **Channel guard:** Read `05_Content/modules.yaml`. Verify `twitter` is in `active_modules`. If not, refuse with E1.
+4. **Compute today:** `YYYY-MM-DD` (local date).
+5. **Target path:** `05_Content/accounts/<account>/channels/twitter/analysis/<today>_account_review.md`.
+6. **Uniqueness guard:** If target file already exists → refuse with E3 (one review per day per account; user must edit existing or delete first). Do not overwrite, do not back up.
+7. **Resolve `prev_review`:** List `*.md` files in `05_Content/accounts/<account>/channels/twitter/analysis/`, exclude `README.md`, sort by filename descending. Take the first entry whose `YYYY-MM-DD` filename prefix is strictly before today. If none → set blank.
+8. **Read template:** `05_Content/modules/twitter/templates/Account_Review_Template.md`.
+9. **Substitute placeholders:**
+   - `{{account}}` → resolved handle
+   - `{{review_date}}` → today's `YYYY-MM-DD`
+   - `{{period_covered}}` → `<prev_date>..<today>` if prev exists; blank otherwise
+   - `{{prev_review_link}}` → `[[accounts/<account>/channels/twitter/analysis/<prev_filename_without_extension>]]` if prev exists; `(no previous review)` literal otherwise
+10. **Write target file.** Never overwrite (uniqueness guard at step 6 enforces).
+11. **HALT.** Surface target path with message: *"Skeleton written. Fill metric values in `<path>`, or paste a Grok summary into the Snapshot section and rewrite. The macro does not invent metrics. Use `n/a` for unavailable metrics — never leave blank."*
+12. **Telemetry:** `Invoke: emit_telemetry(macro=x_review, status=success|error, duration_ms, error_class, persona)`
+13. **Confirm:** `"Macro x_review completed in <ms> ms. Telemetry emitted. Target: <path>"`
+
+**On error:** E1 if `twitter` not in `active_modules`; E3 if `accounts/<account>/` missing (do not silently fall back); E3 if target file already exists (refuse, do not overwrite).
+
+**Hard constraints:**
+- Writes ONLY to `05_Content/accounts/<account>/channels/twitter/analysis/<today>_account_review.md`. Touches no other file.
+- Does NOT read, evaluate, or modify [[accounts/<account>/channels/twitter/strategy]]. Doctrine edits are human-only.
+- Does NOT invent metric values. The skeleton ships with empty fields; the human fills them.
+
+### `/recap [format]`  *(optionally `for [[Account]]`)*
+
+End-of-session asset macro. Turns the current Claude Code session into a screenshot-ready Aurora Frost HTML card for X / LinkedIn / IG. Not a drafting macro — does not produce a `03_Drafts/` file, does not touch `Content_Board.md`, has no `status:` lifecycle. Pure brand asset.
+
+1. **Persona Gate + start_ts:** Content Producer. Capture epoch ms.
+2. **Account:** Resolve from `for [[Account]]`, else from `05_Content/modules.yaml → accounts.default` (= `ogrizkov` today). If `05_Content/accounts/<account>/` is missing → refuse with E3 (account unknown — do not silently fall back).
+3. **Brand guard:** If `account != ogrizkov` → refuse with E3: *"No recap brand registered for <account>. Aurora Frost is wired to ogrizkov only. Other accounts need their own asset partner."*
+4. **Template guard:** Verify `05_Content/_shared/asset_partners/aurora-frost/<format>.html` exists for all three formats (shipped, insight, stats). If any missing → refuse with E1 (vault template missing — re-vendor from skill or restore from git). Vault is source of truth; the macro is agent-agnostic (Claude Code, Codex, OpenCode, any other agent must run it identically).
+5. **Format:** Resolve `format` ∈ {`shipped`, `insight`, `stats`}. Default `shipped` if absent. Anything else → refuse with E3 (*"format must be shipped|insight|stats"*).
+6. **Session number:** List `05_Content/05_Assets/session-*-*.html`. Take the max numeric prefix, increment by 1, zero-pad to 3 digits. If none, start at `001`.
+7. **Read template:** `05_Content/_shared/asset_partners/aurora-frost/<format>.html`. Do NOT read from `~/.claude/skills/` — that path is Claude-Code-only and breaks agent-agnosticism.
+8. **Voice contract (non-negotiable for card text):** Load all three:
+   - `05_Content/accounts/<account>/account.md` — identity + hard never-do list
+   - `05_Content/accounts/<account>/voice.md` — voice fingerprint + writing laws
+   - `05_Content/_shared/voice_pass.md` — banned-vocab register + hallway test + final checklist
+   If any of the three is missing → refuse with E1. The card is public-facing brand surface; skipping voice ships drift onto X/LinkedIn.
+9. **Extract values from this session — framing rule (READ FIRST, overrides skill default):**
+
+   Each item / quote / hero label is a **user-facing capability shipped**, not a **file changed** or **step performed**. The card is read by someone outside this codebase. If a line names a file, a path, a function, or a macro internal — it's plumbing. Collapse it into the capability it enabled, or drop it.
+
+   - Several technical edits usually collapse into one shipped capability. **Better 2 honest items than 4 plumbing items.** Skill says 3–5; "3" is a floor only if 3 real capabilities shipped. If only 1 did, use `insight` format instead.
+   - Test each item: *"Would a reader who has never seen this repo nod at this line, or shrug?"* If shrug → cut.
+   - Title = the capability the world can now do/see/feel. Detail = the concrete proof (numbers, tools, surface area), not the change site.
+
+   **Anti-patterns (do not write these):**
+   - ❌ "Added /foo macro to System_Agents.md" → ✅ "End-of-session brand cards now self-generate"
+   - ❌ "Welcome.md HUD synced" → drop entirely (HUD sync is plumbing, not a shipped capability)
+   - ❌ "Refactored module X" → ✅ what the refactor unlocked for the user
+   - ❌ "Copied 3 files into vault" → ✅ "Recap runs from any agent now, not just Claude Code"
+
+   Then pull placeholders: `{{HANDLE}}` = the account folder name (`ogrizkov` for the default account — **public social handle, NEVER the person's first name**); `{{SESSION_NUM}}`, `{{DATE}}` (`YYYY.MM.DD`), `{{TIME_UTC}}` (`HH:MM UTC`); and the format-specific fields (title split / 3–5 items / quote split + chips / hero + 4 stat cells). Length spec from `~/.claude/skills/aurora-frost/SKILL.md` § "Step 3 — Extract values" still applies. Style discipline from § "Style discipline" still applies — one italic serif accent per headline, no emoji, lowercase handle. **The skill's documented default of `evgeny` is wrong for this vault — always use the account handle.**
+10. **Voice pass on the card text:** Rewrite every freeform string — title parts, item titles + details, quote, chip tags, hero label, stat labels + deltas — through the account's voice file as generative source. Apply the banned-vocab filter from `_shared/voice_pass.md`. Apply the hallway engineer test. Length constraints from the skill (4–7 word item titles, 8–14 word details, ≤25 word quote, 5–8 word hero label) are upper bounds on the voiced text, not targets — short and flat beats padded-to-fit. Verify the account's never-do list (from `account.md`) is not violated. Skip the two-pass drafting rule from §6 of the AGENT_GUIDE — card text is too short for a separate technical scratch pass.
+11. **Fill template + write:** Substitute all `{{...}}` placeholders with the voice-passed values. Write to `05_Content/05_Assets/session-<num>-<format>.html`. Never overwrite — if target exists, increment session number once and retry; on second collision refuse with E3.
+12. **Asset check (idempotent):** Verify `05_Content/05_Assets/aurora-frost.css` and `05_Content/05_Assets/avatar.png` exist. If missing, copy from `~/.claude/skills/aurora-frost/assets/`. The output HTML references them by relative path; both must sit alongside it in `05_Content/05_Assets/`.
+13. **Open:** `open "05_Content/05_Assets/session-<num>-<format>.html"`.
+14. **HALT.** Surface the output path with: *"Recap ready. Screenshot at 1:1 for X primary, 4:5 for IG/LinkedIn. Want a different format? `/recap insight` or `/recap stats`."* Do not narrate session content again.
+15. **Telemetry:** `Invoke: emit_telemetry(macro=recap, status=success|error, duration_ms, error_class, persona)`
+16. **Confirm:** `"Macro recap completed in <ms> ms. Telemetry emitted. Output: <path>"`
+
+**On error:** E1 if any of the three vault templates (`_shared/asset_partners/aurora-frost/{shipped,insight,stats}.html`) or any of the three voice-contract files is missing; E3 if account unknown, brand not registered for the account, format arg invalid, or session-number collision after one retry.
+
+**Hard constraints:**
+- Writes ONLY to `05_Content/05_Assets/session-<num>-<format>.html` (plus one-time idempotent copy of `aurora-frost.css` and `avatar.png` into the same folder).
+- Does NOT modify any draft in `03_Drafts/`, does NOT touch `Content_Board.md`, does NOT set any `status:` value. Recap is independent of the drafting lifecycle.
+- Brand DNA is non-negotiable: dark background + violet→blue→cyan aurora gradient + frosted glass + Geist sans + Instrument Serif italic accent. Do not add new colors. Do not customize the "Built with Claude" footer.
+- Voice contract is non-negotiable for card text. Brand surface = voice surface. Skipping the voice load is a kernel violation, not an optimization.
+- Template source of truth lives at `05_Content/_shared/asset_partners/aurora-frost/` (vault). The Claude Code skill at `~/.claude/skills/aurora-frost/` is an optional proactive trigger — the macro does NOT depend on it. Any agent (Claude, Codex, OpenCode, etc.) can run `/recap` identically.

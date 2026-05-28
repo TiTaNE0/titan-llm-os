@@ -23,6 +23,31 @@ After step 8, agent confirms: **"Mission_Control rules loaded. Persona: {{ROLE}}
 
 ---
 
+## 1.5. Post-Boot Ritual: Session State Write
+
+Immediately after the boot confirmation (and before responding to the first user instruction), the agent MUST execute:
+
+```bash
+.vault_link/.scripts/session_state_write.sh \
+  --persona {{ROLE}} \
+  --session-id <new id> \
+  --started-at <ISO ts>
+```
+
+This writes `.vault_link/.session_state.json`, the authoritative live-persona record. Every mutating tool atom — `write_task_section.sh`, `update_kanban.sh`, etc. — reads this file before acting and refuses with E4 if the caller-claimed persona does not match.
+
+**Why a separate section, not a step in § 1.** The boot sequence is pure-read context injection. The ritual is the first WRITE of the session and has its own failure semantics. Keeping it out of the boot table preserves the rule that *context loading never mutates the vault*.
+
+**Failure handling.** If `session_state_write.sh` exits non-zero, the agent MUST halt with E2 before accepting any user instruction. A session without `.session_state.json` cannot perform any vault-mutating macro — every atom's persona check will fail E4.
+
+**State file is authoritative.** Never trust caller-supplied or ambient persona claims at the atom layer — always read the state file. This is the load-bearing invariant for the persona-origin guard (see [[Tool_Registry]] § Composition Rule 5).
+
+**Mid-session persona switches require a new handshake** (boot + post-boot ritual). Editing `.session_state.json` directly in-session is a kernel violation — it bypasses the per-change approval gate for Architect work and the macro-level checks for Executioner work.
+
+Added 2026-05-28 by [[TiTan_Kit_Integration_Phase2]].
+
+---
+
 ## 2. Token Budget Guidance
 
 - Cap injected context at **~30% of context window** — leave the other 70% for the conversation and tool outputs.
@@ -47,6 +72,8 @@ Re-inject context when:
 - Agent has been idle > 30 minutes (cache likely cold)
 - User explicitly switches project via `/switch_project [[Name]]`
 - Conversation crosses 50% of context window (compaction risk)
+
+Every refresh trigger above MUST re-execute the [Post-Boot Ritual](#15-post-boot-ritual-session-state-write) to refresh the persona binding in `.session_state.json`. The state file is authoritative — atoms never trust ambient claims or caller-supplied values. Mid-session persona switches (e.g., Executioner → Architect) are not valid without a new handshake + ritual re-run.
 
 ---
 

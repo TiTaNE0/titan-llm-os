@@ -66,16 +66,18 @@ The 6-step ritual to keep the OS coherent:
 | Macro | Purpose |
 |-------|---------|
 | `/new_task [Title] for [[Project]]` | Create task, append to Todo, **HALT** for review |
+| `/execute_task [[Name]] [--refresh]` | Drive the 7-agent kit chain (research → spec → build → test → validate) on a vault-aware project. HALTs at spec gate and at close gate. Executioner-only. |
 | `/close_task [Task_Name]` | Populate completion summary, archive, update Kanban, log |
 | `/archive_done` | Bulk-move all `status: done` tasks to `99_Archive/` |
 | `/trace [topic]` | Chronological evolution across Projects → Brain → Logs → Archive |
 
 ### Context & State
-| Macro | Purpose |
-|-------|---------|
-| `/refresh_context` | Re-run boot sequence in-session (use after idle/drift) |
-| `/switch_project [[Name]]` | Re-inject project context, retain persona |
-| `/update_index` | Regenerate `Internal_Index.md` via `.scripts/generate_index.sh` |
+| Macro                      | Purpose                                                         |
+| -------------------------- | --------------------------------------------------------------- |
+| `/refresh_context`         | Re-run boot sequence in-session (use after idle/drift)          |
+| `/switch_project [[Name]]` | Re-inject project context, retain persona                       |
+| `/update_index`            | Regenerate `Internal_Index.md` via `.scripts/generate_index.sh` |
+|                            |                                                                 |
 
 ### Memory & Brain
 | Macro | Purpose |
@@ -95,21 +97,24 @@ The 6-step ritual to keep the OS coherent:
 | `/recall [[Task]]` | Pull a delegated task back to its previous persona |
 
 ### Content Pipeline
-| Macro                                  | Purpose                                                        |
-| -------------------------------------- | -------------------------------------------------------------- |
-| `/capture_idea [Idea]`                 | Append to `01_Content_Ideas.md`, add to Content Board          |
-| `/new_thread [Topic] from [[Project]]` | Generate X/Twitter thread draft via active module + voice file |
-| `/new_tiktok [Topic] from [[Project]]` | Generate TikTok script + build artifacts *(tiktok module inactive — enable first)* |
-| `/new_landing [Topic] from [[Project]]`| Generate landing page copy *(landing module inactive — enable first)* |
-| `/refactor_thread [[File]]`            | Rewrite draft applying active voice file; preserve facts       |
-| `/enable_module <name>`                | Activate a content module (`twitter`, `linkedin`, `tiktok`, `landing`, `article`) |
-| `/disable_module <name>`               | Deactivate a content module                                    |
-| `/set_voice <voice_name>`              | Swap the active personalization voice (e.g. `voice_evgeny`)    |
+| Macro                                              | Purpose                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------- |
+| `/capture_idea [Idea]`                             | Append to `01_Content_Ideas.md`, add to Content Board          |
+| `/new_thread [Topic] from [[Project]]` *(`for [[Account]]` optional)* | Generate X/Twitter thread draft. Resolves account → voice → _shared/voice_pass → channel mechanics → strategy → template. |
+| `/new_post [Topic]` *(`from [[Project]]` and `for [[Account]]` both optional)* | Generate single-tweet draft. Same voice chain as `/new_thread`. One tweet, 20–45 words, flat open, lands flat. Output → `tweet_[Topic].md`. |
+| `/new_tiktok [Topic] from [[Project]]` *(`for [[Account]]` optional)* | Generate TikTok script + build artifacts (tts_input, captions, remotion_prompt). |
+| `/new_landing [Topic] from [[Project]]`            | Generate landing page copy *(landing module inactive — enable first)* |
+| `/x_review` *(`for [[Account]]` optional)*         | Create a dated account-review skeleton at `accounts/<account>/channels/twitter/analysis/`. Chains `prev_review` wiki-link to the previous dated file. Does NOT auto-fill metrics — human supplies them. Never edits `strategy.md`. |
+| `/recap [format]` *(`for [[Account]]` optional)*   | End-of-session asset macro. Renders an Aurora Frost HTML card (`shipped` \| `insight` \| `stats`) from the current session → `05_Content/05_Assets/session-NNN-<format>.html`. Screenshot-ready. ogrizkov-only today. Not a draft — no `status:`, no board update. |
+| `/refactor_thread [[File]]`                        | Rewrite draft applying the active account's voice; preserve facts |
+| `/enable_module <name>`                            | Activate a content module (`twitter`, `linkedin`, `tiktok`, `landing`, `article`, `video`) |
+| `/disable_module <name>`                           | Deactivate a content module                                    |
 
-**Pipeline registry:** `05_Content/modules.yaml` (canonical — which module is active, which voice is loaded)
-**Active voice (default):** `05_Content/personalization/voice_evgeny.md` — silent load, never narrate the rules
-**Active modules:** `twitter`, `linkedin` — `05_Content/modules/<channel>/` (templates + strategy + failure log)
-**Inactive stubs:** `tiktok`, `landing`, `article` — registered, guarded, not yet runnable
+**Pipeline registry:** `05_Content/modules.yaml` (canonical — which channels are active, which account is the default)
+**Active account (default):** `05_Content/accounts/ogrizkov/` — voice at `accounts/ogrizkov/voice.md`; silent load, never narrate the rules
+**Active modules:** `twitter`, `linkedin`, `tiktok` — `05_Content/modules/<channel>/` (drafting_partner + templates + failure log)
+**Inactive stubs:** `landing`, `video`, `article` — registered, guarded, not yet runnable
+**Cross-cut procedure:** `05_Content/_shared/voice_pass.md` — universal two-pass rule, banned-vocab register, hallway test
 **Agent SOP:** `05_Content/00_AGENT_GUIDE.md` — read before any drafting action
 
 ### Intake
