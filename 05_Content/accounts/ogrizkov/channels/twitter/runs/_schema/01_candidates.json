@@ -1,0 +1,17 @@
+{
+  "_schema": "01_candidates — written by twitter-reply-scout (Run 1). Human fills `anchor`, then saves as 02_anchored.json.",
+  "batch": "YYYY-MM-DD",
+  "candidates": [
+    {
+      "id": "c1",
+      "url": "https://x.com/<author>/status/<id>",
+      "author": "<handle>",
+      "follower_count": 0,
+      "posted_at": "ISO-8601, e.g. 2026-06-07T12:00:00Z — MUST be within ~48h of batch date; older = dropped",
+      "hook_summary": "one line: what the thread is actually about",
+      "relevance_score": 0.0,
+      "why_relevant": "why this fits the indie-builder/agentic niche",
+      "anchor": ""
+    }
+  ]
+}

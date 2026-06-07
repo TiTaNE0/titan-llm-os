@@ -1,0 +1,14 @@
+{
+  "_schema": "02_anchored — 01_candidates with the human `anchor` filled. Only threads with a non-empty anchor are drafted. Delete the rest.",
+  "batch": "YYYY-MM-DD",
+  "candidates": [
+    {
+      "id": "c1",
+      "url": "https://x.com/<author>/status/<id>",
+      "author": "<handle>",
+      "hook_summary": "one line: what the thread is about",
+      "relevance_score": 0.0,
+      "anchor": "ONE raw line of Evgeny's real take/experience on this thread — the substance the draft polishes."
+    }
+  ]
+}

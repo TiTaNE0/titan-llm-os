@@ -1,0 +1,12 @@
+{
+  "_schema": "03_tactical_brief — written by twitter-reply-draft (Run 2) Stage 2 Analyst, per anchored thread.",
+  "batch": "YYYY-MM-DD",
+  "briefs": [
+    {
+      "id": "c1",
+      "suggested_hook": "the specific angle to take, grounded in the anchor",
+      "tone_adjustment": "micro-adjustment from analytics, e.g. 'lean technical, flat'",
+      "asset_recommendation": "filename in ../../../../05_Assets/ or null"
+    }
+  ]
+}

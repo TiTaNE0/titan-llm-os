@@ -91,3 +91,14 @@ Internal_Index.md
 05_Content/modules/*/strategy.md
 05_Content/modules/*/failure_log.md
 05_Content/modules/*/lessons_log.md
+
+# Personal account data (@ogrizkov). Framework STAYS tracked: skill/ runbooks,
+# bin/, runs/_schema/, analysis/README.md + .gitkeep, the PRD.
+# Ignored = voice/strategy/contract (private texture incl. day-job), analytics
+# snapshots (real metrics), and run outputs (targets + drafts + posted replies).
+05_Content/accounts/ogrizkov/voice.md
+05_Content/accounts/ogrizkov/account.md
+05_Content/accounts/ogrizkov/channels/*/strategy.md
+05_Content/accounts/ogrizkov/channels/*/drafting_contract.md
+05_Content/accounts/ogrizkov/channels/*/analysis/*_account_review.md
+05_Content/accounts/ogrizkov/channels/*/runs/*_batch/
