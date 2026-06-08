@@ -21,9 +21,10 @@ This is the canonical list of atomic operations available to any macro. Adding a
 ### `update_kanban`
 - **Inputs:** `--board <path>` `--task-link <[[Name]]>` `--from <column>` `--to <column>` `--source-persona <name>`
 - **Outputs:** Updated board file (`*_Board.md`); the line containing `--task-link` is removed from the `--from` section and inserted at the top of the `--to` section. Atomic via mktemp + mv. On **stderr** (only if non-zero): single-line E-class message.
+- **Insertion mode (`--from none`):** for a task with no source section yet (new-task creation, e.g. `/new_task`), pass `--from none`. The atom synthesizes the line `- [ ] <task-link>` and inserts it at the top of `--to`, removing nothing. Idempotent (no-op if already in `--to`).
 - **Pre-conditions:**
     - `--board` file exists
-    - Task link literally appears in the `--from` section
+    - Task link literally appears in the `--from` section — **except `--from none`** (insertion mode), where no source section is required
     - **`source_persona` arg equals live session persona** (persona-origin guard, Composition Rule 5)
     - **Live session persona is allowed by this atom's Persona Gate** (see below)
 - **Errors:**
@@ -37,6 +38,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Dependencies:** None (uses `awk`, `sed`, `mktemp`)
 - **Script:** `.vault_link/.scripts/update_kanban.sh`
 - *(CLI signature firmed 2026-05-28 by [[TiTan_Kit_Integration_Phase2]] — original Phase 0 entry was contract-only with no implementation; added explicit CLI flags, persona-origin guard semantics, atomic-write requirement, telemetry mandate, script path, and Phase-2-scoping note for Synthesizer support.)*
+- *(`--from none` insertion mode added 2026-06-07 via `/graduate` (ratified with doc+script together) — closes the gap where `/new_task` step 5 documented `from_column=none` but the atom could only move existing lines, forcing manual board edits.)*
 
 ---
 
@@ -172,7 +174,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ### `in_progress_lock`
 - **Inputs:** `$1` = project name (e.g., `TiTan_LLM_OS`); `$2` = current task basename (without `.md`; excluded from scan to allow resume)
-- **Outputs:** Exit 0 if no OTHER task in `.vault_link/02_Tasks/<project>/*.md` has YAML `status: in_progress`. Else exit 3 + prints offending task basename on stdout.
+- **Outputs:** Exit 0 if no OTHER **non-epic** task in `.vault_link/02_Tasks/<project>/*.md` has YAML `status: in_progress`. Tasks with `type: epic` are skipped (exempt — see [[System_Agents]] § /execute_task step 5). Else exit 3 + prints offending task basename on stdout.
 - **Pre-conditions:** `.vault_link/02_Tasks/<project>/` directory exists (empty dir is fine — yields exit 0)
 - **Errors:** E3 only (another in-progress task found)
 - **Idempotent:** ✅ (read-only)
@@ -296,6 +298,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
   "ts": "2026-05-04T10:30:00Z",
   "tool": "create_task",
   "macro": "new_task",
+  "task": "Add_Multiply",
   "persona": "Executioner",
   "status": "success | error",
   "duration_ms": 124,
@@ -305,3 +308,5 @@ This is the canonical list of atomic operations available to any macro. Adding a
 ```
 
 `args_hash` is used instead of raw args to avoid leaking sensitive content into telemetry.
+
+**Fields emitted by `emit_telemetry.sh` today:** `ts, macro, status, duration_ms, error_class, persona, task`. The `task` field (added [[TiTan_Kit_Integration_Phase3b]], 2026-05-28) carries the task identity for per-task attestation; it is `null` for macro-level records with no single task in scope. `tool` and `args_hash` are reserved (specced for future per-atom telemetry) and not yet emitted by the live script. Telemetry-write failures are recorded to `04_Logs/Telemetry/.write_failures.log` (best-effort sentinel); `emit_telemetry.sh` still exits 0 so it never blocks a macro.

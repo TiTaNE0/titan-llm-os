@@ -7,7 +7,7 @@
 
 ## Scope
 
-Long-form professional posts on LinkedIn. Single-post format (no thread chains — LinkedIn doesn't have native threading). This module is the channel layer; voice/tone comes from the personalization add-on (currently `voice_evgeny.md`).
+Long-form professional posts on LinkedIn. Single-post format (no thread chains — LinkedIn doesn't have native threading). This module is the channel layer; voice/tone is the active account's, resolved per [[accounts/README]] (default `ogrizkov` → `accounts/ogrizkov/voice.md`).
 
 ## Files
 

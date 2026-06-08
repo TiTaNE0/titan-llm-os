@@ -135,35 +135,50 @@ Multi-channel system for technical content marketing. Agent-operated, frontmatte
 
 ```
 05_Content/
-├── modules.yaml              ← registry: active channels + voice pointer
+├── modules.yaml              ← registry: active channels + default account
 ├── 00_AGENT_GUIDE.md         ← agent SOP (read before any drafting)
 ├── 00_Content_Templates/     ← universal template + DESIGN + VOICE schemas
 ├── 03_Drafts/                ← all output, flat folder, prefix-named files
 ├── 04_Published/             ← post-publish storage
 ├── 05_Assets/                ← images, audio, visual assets
-├── modules/
-│   ├── twitter/   ✅ active  strategy + Thread_Template
+├── accounts/                 ← IDENTITY AXIS (per-account)
+│   ├── _account_template/    ← skeleton; copy for any new account
+│   └── ogrizkov/             ← active account
+│       ├── account.md          ← identity + never-do list
+│       ├── voice.md            ← canonical voice for all ogrizkov channels
+│       └── channels/twitter/
+│           ├── strategy.md     ← account-channel tactics
+│           ├── drafting_contract.md  ← account-channel agent contract
+│           └── analysis/       ← perf reviews, voice-drift audits
+├── _shared/                  ← CROSS-CUT (universal procedure)
+│   └── voice_pass.md         ← two-pass rule + banned-vocab register + hallway test
+├── modules/                  ← MECHANICS AXIS (per-channel, account-agnostic)
+│   ├── twitter/   ✅ active  drafting_partner + Thread_Template
 │   ├── linkedin/  ✅ active  strategy + Post_Template + anchor_workflow
 │   ├── tiktok/    ✅ active  strategy + Script_Template + build artifacts
 │   ├── landing/   ⏸ inactive strategy + Landing_Template
+│   ├── video/     ⏸ inactive strategy stub
 │   └── article/   ⏸ inactive stub
-└── personalization/
-    ├── voice_evgeny.md        ← person-layer voice (always loaded)
-    └── voice_pass_protocol.md ← two-pass application procedure
+└── personalization/          ← DEPRECATED for voice (folder retained for future audience/brand_assets)
 ```
 
-### Voice — two layers
+### Voice — three axes
 
 ```
-┌─────────────────────────────────────┐
-│  Person layer (voice_evgeny.md)     │  ← who is speaking
-│  identity · rhythm · ESL texture   │     cross-project · never overridden
-└──────────────┬──────────────────────┘
-               │ loaded on top
-┌──────────────▼──────────────────────┐
-│  Project layer (VOICE.md)           │  ← who they're speaking TO
-│  audience segments · tone per seg  │     per-project · optional
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Account layer (accounts/<account>/voice.md)│  ← who is speaking
+│  identity · rhythm · ESL texture · register │     per-account · single source
+└──────────────┬──────────────────────────────┘
+               │ applied with universal procedure
+┌──────────────▼──────────────────────────────┐
+│  Cross-cut layer (_shared/voice_pass.md)    │  ← how to apply voice during drafting
+│  two-pass rule · banned vocab · checklist   │     universal · channel-agnostic
+└──────────────┬──────────────────────────────┘
+               │ project-level audience refinement (optional)
+┌──────────────▼──────────────────────────────┐
+│  Project layer (01_Projects/<P>/VOICE.md)   │  ← who they're speaking TO
+│  audience segments · tone per segment       │     per-project · optional
+└─────────────────────────────────────────────┘
 ```
 
 ### Draft frontmatter schema

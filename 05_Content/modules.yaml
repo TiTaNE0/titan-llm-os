@@ -1,9 +1,12 @@
 # 05_Content/modules.yaml — Content Pipeline Registry
 #
 # Canonical source of truth for which content channels (modules) are active
-# and which personalization (voice) is loaded.
+# and which account is the default for drafting macros.
 #
-# Edited directly OR via /enable_module, /disable_module, /set_voice macros.
+# Voice is per account, single-source. It lives at `accounts/<account>/voice.md`
+# and is not tracked here — selecting voice == selecting account.
+#
+# Edited directly OR via /enable_module, /disable_module macros.
 
 default_module: twitter
 
@@ -17,6 +20,8 @@ inactive_modules:
   - article
   - landing   # stub registered 2026-05-17; activate via /enable_module landing
 
-voice:
-  active: voice_evgeny
-  path: personalization/voice_evgeny.md   # relative to 05_Content/
+accounts:
+  default: ogrizkov
+  # All accounts live under 05_Content/accounts/<handle>/.
+  # `default` is used by drafting macros when no `for [[Account]]` override is supplied.
+  # To add an account: copy `accounts/_account_template/` to `accounts/<new_handle>/`.

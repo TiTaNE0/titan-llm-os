@@ -43,10 +43,14 @@ for f in "$TASKS_DIR"/*.md; do
   if [[ "$basename" == "$CURRENT_TASK" ]]; then
     continue   # exclude self (allow resume of own in-progress task)
   fi
-  # awk: extract lines inside YAML frontmatter (between first two `---`)
-  # grep: look for the exact in_progress status line
-  if awk '/^---$/{c++; if(c==2) exit} c==1' "$f" \
-       | grep -qE '^status:[[:space:]]*in_progress[[:space:]]*$'; then
+  # Inspect YAML frontmatter only (between the first two `---`).
+  fm="$(awk '/^---$/{c++; if(c==2) exit} c==1' "$f")"
+  if printf '%s\n' "$fm" | grep -qE '^status:[[:space:]]*in_progress[[:space:]]*$'; then
+    # Epics are exempt: an umbrella epic legitimately stays in_progress across
+    # many child tasks, so it must not trip the per-project lock.
+    if printf '%s\n' "$fm" | grep -qE '^type:[[:space:]]*epic[[:space:]]*$'; then
+      continue
+    fi
     echo "$basename"
     exit 3
   fi

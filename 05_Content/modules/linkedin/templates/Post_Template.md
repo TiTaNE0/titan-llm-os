@@ -29,7 +29,7 @@ published_at:                # bot fills on success
     [ ] Length 1200–1800 chars (sweet spot)
     [ ] No raw URLs in body (put links in first comment after publish, manually)
     [ ] 3–5 hashtags at end
-    [ ] Voice matches voice_evgeny.md
+    [ ] Voice matches `accounts/<account>/voice.md` (default account: `ogrizkov`)
 
   Body goes below this comment block. Plain text or light Markdown (LinkedIn
   strips most Markdown but accepts line breaks and emoji).

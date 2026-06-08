@@ -8,6 +8,7 @@
 - **Allowed note work:** Read, search, create, and edit Markdown notes in this vault.
 - **Safety rule:** Never delete or mass-edit vault files without explicit confirmation.
 - **Cross-linking:** When project work under `/Users/titane0/Programming` is relevant, connect it back to the vault notes instead of keeping it isolated.
+- **Skills:** Available skills live at `.agent/skills/<skill-name>/SKILL.md`. Each has YAML frontmatter (`name`, `description`, `scope`, `read_paths`, `write_paths`, `forbidden_writes`) — read on relevant requests. Current catalog: [[.agent/skills/twitter-drafting/SKILL|twitter-drafting]].
 
 ## 1. PROJECT PASSPORT: TiTan_LLM_OS
 - **Identity:** This project is `[[TiTan_LLM_OS]]`.
@@ -17,3 +18,5 @@
 ## 2. LOCAL CONSTRAINTS
 - **Dogfooding:** All upgrades to the OS must be tracked as tasks on the OS board.
 - **Single Source of Truth:** Do not create duplicate rule files. All global rules go to `03_Brain/System_Agents.md`.
+
+**Identity:** This project is `[[TiTan_LLM_OS]]`

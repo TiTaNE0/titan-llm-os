@@ -78,7 +78,8 @@ Each module ships its own template under `05_Content/modules/<channel>/templates
 
 ## See also
 
-- `05_Content/personalization/voice_evgeny.md` + `voice_pass_protocol.md` — voice contract every draft inherits (per `personalization/README.md` ⚠ Voice Application Contract)
-- `05_Content/modules/<channel>/strategy.md` — channel-specific tactics (length, cadence, format)
+- `05_Content/accounts/<account>/voice.md` + `05_Content/_shared/voice_pass.md` — voice contract every draft inherits (see [[00_AGENT_GUIDE]] § 6 Voice Application Contract)
+- `05_Content/accounts/<account>/channels/<channel>/strategy.md` — account-channel tactics (cadence, posture, posting windows)
+- `05_Content/modules/<channel>/drafting_partner.md` — account-agnostic drafting playbook for the channel
 - `05_Content/modules/<channel>/failure_log.md` — drift incidents per channel
-- `05_Content/modules.yaml` — registry: which modules are active, which voice is loaded
+- `05_Content/modules.yaml` — registry: which modules are active, which account is the default

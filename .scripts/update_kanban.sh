@@ -105,40 +105,57 @@ fi
 
 # ============================================================================
 
-# Pass 1: locate the task-line in the FROM section. Capture it for re-insertion.
-TASK_LINE_CONTENT="$(awk -v from="$FROM" -v link="$TASK_LINK" '
-  BEGIN { in_from = 0 }
-  /^## / {
-    in_from = ($0 == "## " from)
-    next
-  }
-  in_from && index($0, link) > 0 {
-    print $0
-    exit
-  }
-' "$BOARD")"
-
-if [[ -z "$TASK_LINE_CONTENT" ]]; then
-  # Idempotency check: is the task already in TO? If yes, no-op success.
-  TO_LINE_CONTENT="$(awk -v to="$TO" -v link="$TASK_LINK" '
+# --from none = new-task insertion mode: the task has no source section yet
+# (e.g. /new_task). Synthesize the checkbox line and insert at the top of TO;
+# remove nothing. Idempotent: no-op if the task is already in TO.
+if [[ "$FROM" == "none" ]]; then
+  TO_HIT="$(awk -v to="$TO" -v link="$TASK_LINK" '
     BEGIN { in_to = 0 }
-    /^## / {
-      in_to = ($0 == "## " to)
-      next
-    }
-    in_to && index($0, link) > 0 {
-      print $0
-      exit
-    }
+    /^## / { in_to = ($0 == "## " to); next }
+    in_to && index($0, link) > 0 { print $0; exit }
   ' "$BOARD")"
-  if [[ -n "$TO_LINE_CONTENT" ]]; then
+  if [[ -n "$TO_HIT" ]]; then
     END_TS_MS=$(($(date +%s) * 1000))
     "$SCRIPT_DIR/emit_telemetry.sh" update_kanban success $((END_TS_MS - START_TS_MS)) null "$SOURCE_PERSONA" 2>/dev/null || true
     exit 0
   fi
-  echo "E3: task '$TASK_LINK' not found in section '$FROM' on board $BOARD" >&2
-  emit_err E3
-  exit 3
+  TASK_LINE_CONTENT="- [ ] $TASK_LINK"
+else
+  # Pass 1: locate the task-line in the FROM section. Capture it for re-insertion.
+  TASK_LINE_CONTENT="$(awk -v from="$FROM" -v link="$TASK_LINK" '
+    BEGIN { in_from = 0 }
+    /^## / {
+      in_from = ($0 == "## " from)
+      next
+    }
+    in_from && index($0, link) > 0 {
+      print $0
+      exit
+    }
+  ' "$BOARD")"
+
+  if [[ -z "$TASK_LINE_CONTENT" ]]; then
+    # Idempotency check: is the task already in TO? If yes, no-op success.
+    TO_LINE_CONTENT="$(awk -v to="$TO" -v link="$TASK_LINK" '
+      BEGIN { in_to = 0 }
+      /^## / {
+        in_to = ($0 == "## " to)
+        next
+      }
+      in_to && index($0, link) > 0 {
+        print $0
+        exit
+      }
+    ' "$BOARD")"
+    if [[ -n "$TO_LINE_CONTENT" ]]; then
+      END_TS_MS=$(($(date +%s) * 1000))
+      "$SCRIPT_DIR/emit_telemetry.sh" update_kanban success $((END_TS_MS - START_TS_MS)) null "$SOURCE_PERSONA" 2>/dev/null || true
+      exit 0
+    fi
+    echo "E3: task '$TASK_LINK' not found in section '$FROM' on board $BOARD" >&2
+    emit_err E3
+    exit 3
+  fi
 fi
 
 # Pass 2: write new board with line removed from FROM, inserted at top of TO.

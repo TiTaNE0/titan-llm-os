@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE_PLAIN}} — Aurora Frost</title>
+<meta name="description" content="{{QUOTE_LEAD}} {{QUOTE_ACCENT}}{{QUOTE_TAIL}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aurora-frost.css">
+</head>
+<body>
+
+<!--
+  AURORA FROST · INSIGHT variant
+  ----------------------------------------------------------------
+  For sharing ONE distilled idea from a session.
+  The quote is the hero — keep it under 25 words, wrap the punchy
+  part in <em> so it gets the gradient italic treatment.
+-->
+
+<article class="card">
+  <div class="panel insight">
+
+    <header class="brand-row">
+      <div class="mark">
+        <span class="avatar"><img src="avatar.png" alt="@{{HANDLE}}" onerror="this.parentElement.outerHTML='&lt;span class=&quot;glyph&quot;&gt;&lt;/span&gt;'"></span>
+        <span>{{HANDLE}}</span>
+      </div>
+      <div class="meta">INSIGHT · {{SESSION_NUM}}</div>
+    </header>
+
+    <h1>{{LEAD_LINE}}</h1>
+
+    <figure class="quote">
+      <div class="qmark" aria-hidden="true">"</div>
+      <blockquote>{{QUOTE_LEAD}} <em>{{QUOTE_ACCENT}}</em>{{QUOTE_TAIL}}</blockquote>
+    </figure>
+
+    <p class="context">{{CONTEXT_PARAGRAPH}}</p>
+
+    <div class="source-row">
+      <div class="source-chip">{{CHIP_1}}</div>
+      <div class="source-chip">{{CHIP_2}}</div>
+      <div class="source-chip">{{CHIP_3}}</div>
+    </div>
+
+    <footer class="foot-row">
+      <span class="handle">@<span>{{HANDLE}}</span></span>
+      <span class="built">Built with Claude</span>
+    </footer>
+
+  </div>
+</article>
+
+</body>
+</html>

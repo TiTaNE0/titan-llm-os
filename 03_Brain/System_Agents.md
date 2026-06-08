@@ -75,12 +75,13 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 1. **Identify:** Read the task's `project:` YAML field to resolve `<Project>`. If ambiguous, `Invoke: scan_inbox()` is not applicable — use `find ./.vault_link/02_Tasks -name '[Task_Name].md'` as a one-time lookup only.
 2. **Extract:** Pull technical facts from current session context (code changes, decisions, blockers resolved).
 3. **Populate:** `Invoke: populate_summary(task_path, {technical_meat, deviations, debt, proof})`
-4. **Archive:** `Invoke: archive_file(source=02_Tasks/<Project>/[Task_Name].md, dest=99_Archive/Tasks/2026/<Project>/[Task_Name].md)`
-5. **Kanban:** `Invoke: update_kanban(board_path=<Project>_Board.md, task_link=[[Task_Name]], from_column=current, to_column=Done)`
-6. **Log:** `Invoke: append_log(date=today, entry="✅ [[Task_Name]] completed: <1-line summary>.")`
-7. **Telemetry:** `Invoke: emit_telemetry(macro=close_task, status=success|error, duration_ms, error_class, persona)`
+4. **Status flip:** `Invoke: set_task_status(task_path=02_Tasks/<Project>/[Task_Name].md, from_status=in_progress, to_status=done)`. MUST run BEFORE Archive so it targets the live `02_Tasks/` path (the same `task_path` used by Populate) and the file is already `status: done` when it is moved — keeping YAML and Kanban column consistent per § 4.
+5. **Archive:** `Invoke: archive_file(source=02_Tasks/<Project>/[Task_Name].md, dest=99_Archive/Tasks/2026/<Project>/[Task_Name].md)`
+6. **Kanban:** `Invoke: update_kanban(board_path=<Project>_Board.md, task_link=[[Task_Name]], from_column=current, to_column=Done)`
+7. **Log:** `Invoke: append_log(date=today, entry="✅ [[Task_Name]] completed: <1-line summary>.")`
+8. **Telemetry:** `Invoke: emit_telemetry(macro=close_task, status=success|error, duration_ms, error_class, persona)`
 
-**On error:** E1 if task file or archive parent directory missing (do NOT auto-create); E2 if file move fails (retry once, then halt with exact error); E3 if task YAML status contradicts Kanban column position (halt, surface 3-option reconciliation menu).
+**On error:** E1 if task file or archive parent directory missing (do NOT auto-create); E2 if file move fails (retry once, then halt with exact error); E3 if the Status-flip step finds YAML status != `in_progress` (task was never started or is in an unexpected state — halt, do not force the flip), OR if task YAML status contradicts Kanban column position (halt, surface 3-option reconciliation menu).
 
 ### `/graduate`
 1. **Outcome**: A proposal for a new "Core Principle" or "Architecture Rule" is generated based on successful patterns from the last 7 days.
@@ -104,7 +105,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 3. **Source Template:** Read `00_Templates/Task_Template.md`.
 4a. **Uniqueness Guard:** Run `find ./.vault_link/02_Tasks ./.vault_link/99_Archive/Tasks -name '[Title].md' 2>/dev/null`. If any match → refuse with E3 (basename collision; wiki-links require uniqueness).
 4b. **Create:** `Invoke: create_task(title=[Title], project={{PROJECT}}, priority=medium)`
-5. **Kanban:** `Invoke: update_kanban(board_path={{PROJECT}}_Board.md, task_link=[[Title]], from_column=none, to_column=Todo)`
+5. **Kanban:** `Invoke: update_kanban(board_path={{PROJECT}}_Board.md, task_link=[[Title]], from_column=none, to_column=Todo)` — `from_column=none` is the insertion mode implemented in `update_kanban.sh` (synthesizes `- [ ] [[Title]]` at the top of Todo; no manual board edit). *(graduated 2026-06-07)*
 6. **Confirm:** Output `"Task [Title] created and added to [[{{PROJECT}}_Board]]."`
 7. **HALT:** You MUST stop here. Do NOT proceed to implementation. Wait for the user to provide "Execution Approval".
 8. **Gate:** Attempting to solve the problem instead of documenting it is a kernel violation (§ 1.3). Stay in the vault.
@@ -117,7 +118,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 2. **Vault-mode guard:** Verify project root has `.vault_link/`. If not, refuse with E1: *"`/execute_task` requires a vault-aware project. Use `/feature`, `/bugfix`, or `/quick` from the kit instead."*
 3. **Identify:** Resolve `[[Task_Name]]` → `./.vault_link/02_Tasks/<Project>/[Task_Name].md`. On miss → E1.
 4. **Status guard:** Task YAML `status:` must be `todo` or `in_progress` (resuming). Any other value → E3.
-5. **In-Progress lock:** Scan `./.vault_link/02_Tasks/<Project>/*.md` YAML `status:` fields. If any OTHER task in the project has `status: in_progress` → E3: *"Project <Project> already has [[OtherTask]] In Progress. Complete or pause it before starting [[Task_Name]]."* Lock is per-project, enforced cooperatively via YAML.
+5. **In-Progress lock:** Scan `./.vault_link/02_Tasks/<Project>/*.md` YAML `status:` fields. If any OTHER **non-epic** task in the project has `status: in_progress` → E3: *"Project <Project> already has [[OtherTask]] In Progress. Complete or pause it before starting [[Task_Name]]."* Lock is per-project, enforced cooperatively via YAML. **Epics (`type: epic`) are exempt** — an umbrella epic legitimately stays `in_progress` across many child tasks, so it neither counts toward nor trips the single-in-progress limit. Two concurrent *non-epic* `in_progress` tasks still trip the lock.
 6. **Research phase:** Read task .md. If `## Research Notes` is empty OR `--refresh` was passed:
    - `Invoke: invoke_researcher(task_path, refresh=<flag>)`
    - `Invoke: write_task_section(task_path, section=research_notes, content=<report>, source_persona=Executioner, overwrite=<flag>)`

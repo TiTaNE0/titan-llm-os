@@ -13,4 +13,4 @@ When activated, expected files:
 - `templates/` (script templates per format)
 - `failure_log.md`
 
-Voice file at `05_Content/personalization/voice_evgeny.md` will apply equally to video scripts.
+Voice file at `accounts/<account>/voice.md` (default account: `ogrizkov`) will apply equally to video scripts, with `_shared/voice_pass.md` as the application procedure.

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE_PLAIN}} — Aurora Frost</title>
+<meta name="description" content="{{TITLE_PLAIN}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aurora-frost.css">
+</head>
+<body>
+
+<!--
+  AURORA FROST · SHIPPED variant
+  ----------------------------------------------------------------
+  Replace placeholders in {{DOUBLE_CURLY}} with your session data.
+  For brand mark: keep <span class="glyph"></span> OR replace with
+    <span class="avatar"><img src="https://..." alt="@handle"></span>
+-->
+
+<article class="card">
+  <div class="panel ship">
+
+    <header class="brand-row">
+      <div class="mark">
+        <span class="avatar"><img src="avatar.png" alt="@{{HANDLE}}" onerror="this.parentElement.outerHTML='&lt;span class=&quot;glyph&quot;&gt;&lt;/span&gt;'"></span>
+        <span>{{HANDLE}}</span>
+      </div>
+      <div class="meta">SESSION · {{SESSION_NUM}}</div>
+    </header>
+
+    <div class="pill">SHIPPED · {{DURATION}}</div>
+
+    <h1>{{TITLE_LEAD}} <em class="serif-accent">{{TITLE_ACCENT}}</em>{{TITLE_TAIL}}</h1>
+
+    <p class="sub">{{DATE}} · {{TIME_UTC}}</p>
+
+    <ol class="items">
+
+      <li class="item">
+        <div class="badge">01</div>
+        <div class="body">
+          <h3>{{ITEM_1_TITLE}}</h3>
+          <p>{{ITEM_1_DETAIL}}</p>
+        </div>
+      </li>
+
+      <li class="item">
+        <div class="badge">02</div>
+        <div class="body">
+          <h3>{{ITEM_2_TITLE}}</h3>
+          <p>{{ITEM_2_DETAIL}}</p>
+        </div>
+      </li>
+
+      <li class="item">
+        <div class="badge">03</div>
+        <div class="body">
+          <h3>{{ITEM_3_TITLE}}</h3>
+          <p>{{ITEM_3_DETAIL}}</p>
+        </div>
+      </li>
+
+      <li class="item">
+        <div class="badge">04</div>
+        <div class="body">
+          <h3>{{ITEM_4_TITLE}}</h3>
+          <p>{{ITEM_4_DETAIL}}</p>
+        </div>
+      </li>
+
+    </ol>
+
+    <footer class="foot-row">
+      <span class="handle">@<span>{{HANDLE}}</span></span>
+      <span class="built">Built with Claude</span>
+    </footer>
+
+  </div>
+</article>
+
+</body>
+</html>

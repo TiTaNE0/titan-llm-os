@@ -2,7 +2,7 @@
 # emit_telemetry.sh — append a telemetry record to the current month's JSONL file.
 #
 # Usage:
-#   emit_telemetry.sh <macro> <status> [duration_ms] [error_class] [persona]
+#   emit_telemetry.sh <macro> <status> [duration_ms] [error_class] [persona] [task]
 #
 # Args:
 #   macro         Required. e.g. "metrics", "close_task"
@@ -10,9 +10,12 @@
 #   duration_ms   Optional. Integer milliseconds. Default: 0
 #   error_class   Optional. "E1".."E5" or "null". Default: null
 #   persona       Optional. "Executioner" | "Architect" | etc. Default: unknown
+#   task          Optional. Task identity for per-task attestation. Default: null
 #
 # Output: appends one JSONL line to 04_Logs/Telemetry/<YYYY-MM>.jsonl
-# Exit: always 0 (telemetry is best-effort, must never block a macro).
+# Write failures: recorded to 04_Logs/Telemetry/.write_failures.log (best-effort
+#   sentinel) so a dropped record is observable. Exit stays 0 — telemetry must
+#   never block a macro (some callers, e.g. metrics_aggregate.sh, invoke bare).
 
 set -uo pipefail
 
@@ -21,6 +24,7 @@ STATUS="${2:-unknown}"
 DURATION_MS="${3:-0}"
 ERROR_CLASS="${4:-null}"
 PERSONA="${5:-unknown}"
+TASK="${6:-null}"
 
 # Resolve vault root (script lives in <vault>/.scripts/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,8 +44,20 @@ else
   ERR_FIELD="\"$ERROR_CLASS\""
 fi
 
-printf '{"ts":"%s","macro":"%s","status":"%s","duration_ms":%s,"error_class":%s,"persona":"%s"}\n' \
-  "$TS" "$MACRO" "$STATUS" "$DURATION_MS" "$ERR_FIELD" "$PERSONA" \
-  >> "$TELEMETRY_FILE" 2>/dev/null || true
+# JSON-encode task (string or null)
+if [ "$TASK" = "null" ] || [ -z "$TASK" ]; then
+  TASK_FIELD="null"
+else
+  TASK_FIELD="\"$TASK\""
+fi
 
+if printf '{"ts":"%s","macro":"%s","status":"%s","duration_ms":%s,"error_class":%s,"persona":"%s","task":%s}\n' \
+  "$TS" "$MACRO" "$STATUS" "$DURATION_MS" "$ERR_FIELD" "$PERSONA" "$TASK_FIELD" \
+  >> "$TELEMETRY_FILE" 2>/dev/null; then
+  exit 0
+fi
+
+# Write failed — record a best-effort sentinel so the drop is observable, exit 0.
+printf '%s\t%s\t%s\twrite_fail\n' "$TS" "$MACRO" "$PERSONA" \
+  >> "$TELEMETRY_DIR/.write_failures.log" 2>/dev/null || true
 exit 0

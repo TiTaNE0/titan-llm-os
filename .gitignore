@@ -107,3 +107,25 @@ Internal_Index.md
 # 00_Templates/), note CONTENTS are personal and stay local-only.
 07_Notes/*
 !07_Notes/.gitkeep
+
+# Per-machine agent config: abs-path command symlinks + local settings/state.
+# .agent/ also embeds a personal account skill with private day-job texture.
+.claude/
+.agent/
+
+# Personal recap-card outputs (session shareables)
+recaps/
+
+# Marketing campaign operational data (runs, drafts, traces) — framework is 05_Marketing_System/
+05_Content/Campaigns/
+
+# Log JSON variants (md/jsonl already covered above)
+04_Logs/*.json
+
+# Self-referential vault symlink + Obsidian scratch + personal briefings/notes
+/Mission_Control
+/Untitled.base
+/Untitled.canvas
+/Untitled Kanban.md
+/PM_Briefing_Pedagogy_Localization_May2026.md
+/\[NotebookLM_Installation.md

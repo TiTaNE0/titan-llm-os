@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE_PLAIN}} — Aurora Frost</title>
+<meta name="description" content="{{TITLE_PLAIN}} — {{HERO_VALUE}} {{HERO_LABEL}}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="aurora-frost.css">
+</head>
+<body>
+
+<!--
+  AURORA FROST · STATS variant
+  ----------------------------------------------------------------
+  For milestone / metrics posts. One BIG hero number + 4 supporting cells.
+  Hero number gets the gradient treatment automatically.
+-->
+
+<article class="card">
+  <div class="panel stats">
+
+    <header class="brand-row">
+      <div class="mark">
+        <span class="avatar"><img src="avatar.png" alt="@{{HANDLE}}" onerror="this.parentElement.outerHTML='&lt;span class=&quot;glyph&quot;&gt;&lt;/span&gt;'"></span>
+        <span>{{HANDLE}}</span>
+      </div>
+      <div class="meta">MILESTONE · {{SESSION_NUM}}</div>
+    </header>
+
+    <h1>{{TITLE_LEAD}} <em class="serif-accent">{{TITLE_ACCENT}}</em>{{TITLE_TAIL}}</h1>
+    <p class="sub">{{PERIOD}} · {{PERIOD_NOTE}}</p>
+
+    <div class="hero-stat">
+      <div class="n">{{HERO_VALUE}}</div>
+      <div class="l">{{HERO_LABEL}}</div>
+    </div>
+
+    <div class="grid">
+
+      <div class="cell">
+        <div class="n">{{STAT_1_VALUE}}<em>{{STAT_1_SUFFIX}}</em></div>
+        <div class="l">{{STAT_1_LABEL}}</div>
+        <div class="delta">{{STAT_1_DELTA}}</div>
+      </div>
+
+      <div class="cell">
+        <div class="n">{{STAT_2_VALUE}}<em>{{STAT_2_SUFFIX}}</em></div>
+        <div class="l">{{STAT_2_LABEL}}</div>
+        <div class="delta">{{STAT_2_DELTA}}</div>
+      </div>
+
+      <div class="cell">
+        <div class="n">{{STAT_3_VALUE}}<em>{{STAT_3_SUFFIX}}</em></div>
+        <div class="l">{{STAT_3_LABEL}}</div>
+        <div class="delta">{{STAT_3_DELTA}}</div>
+      </div>
+
+      <div class="cell">
+        <div class="n">{{STAT_4_VALUE}}<em>{{STAT_4_SUFFIX}}</em></div>
+        <div class="l">{{STAT_4_LABEL}}</div>
+        <div class="delta">{{STAT_4_DELTA}}</div>
+      </div>
+
+    </div>
+
+    <footer class="foot-row">
+      <span class="handle">@<span>{{HANDLE}}</span></span>
+      <span class="built">Built with Claude</span>
+    </footer>
+
+  </div>
+</article>
+
+</body>
+</html>

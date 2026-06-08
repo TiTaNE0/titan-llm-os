@@ -13,4 +13,4 @@ When activated, expected files:
 - `templates/` (essay outline, hands-on review, post-mortem, etc.)
 - `failure_log.md`
 
-Voice file at `05_Content/personalization/voice_evgeny.md` will apply — but expect the **Evgeny A register** (long-form polished) to be the default for this channel, per the voice file's `<voice_fingerprint>` section.
+Voice file at `accounts/<account>/voice.md` will apply (default account: `ogrizkov`). For ogrizkov, expect the **Evgeny A register** (long-form polished) to be the default for this channel, per the voice file's `<voice_fingerprint>` section.

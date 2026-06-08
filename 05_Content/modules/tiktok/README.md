@@ -7,7 +7,7 @@
 
 ## Scope
 
-Short-form vertical video scripts (30–90s). Hook-first format — single idea per clip. Voice comes from `personalization/voice_evgeny.md`; this module adds channel-specific scene structure only.
+Short-form vertical video scripts (30–90s). Hook-first format — single idea per clip. Voice comes from `accounts/<account>/voice.md` (default account: `ogrizkov`); this module adds channel-specific scene structure only.
 
 ## Files
 
@@ -23,7 +23,7 @@ Short-form vertical video scripts (30–90s). Hook-first format — single idea 
 When activated, macros will:
 1. Read `templates/Script_Template.md` for structure
 2. Read `strategy.md` for format and pacing rules
-3. Read active voice file from `05_Content/personalization/` for tone
+3. Read `accounts/<account>/voice.md` for tone + `_shared/voice_pass.md` for application procedure
 4. Generate a script draft and HALT for user review
 
 ## Build Artifacts

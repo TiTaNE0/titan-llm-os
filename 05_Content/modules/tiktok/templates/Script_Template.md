@@ -9,9 +9,10 @@ created: YYYY-MM-DD
 target_length_sec: 45
 ---
 
-<!-- AGENT: Apply voice_evgeny.md + voice_pass_protocol.md before writing any line.
+<!-- AGENT: Apply `accounts/{{account}}/voice.md` + `_shared/voice_pass.md` before writing any line.
      Two-pass required: internal scratch → rewrite → emit only the final pass.
-     strategy.md: hook must land in first 2 seconds. One idea per clip. -->
+     strategy.md: hook must land in first 2 seconds. One idea per clip.
+     {{account}} is substituted by the drafting macro (default: `ogrizkov`). -->
 
 # Script: [Topic]
 

@@ -1,30 +1,38 @@
-# Twitter Module
+---
+module: twitter
+created: 2026-05-18
+---
 
-**Status:** active (default)
-**Channel:** X / Twitter (@ogrizkov)
-**Owner:** Evgeny Ogryzkov
+# Twitter / X Module
 
-## Scope
+## Purpose
+Lightweight, high-signal tweet & thread drafting pipeline using the `05_Content` vault system.
 
-Single-tweet replies, threads (5–25 tweets), and X Articles. This module is the channel layer; voice/tone comes from the personalization add-on (currently `voice_evgeny.md`).
+## Voice Guidelines
+- Short, clear, slightly technical
+- Build-in-public + show real gaps/failures
+- Prefer concrete examples over hype
+- Use natural phrasing (avoid AI smoothing)
 
-## Files
+## Posting Cadence
+- 3–5 tweets per week
+- 1 thread every 10–14 days
+- Best times: 9:00–11:00 and 16:00–18:00 (UTC+3)
 
-| File | Purpose |
-|------|---------|
-| `README.md` | This file — module manifest |
-| `strategy.md` | Tactical playbook: cadence, audience, time slots, format rules |
-| `failure_log.md` | Append-only record of AI-drift incidents (user-maintained) |
-| `templates/Thread_Template.md` | Default thread draft skeleton |
+## Frontmatter Rules
+- `status`: `draft` → `ready` → `scheduled` → `published`
+- `thread`: `true` / `false`
+- `scheduled_for`: ISO datetime when known
 
-## How it's loaded
+## Workflow
+1. Idea → `01_Content_Ideas.md`
+2. Draft → copy template into `03_Drafts/`
+3. Refine in Obsidian
+4. Set `status: ready`
+5. Agent/cron picks it up and posts
+6. Move to `04_Published/` with link + metrics
 
-Macros (`/new_thread`, `/refactor_thread`, etc.) check `05_Content/modules.yaml` for the active module. When `twitter` is active, they:
-1. Read `templates/Thread_Template.md` for structure
-2. Read `strategy.md` for tactical context
-3. Read the active voice file from `05_Content/personalization/` for tone
-4. Compose a draft and HALT for user review
-
-## Switching off
-
-`/disable_module twitter` removes it from `active_modules` in `modules.yaml`. Drafting macros that target this module will then refuse to run until re-enabled.
+## Related
+- [[05_Content/01_Content_Ideas]]
+- [[05_Content/02_Content_Calendar]]
+- [[modules/twitter/templates/Tweet_Template]]

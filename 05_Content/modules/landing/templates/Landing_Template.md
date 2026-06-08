@@ -9,10 +9,11 @@ created: YYYY-MM-DD
 url_target: "[/path or full URL where this copy will live]"
 ---
 
-<!-- AGENT: Apply voice_evgeny.md + voice_pass_protocol.md before writing any line.
+<!-- AGENT: Apply `accounts/{{account}}/voice.md` + `_shared/voice_pass.md` before writing any line.
      Two-pass required: internal scratch → rewrite → emit only the final pass.
      strategy.md: hero block must work standalone. One CTA. No exclamation marks.
-     Sentence case headlines. Technical specificity beats broad claims. -->
+     Sentence case headlines. Technical specificity beats broad claims.
+     {{account}} is substituted by the drafting macro (default: `ogrizkov`). -->
 
 # Landing Copy: [Page Name]
 

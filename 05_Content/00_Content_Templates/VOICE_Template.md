@@ -1,7 +1,7 @@
 ---
 project: "[Project Name]"
 type: "voice"
-inherits: "05_Content/personalization/voice_evgeny.md"
+inherits: "05_Content/accounts/<account>/voice.md"
 created: YYYY-MM-DD
 ---
 
@@ -9,12 +9,12 @@ created: YYYY-MM-DD
 
 > Copy this file to `01_Projects/[ProjectName]/VOICE.md` and fill in all fields.
 > This is the PROJECT LAYER of the voice system — it defines who you're speaking TO.
-> The PERSON LAYER (`voice_evgeny.md`) defines how you speak. Both are always loaded together.
+> The ACCOUNT LAYER (`05_Content/accounts/<account>/voice.md`) defines how you speak. Both are always loaded together.
 >
-> Resolution rule: person layer wins on identity conflicts (rhythm, ESL texture, banned assistant vocab).
+> Resolution rule: account layer wins on identity conflicts (rhythm, ESL texture, banned assistant vocab).
 > Project layer wins on audience/tone guidance (register per segment, project-specific vocabulary).
 >
-> If this file is absent, the macro warns once and continues with person layer only.
+> If this file is absent, the macro warns once and continues with account layer only.
 
 ---
 
@@ -30,7 +30,7 @@ Define who reads or watches this project's content. Each segment gets its own to
 
 **What they distrust:** [What makes them scroll past. Buzzwords, hype, generic claims.]
 
-**Register for this segment:** [How Evgeny's voice shifts when addressing them. e.g. "more technical, assume they know what a symlink is" / "less jargon, more outcome-focused"]
+**Register for this segment:** [How the account's voice shifts when addressing them. e.g. "more technical, assume they know what a symlink is" / "less jargon, more outcome-focused"]
 
 ---
 
@@ -59,7 +59,7 @@ Define who reads or watches this project's content. Each segment gets its own to
 - [e.g. "kernel" not "config" or "settings"]
 
 ### Banned terms (project-specific)
-<!-- In addition to the global banned list in voice_evgeny.md -->
+<!-- In addition to the banned list in `accounts/<account>/voice.md` -->
 - [e.g. "automate your workflow" — too generic for this project]
 - [e.g. "AI-powered" — product name is specific enough]
 

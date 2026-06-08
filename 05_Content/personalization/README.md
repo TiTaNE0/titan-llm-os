@@ -1,35 +1,26 @@
-# 05_Content/personalization/
+# 05_Content/personalization/ — DEPRECATED FOR VOICE
 
-Add-on layer that injects user-specific tone, audience, and brand context into any drafting macro across any module.
+> Voice and voice-pass content moved out of this folder on 2026-05-18 as part of the account-segregation refactor. This folder is retained for the audience/brand-assets roadmap items described below; it no longer holds voice content.
 
-## ⚠ Voice Application Contract (HARD RULE)
+## Where things went
 
-Any drafting path — *any* module, *any* macro, present or future — that loads the active voice file from this folder MUST also load `voice_pass_protocol.md` and execute its two-pass procedure. The voice file alone is incomplete. They are an inseparable pair.
+| Was here | Now lives at |
+|---|---|
+| `voice_evgeny.md` | [[accounts/ogrizkov/voice]] (voice is per-account, single source) |
+| `voice_pass_protocol.md` | [[_shared/voice_pass]] (universal cross-channel procedure) |
+| Voice Application Contract (in this README) | [[00_AGENT_GUIDE]] § 6 |
 
-The voice file describes **what the voice is**. The protocol describes **how to apply it during drafting**. Loading one without the other produces voice-drift (see `05_Content/modules/<channel>/failure_log.md` for examples).
+## Why it moved
 
-This rule is enforced at the personalization layer so it inherits to every channel module without duplication. Twitter, linkedin (Phase E), video, article, and anything added later all consult the same protocol.
+The original personalization/ folder mixed two things: account identity (the voice file) and a universal application procedure (voice_pass_protocol.md). The account-segregation refactor split them:
 
-## Active Voice
+- **Identity is per account.** Each account has its own `voice.md` under `accounts/<account>/`. Selecting voice == selecting account.
+- **Application is universal.** The two-pass procedure, banned-vocab register, and hallway test are channel-agnostic and account-agnostic. They live at `_shared/voice_pass.md`, referenced by every module.
 
-Resolved from `05_Content/modules.yaml` → `voice.active`. Currently: `voice_evgeny`.
+See [[accounts/README]] for the full two-axis model.
 
-The active voice file is loaded silently by `/new_thread`, `/refactor_thread`, and any future drafting macros — together with `voice_pass_protocol.md` per the contract above. Agents apply the voice's `<voice_fingerprint>` and `<writing_laws>` per its `<final_instruction>` — never narrate the rules in output.
+## Future use of this folder
 
-## Files
+The original roadmap left room here for personalization assets that are *not* voice: target reader profiles, brand assets (logos, color codes, signature lines). When those land, they should be evaluated against the same two-axis question: is this **per account** (move to `accounts/<account>/`) or **universal** (move to `_shared/`)?
 
-| File | Purpose |
-|------|---------|
-| `voice_evgeny.md` | Voice spec for @ogrizkov (canonical). Edited separately; AI never modifies it. |
-| `voice_pass_protocol.md` | Cross-module application procedure. Two-pass rule, banned assistant-vocab register, final checklist. Inseparable from any voice file. |
-
-## Conventions
-
-- **Filename has no version number.** When the user has a new voice version, they overwrite the file in place. References elsewhere stay valid.
-- **Voice files are read-only for agents.** Modifications happen only via direct user edit.
-- **Switching voices:** edit `modules.yaml` directly, or run `/set_voice <voice_name>`.
-- **Disabling personalization entirely:** set `voice.active: none` in `modules.yaml`. Drafting macros then fall back to module-default tone (currently undefined; macros will refuse to draft until either voice is set or user supplies inline instructions).
-
-## Future Add-Ons
-
-This folder is also the home for future personalization assets that aren't voice files — e.g., `audience.md` (target reader profiles), `brand_assets.md` (logos, color codes, signature lines). Place them at this level, register in `modules.yaml` if macros need them.
+If neither fits — i.e., truly a *meta-personalization-config* that's not voice and not per-account — drop it here. Until then the folder is empty.
