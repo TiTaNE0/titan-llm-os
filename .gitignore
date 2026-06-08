@@ -102,3 +102,8 @@ Internal_Index.md
 05_Content/accounts/ogrizkov/channels/*/drafting_contract.md
 05_Content/accounts/ogrizkov/channels/*/analysis/*_account_review.md
 05_Content/accounts/ogrizkov/channels/*/runs/*_batch/
+
+# Idea layer (07_Notes). Blueprint tracked (folder structure + templates in
+# 00_Templates/), note CONTENTS are personal and stay local-only.
+07_Notes/*
+!07_Notes/.gitkeep

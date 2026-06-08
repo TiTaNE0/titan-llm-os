@@ -189,7 +189,7 @@ ln -sfn ~/Library/Mobile\ Documents/iCloud~md~obsidian/Documents/Mission_Control
 
 ## 🧭 Quick Navigation
 
-[[00_Inbox]] · [[01_Projects]] · [[02_Tasks]] · [[03_Brain]] · [[04_Logs]] · [[05_Content]] · [[06_Research]] · [[99_Archive]]
+[[00_Inbox]] · [[01_Projects]] · [[02_Tasks]] · [[03_Brain]] · [[04_Logs]] · [[05_Content]] · [[06_Research]] · [[07_Notes]] · [[99_Archive]]
 
 **Boards:** [[TiTan_LLM_OS_Board]] · [[Content_Board]] · [[nearest-address-codes_Board]] · [[Voice_Cloning_Bot_Board]] · [[titan-proxy-bot_Board]] · [[Intuiscale_Board]]
 
