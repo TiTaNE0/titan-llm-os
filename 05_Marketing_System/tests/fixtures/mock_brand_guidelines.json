@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "campaign": "MockCampaign",
+  "design_system_label": "MOCK DESIGN SYSTEM v0",
+  "design_system_summary": "mock palette + accent for fixture tests",
+  "palette": {
+    "bg": "#101010",
+    "surface": "#202020",
+    "text": "#FFFFFF",
+    "accent_hex": "#AB1234",
+    "accent": "#AB1234 (MockAccent) — fixture test accent"
+  },
+  "refs": {
+    "mock_ref_a": "a generic mock subject reference (fixture only)",
+    "mock_ref_b": "a generic mock environment reference (fixture only)"
+  }
+}

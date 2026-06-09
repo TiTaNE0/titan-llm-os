@@ -39,6 +39,9 @@ case "$APPROACH" in
 esac
 RUN="$(fm | grep -m1 '^run:' | sed 's/^run:[[:space:]]*//; s/[",'"'"' ]//g' || true)"
 PIECE="$(fm | grep -m1 '^piece_id:' | sed 's/^piece_id:[[:space:]]*//; s/[",'"'"' ]//g' || true)"
+# campaign: draft frontmatter wins, fall back to the campaign dir basename — never hardcoded
+CAMP_NAME="$(fm | grep -m1 '^campaign:' | sed 's/^campaign:[[:space:]]*//; s/[",'"'"' ]//g' || true)"
+[[ -n "$CAMP_NAME" ]] || CAMP_NAME="$(basename "$CAMPAIGN")"
 RUN_DIR="$CAMPAIGN/runs/$RUN"; [[ -d "$RUN_DIR" ]] || RUN_DIR="$CAMPAIGN"
 
 # ---- parse the `## Slide Brief` fenced-json block (anchor + clean per-slide scenes) ----
@@ -96,7 +99,7 @@ cap(){ awk -v n="$1" '
   echo "type: generation-brief"
   echo "path: Path B — full-slide, anchor-locked (ship-today; no compositor)"
   echo "draft: $SRC_REL"
-  echo "campaign: Intuiscale"
+  echo "campaign: $CAMP_NAME"
   echo "anchor_slide: $ANCHOR"
   echo "generated_by: slide_brief.sh"
   echo "generated_at: $DATE"

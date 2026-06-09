@@ -42,7 +42,7 @@ RUN_DIR="$CAMPAIGN/runs/$RUN"; [[ -d "$RUN_DIR" ]] || RUN_DIR="$CAMPAIGN"
 
 # ---- extract the Producer's ## Asset Inventory fenced-JSON block (the per-draft asset list) ----
 # The Producer emits the structured asset inventory as an additive section (producer_profiles.md);
-# this replaces the old hardcoded run04 detection. Parse the fence, validate, feed the proven merge.
+# parse the fence, validate shape, feed the merge below.
 asset_block(){ awk '
   /^## Asset Inventory/{s=1; next}
   s && /^```json/{f=1; next}
@@ -70,13 +70,23 @@ vp(){ [[ -f "$SCOUT" ]] || return 0; grep -m1 "^- $1:" "$SCOUT" 2>/dev/null | se
 SC_MODE="$(vp mode | sed 's/ —.*//')";               [[ -n "$SC_MODE" ]]  || SC_MODE='real-photo phone-shot candid grain'
 SC_COLOR="$(vp color_temperature | sed 's/ —.*//')"; [[ -n "$SC_COLOR" ]] || SC_COLOR='warm natural'
 SC_AESTH="$(vp aesthetic)";          [[ -n "$SC_AESTH" ]] || SC_AESTH='lived-in, filmed-on-a-phone, anti-polished'  # trace/comments only — NOT in prompt strings
-# project design accent (REAL — INTUISCALE DESIGN_SYSTEM V2.1 §0.5: AccentTerracotta = primary CTA / hero ring / branding mark).
-ACCENT_HEX='#C85A3C (terracotta, light)'
-ACCENT='#C85A3C (AccentTerracotta, light) / #D96E52 (dark warm) — primary CTA, hero ring, branding mark (DESIGN_SYSTEM V2.1 §0.5)'
+
+# ---- project design identity: read from the campaign's brand_guidelines.json (NEVER hardcoded) ----
+# Required: .palette (object with at least .bg, accent_hex|accent_full) and .refs (object). Optional: .campaign, .design_system_label, .design_system_summary.
+BRAND="$CAMPAIGN/brand_guidelines.json"
+[[ -f "$BRAND" ]] || { echo "E2: brand_guidelines.json not found at $BRAND — create one with .palette + .refs (+ optional .campaign, .design_system_label, .design_system_summary)" >&2; exit 2; }
+jq -e '.palette and .refs and ((.palette.accent_hex // .palette.accent // "") | type=="string" and length>0)' "$BRAND" >/dev/null 2>&1 \
+  || { echo "E2: brand_guidelines.json malformed (need .palette with .accent (or .accent_hex), and .refs object) at $BRAND" >&2; exit 2; }
+CAMP_NAME="$(jq -r '.campaign // empty' "$BRAND")"; [[ -n "$CAMP_NAME" ]] || CAMP_NAME="$(basename "$CAMPAIGN")"
+ACCENT_HEX="$(jq -r '.palette.accent_hex // .palette.accent' "$BRAND")"
+DS_LABEL="$(jq -r '.design_system_label // "project DESIGN_SYSTEM"' "$BRAND")"
+DS_SUMMARY="$(jq -r '.design_system_summary // "project palette + accent"' "$BRAND")"
+PROJECT_DESIGN_LINE="CANON + DESIGN_SYSTEM ($DS_SUMMARY)"
+
 # ---- RATIONALE (governs how prompts are authored; deliberately NOT emitted into the prompt strings) ----
 #  * Native LEADS: prompts borrow the scouted niche grammar (real-photo, candid, warm) so the asset reads native.
-#  * Brand SECOND / product-UI only: claymorphism/3D + the accent are reserved for product-UI moments (none in run04);
-#    a brand-polished promo asset reads as an ad and loses (the formula-card failure mode) — so no brand 3D on these.
+#  * Brand SECOND / product-UI only: the brand's 3D / illustrated language + accent are reserved for product-UI
+#    moments; a brand-polished promo asset reads as an ad and loses — so no brand 3D on non-product slides.
 #  * BAN (pattern-from-many): prompts describe GENERIC, pattern-derived subjects only — NEVER reproduce a single
 #    creator's actual image or framing. Enforced by authoring generic subjects here, not by any string in the prompt.
 # Prompt strings below carry ONLY renderable visual tokens. `ref` drives JSON conditioning (which locked atom), not prompt text.
@@ -91,30 +101,28 @@ COMPOSE_PROMPT='def compose_prompt($a):
   (if $a.bg_type=="full-bleed" then "full-bleed environment" else "flat pink #FF00FF background" end) as $tail |
   $a.subject + ", " + $a.composition + ", " + $a.lighting + ", " + $SC_MODE + ", " + $SC_COLOR + " color"
     + $d + ", 9:16 vertical, " + $tail + ". " + $NEG ;'
-# proposed locked atoms (refs) — seeded from project audience + the scouted lived-in look, FOR OPERATOR CONFIRMATION (never TBD)
-SEED_HANDS='warm medium-tone international-student hands, natural and unretouched (operator confirm)'
-SEED_APT='small lived-in first US apartment / dorm: off-white walls, warm window and lamp light, minimal, a moving box or two, campus-adjacent (operator confirm)'
-SEED_JACKET='a plain mid-weight casual jacket, muted earth tone (olive or tan), slightly worn, unbranded (operator confirm)'
 
-# ---- emit visual_identity.json (declarations only; refs SEEDED-proposed, not TBD) ----
+# ---- emit visual_identity.json (declarations only; palette + refs sourced from brand_guidelines.json) ----
 VID="$CAMPAIGN/visual_identity.json"
 DATE="$(date +%Y-%m-%d)"
 SRC_REL="drafts/$(basename "$DRAFT")"
 DK="$(basename "$DRAFT" .md)"   # draft key for the per-asset usage map
+BRAND_JSON="$(cat "$BRAND")"
 # build THIS run's contribution from the parsed Asset Inventory block (assets carry usage:{<draftkey>:[slides]}).
 # generate-method: compose the prompt from description + scout tokens. template-method: copy `template` verbatim.
 NEWJSON="$(printf '%s' "$ASSET_JSON" | jq \
   --arg date "$DATE" --arg src "$SRC_REL" --arg approach "$APPROACH" --arg dk "$DK" \
-  --arg accent "$ACCENT" --arg sh "$SEED_HANDS" --arg sa "$SEED_APT" --arg sj "$SEED_JACKET" \
+  --arg campaign "$CAMP_NAME" --arg project_design "$PROJECT_DESIGN_LINE" \
+  --argjson brand "$BRAND_JSON" \
   --arg SC_MODE "$SC_MODE" --arg SC_COLOR "$SC_COLOR" --arg NEG "$NEG" "
 $COMPOSE_PROMPT"'
 {
-  schema_version: 2, campaign: "Intuiscale", source_drafts: [$src], approach: $approach,
+  schema_version: 2, campaign: $campaign, source_drafts: [$src], approach: $approach,
   generated_at: $date, review_status: "proposed — operator confirm refs/accent before any generation",
   consistency: "SCAFFOLDED, NOT yet ACTIVE — all seeds null + no reference images locked. Cross-slide/cross-slideshow consistency activates only when the first generation locks each atom seed + reference image. This step = prompts clean and ready, NOT consistency achieved.",
-  look_inputs: { scouted_pattern_leads: "00_scout.md § Winning visual pattern (native feel)", project_design: "CANON + DESIGN_SYSTEM (matte off-white, terracotta accent, claymorphism = product-UI only)" },
-  palette: { bg: "#F9F9F9", surface: "#F1E8DD", text: "#000000", accent: $accent, card_temperature_peach: "#F6D7C6", card_weight_sage: "#D7E0D2", source: "INTUISCALE DESIGN_SYSTEM V2.1 §0.5" },
-  refs: { hands_skin_tone: $sh, apartment: $sa, jacket: $sj },
+  look_inputs: { scouted_pattern_leads: "00_scout.md § Winning visual pattern (native feel)", project_design: $project_design },
+  palette: $brand.palette,
+  refs: $brand.refs,
   assets: ( .assets | to_entries | map(
     .key as $id | .value as $a |
     { ($id):
@@ -156,9 +164,9 @@ TRACE="$RUN_DIR/07_asset_prompt.md"
   echo
   echo "- approach: \`$APPROACH\` (from module suffix) · generated: $DATE · status: **$(jq -r '.review_status' "$VID")**"
   echo "- declarations: \`$VID\` · assets dir (later, post-approval): \`$CAMPAIGN/assets/\`"
-  echo "- **Look = scouted native pattern LEADS + Intuiscale identity SECOND.** Nothing generated/composited."
+  echo "- **Look = scouted native pattern LEADS + $CAMP_NAME identity SECOND.** Nothing generated/composited."
   echo "  - scouted pattern (native feel, from 00_scout.md): mode=\`$SC_MODE\` · color=\`$SC_COLOR\` · aesthetic=\`$SC_AESTH\`"
-  echo "  - project design (brand-second, DESIGN_SYSTEM V2.1 §0.5): bg \`#F9F9F9\` / surface \`#F1E8DD\` + accent \`$ACCENT_HEX\`; matte ceramic, zero-gloss, warm (zero-blue); claymorphism/3D reserved for product-UI moments (none here)"
+  echo "  - project design (brand-second, $DS_LABEL): bg \`$(jq -r '.palette.bg // "n/a"' "$BRAND")\` / surface \`$(jq -r '.palette.surface // "n/a"' "$BRAND")\` + accent \`$ACCENT_HEX\`; $DS_SUMMARY"
   echo "  - ban: pattern-from-many — NO single creator's image/framing reproduced."
   echo
   echo "| id | type | method | bg_type | source_slides | prompt / template |"
