@@ -1,0 +1,1 @@
+We switched to launchd-scheduled sub-agents six months ago and the difference in reliability is measurable — 47 consecutive nights without a single failed run, no babysitting, no manual retrigger needed. The key insight is that the scheduler owns the trigger, not the model, which is exactly where the stability comes from in production agentic systems.

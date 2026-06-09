@@ -1,0 +1,1 @@
+47 nightly runs on launchd, zero failures — the scheduler owns the trigger and it works!
