@@ -33,24 +33,34 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
    - If survivors <8 AND pass count <3: widen topics, re-invoke Scout, repeat.
    - If cap (3) hit: emit loud **"widened 3 times, only M live this window"** to stdout. Proceed with whatever survived.
 
-**3. MATCHER sub-agent (`claude-sonnet-4-6`).**
-   - Inputs passed: `00_candidates.json` + `project_authority.md` only.
-   - Matcher applies liveness gate + 1:1 binding → writes `01_anchored.json`.
-   - If groundable <8 AND a re-scout pass is unused (at most 1 extra): trigger one more Scout pass, re-run Matcher.
+**3. MATCHER sub-agent (`claude-sonnet-4-6`) — liveness shortlist.**
+   - Inputs passed: `00_candidates.json` + `project_authority.md`.
+   - Matcher applies the liveness gate → a shortlist of live survivors (binding happens after 3.5).
+
+**3.5. THREAD-FETCH (Scout / grok, batched).**
+   - Orchestrator passes the Matcher's liveness-survivor URL list to Scout for ONE batched `grok -p` call.
+   - Parse the single fenced ` ```json ` block → write `runs/<batch>/00b_threads.json`.
+   - Route to Matcher; the orchestrator NEVER ingests the thread text (same firewall as the search results).
+   - Matcher then applies the replyability filter (drop poll/meme/promo without a real discussion) + binds each
+     survivor 1:1 against `thread_gist` → writes `01_anchored.json` (carries `thread_gist` + `post_type`).
+   - If replyable+groundable <8 AND a re-scout pass is unused (at most 1 extra): trigger one more Scout pass, re-run Matcher.
    - Proceed with ≥1 anchored target; abort only if zero.
 
 **4. PER-TARGET LOOP — shared retry budget: 2 retries across gate FAIL + Critic FIX per target.**
 
    For each target in `01_anchored.json`:
 
-   a. **Drafter sub-agent (`claude-sonnet-4-6`):** receives {tweet text, bound entry substance/angle, `voice.md`, `reply_register.md`, `drafting_contract.md` never-list} for this ONE target → appends draft to `02_drafts.json`.
+   a. **Drafter sub-agent (`claude-sonnet-4-6`):** receives {`thread_gist`, bound entry substance/angle, `voice.md`, `reply_register.md`, `drafting_contract.md` never-list} for this ONE target → appends draft to `02_drafts.json`.
 
    b. **GATEKEEPER:** `/opt/homebrew/bin/bash bin/gate.sh <draft>` (single-draft gate).
       - Exit 2 → **ABORT** (config error: need bash≥4; `brew install bash`). Never retry exit 2.
       - Exit 1 → gate FAIL: if budget left, count retry, return to Drafter with the flag. If budget exhausted → `status=skipped`, record `skip_reason`.
       - Exit 0 → proceed to Critic.
 
-   c. **CRITIC:** Phase 1 = Claude stub (`critic_verdict: "SHIP"`, `critic: "claude-stub"`). Phase 2 = `grok -p` vs Rubric v1.
+   c. **CRITIC (Phase-2 grok, live-read):** per draft (or batched over survivors), the grok critic OPENS each
+      URL and judges against the LIVE thread. Orchestrator passes {`url`, `thread_gist` as cross-ref ONLY,
+      `grounded_claim`, `draft`} and routes the fenced JSON back without ingesting it.
+      - On critic unavailability mid-run → HALT: all results `status=held`, `critic=UNAVAILABLE`, loud held-line. NEVER stub-fallback at runtime.
       - `FIX:<criterion>`: if budget left, count retry, return to Drafter with the named criterion fed back. If budget exhausted → `status=skipped`.
       - `SHIP` → `status=passed`.
 
@@ -74,7 +84,9 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
    - **STOP — human review. NEVER post.**
 
 **8. LOUD FLAGS** — emit to stdout AND `03_review.json`:
-   - `"no cross-family veto this run"` (Phase 1, every run).
+   - `"no cross-family veto this run"` (emitted only by the Phase-1 `claude-stub` — scaffold tests, never production; a stub batch is also forced `held: true`).
+   - `"BATCH HELD — DO NOT POST"` whenever `held: true` (critic gate halt or any hard-block).
+   - `"CRITIC UNAVAILABLE — batch HELD"` if the Phase-2 grok critic could not be invoked mid-run.
    - Scout widen-exhaustion line if cap was hit.
    - Every skipped target with its `skip_reason`.
 
@@ -102,9 +114,10 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 | Role | Reads | Must never see |
 |------|-------|----------------|
 | Scout | 3-pillar domain vocab, 24–48h window, `wins.md`, prior `replies_to_post.md` | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
-| Matcher | `00_candidates.json`, `project_authority.md` | `voice.md`, `reply_register.md`, search internals, other roles' reasoning |
-| Drafter | ONE tweet text + ONE bound entry substance/angle, `voice.md`, `reply_register.md`, never-list | Full `project_authority.md`, other targets, search internals, asset templates, gate internals |
-| Critic | Draft, target tweet, bound entry claim, Rubric v1 | Full `voice.md` / `reply_register.md`, other drafts, gate internals |
+| Scout (thread-fetch) | Matcher's liveness-survivor URL list, live X | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
+| Matcher | `00_candidates.json`, `00b_threads.json`, `project_authority.md` | `voice.md`, `reply_register.md`, search internals, other roles' reasoning |
+| Drafter | ONE target's `thread_gist` + ONE bound entry substance/angle, `voice.md`, `reply_register.md`, never-list | Full `project_authority.md`, other targets, search internals, asset templates, gate internals |
+| Critic | Draft, `thread_gist`, the target URL opened live, bound entry claim, Rubric v1.1 | Full `voice.md` / `reply_register.md`, other drafts, gate internals |
 | Gatekeeper | Draft or batch file (shell; no LLM context) | — |
 | Asset | Top 1–2 `{draft + bound entry}` selected by orchestrator, aurora-frost template | Search internals, other targets, gate internals, `voice.md`, `reply_register.md` |
 | Producer | `01_anchored.json`, `02_drafts.json`, `03_review.json` | Search internals, `voice.md`, `reply_register.md`, `project_authority.md`, asset templates, gate internals |
@@ -123,3 +136,6 @@ Orchestrator never ingests voice / register / grounding / search text — routes
 | Matcher re-scout | 1 extra pass max |
 | Shared retries per target (gate FAIL + Critic FIX combined) | 2 |
 | Asset selection | Top 2 by `engagement.views` among SHIP |
+| grok thread-fetch calls | ≤2 (one batched call + at most one re-fetch after re-scout) |
+| grok critic calls | ≤13 + retries (one per draft, or one batched call, + FIX re-judges within budget) |
+| Total grok call ceiling | probe 1 + scout ≤3 + thread-fetch ≤2 + critic ≤13 + retry tail + wins 1 |

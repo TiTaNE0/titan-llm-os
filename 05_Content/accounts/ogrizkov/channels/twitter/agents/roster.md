@@ -22,5 +22,5 @@ locked: 2026-06-10
 ## Rules
 
 - Cross-family veto is load-bearing (PRD §11): Critic stays non-Claude. What's load-bearing is independent context + refute mandate, not merely the family boundary.
-- Phase-1 Critic is a Claude stub with a loud "no cross-family veto this run" flag emitted to stdout AND `03_review.json`. Phase 2 swaps in real `grok -p` judging against Rubric v1.
+- Phase-1 stub is scaffold-test-only and forces `held: true`; a missing Phase-2 critic ABORTS the batch, never falls back to the stub. The stub emits a loud "no cross-family veto this run" flag to stdout AND `03_review.json`.
 - `bin/gate.sh` SOURCE is authoritative over any prose paraphrase of its rules. Run via `/opt/homebrew/bin/bash`; exit 2 = config error = abort, never retry.

@@ -13,6 +13,13 @@
 #                    may overlap too heavily. This is what stops a batch shipping
 #                    "memory / persistence / harness" nine times.
 #
+# v2.3 (2026-06-10): additive, --batch mode only. Targets the 2026-06-10 failure
+# (the vocabulary varied but the STRUCTURE did not — 5 of 13 drafts used the same
+# "[concede] — the real X is [reframe]" skeleton, and an em-dash splice had become
+# the default move). Single-draft mode + existing batch checks + thresholds UNCHANGED:
+#   * STRUCTURAL-TEMPLATE — too many drafts using the "the real X is" reframe skeleton.
+#   * EM-DASH-SPLICE-RATE — the spaced em-dash splice may not be the default move.
+#
 # Usage:
 #   gate.sh <draft_file>            # single-draft check (word/!/specificity)
 #   echo "draft" | gate.sh          # same, via stdin
@@ -111,6 +118,30 @@ if [ "${1:-}" = "--batch" ]; then
       esac
       openers="$openers<<$op>>"
     done
+  fi
+
+  # 0f) structural-template — vocabulary can vary while the skeleton repeats. The 2026-06-10
+  #     batch used "[concede] — the real X is [reframe]" five times under distinct words.
+  STRUCT='the real (test|lesson|metric|question|problem|unlock) is'
+  structn=0
+  for d in "${drafts[@]}"; do
+    printf '%s' "$d" | grep -qiE "$STRUCT" && structn=$((structn+1))
+  done
+  maxstruct=$(( (n + 2) / 3 ))   # ceil(n/3)
+  if (( structn > maxstruct )); then
+    echo "  x $structn of $n drafts use the '[concede] — the real X is [reframe]' skeleton (cap $maxstruct) — vary the structure, not just the vocabulary" >&2
+    status=1
+  fi
+
+  # 0g) em-dash-splice-rate — the spaced em-dash splice may not be the default move.
+  splicen=0
+  for d in "${drafts[@]}"; do
+    printf '%s' "$d" | grep -qE ' (—|–) ' && splicen=$((splicen+1))
+  done
+  maxsplice=$(( (n + 1) / 2 ))   # ceil(n/2)
+  if (( splicen > maxsplice )); then
+    echo "  x em-dash splice in $splicen of $n drafts — it has become the default move; rotate register per reply_register.md" >&2
+    status=1
   fi
 
   # 1) over-repeated abstraction keywords

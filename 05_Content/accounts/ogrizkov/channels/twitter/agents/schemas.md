@@ -27,6 +27,8 @@ Fields per candidate:
 - `lang` — ISO 639-1 language code (must be "en" to survive Matcher's liveness gate)
 - `source_tag` — `"hot"` (broad trending AI thread) or `"domain"` (pillar keyword match)
 - `text_snippet` — first ~280 chars of the thread's opening post (raw, no paraphrase)
+- `post_type` — enum `discussion|announcement|poll|meme|promo|question|showcase`: the kind of post,
+  judged at retrieval; drives the Matcher replyability filter
 
 ```json
 {
@@ -41,7 +43,41 @@ Fields per candidate:
       "replies": 47,
       "lang": "en",
       "source_tag": "hot",
-      "text_snippet": "The shift from 'LLM as autocomplete' to 'LLM as orchestrator' is finally clicking in prod systems. Here's what changed for us..."
+      "text_snippet": "The shift from 'LLM as autocomplete' to 'LLM as orchestrator' is finally clicking in prod systems. Here's what changed for us...",
+      "post_type": "discussion"
+    }
+  ]
+}
+```
+
+---
+
+## 00b_threads.json
+
+Writer: Scout (Grok via `grok -p`, batched). Reader: Matcher.
+
+Fetched for liveness survivors only, one batched grok call; orchestrator routes without reading.
+
+Fields per entry:
+- `url` — same as candidates (the survivor URL the thread was fetched for)
+- `opening_post` — full text of the opening post (not the 280-char snippet)
+- `top_replies` — array of `{author, text}`, highest-signal replies (incl. any reveal/punchline/answer)
+- `thread_gist` — one sentence: what the thread is actually about, incl. what the replies add
+- `replyable` — boolean Scout hint (false for polls/memes/promos with no substantive discussion)
+
+```json
+{
+  "batch": "2026-06-09_batch",
+  "threads": [
+    {
+      "url": "https://x.com/swyx/status/1234567890",
+      "opening_post": "The shift from 'LLM as autocomplete' to 'LLM as orchestrator' is finally clicking in prod systems. Here's what changed for us: we stopped trusting one call and started chaining graded sub-agents.",
+      "top_replies": [
+        {"author": "hingeloss", "text": "the grading step is the whole game — without a veto you just compound the first model's bias"},
+        {"author": "swyx", "text": "right, and the veto has to be cross-family or it's theatre"}
+      ],
+      "thread_gist": "swyx argues orchestration beats autocomplete; the replies sharpen it to the cross-family veto being the load-bearing part.",
+      "replyable": true
     }
   ]
 }
@@ -67,6 +103,8 @@ Fields per target:
 - `why_live` — one-sentence liveness rationale (age + velocity)
 - `entry_substance` — the bound entry's core claim/fact (copied verbatim from authority)
 - `entry_angle` — how the Drafter should enter from this entry (one clause, no drafting)
+- `thread_gist` — copied from `00b_threads.json`. Drafter and Critic read this, not the snippet.
+- `post_type` — copied from `00_candidates.json` (audit trail of what the Matcher's replyability filter saw)
 
 ```json
 {
@@ -86,7 +124,9 @@ Fields per target:
       "ground_with": "P5-launchd-agent",
       "why_live": "6h old, 310 likes in first 6h — high velocity, safe window.",
       "entry_substance": "launchd-scheduled Claude sub-agent running nightly, zero human trigger; 47 consecutive nights stable",
-      "entry_angle": "lead with the scheduler stability number, not the orchestration concept"
+      "entry_angle": "lead with the scheduler stability number, not the orchestration concept",
+      "thread_gist": "swyx argues orchestration beats autocomplete; the replies sharpen it to the cross-family veto being the load-bearing part.",
+      "post_type": "discussion"
     }
   ]
 }
@@ -133,16 +173,26 @@ Fields per result:
 - `url` — target thread URL
 - `gate_single` — `"pass"` or `"fail"` (gate.sh single-draft verdict)
 - `gate_batch` — `"pass"` or `"fail"` (gate.sh --batch verdict over the surviving set)
-- `critic_verdict` — `"SHIP"` or `"FIX:<one-line reason naming the failed criterion>"` (cross-family Critic)
-- `status` — `"drafted"` | `"passed"` | `"failed"` | `"skipped"`
+- `critic_verdict` — `"SHIP"` or `"FIX:<one-line reason naming the failed criterion>"` (cross-family Critic).
+  The named criterion is one of the SIX: `voice_fit|specificity_present|no_fabrication|not_generic|length_register_sane|thread_fit`.
+- `status` — `"drafted"` | `"passed"` | `"failed"` | `"skipped"` | `"held"`
 - `retries` — integer, 0-indexed; how many Drafter retries this target consumed
 - `skip_reason` — string if status is `"skipped"`, null otherwise
+
+Batch-level fields:
+- `held` — boolean. True if the batch halted at the critic gate or any hard-block; a held batch must not be posted.
+- `cross_family_veto` — boolean. MUST be false whenever `critic` is `claude-stub` (the stub is not a cross-family veto).
+- `critic` — `"grok"` | `"claude-stub"` | `"UNAVAILABLE"`.
+
+Criterion note — `no_fabrication` (absorbs the old `claim_sanity`): the draft's concrete claim must trace
+to `grounded_claim`; fails if it distorts that claim or claims the author's numbers/experience as the replier's.
 
 ```json
 {
   "batch": "2026-06-09_batch",
-  "critic": "claude-stub",
+  "critic": "grok",
   "cross_family_veto": true,
+  "held": false,
   "results": [
     {
       "url": "https://x.com/swyx/status/1234567890",
@@ -157,7 +207,7 @@ Fields per result:
       "url": "https://x.com/someone/status/9999",
       "gate_single": "fail",
       "gate_batch": "pass",
-      "critic_verdict": "FIX:no concrete specificity — mentions 'memory' but no number or tool",
+      "critic_verdict": "FIX:specificity_present — mentions 'memory' but no number or tool",
       "status": "skipped",
       "retries": 2,
       "skip_reason": "still failing gate after 2 retries"
@@ -182,6 +232,16 @@ Contains per target (passed only):
 - Skipped targets listed at bottom with skip reasons
 
 All content marked **DRAFT**. Producer never posts.
+
+---
+
+## Derived jq views
+
+`runs/<batch>/targets/tN.json` and `runs/<batch>/drafts/tN.json` are per-target **projections** of
+`01_anchored.json` and `02_drafts.json` — jq views split out for per-target sub-agent invocation, NOT a
+parallel source of truth. The single-file schemas above stay authoritative; the per-target files inherit
+whatever those carry (incl. `thread_gist` and `post_type`). Regenerate them from the source files; never
+hand-edit a `tN.json` and expect it to propagate back.
 
 ---
 

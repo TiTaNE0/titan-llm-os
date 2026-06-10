@@ -115,5 +115,11 @@ chk "i. batch_overlap exits 1" \
 chk "i. stderr contains 'near-duplicate'" \
   'run_gate --batch "$FIX/batch_overlap.md" | grep -q "near-duplicate"'
 
+echo "=== batch: structural template (v2.3) ==="
+chk "j. batch_struct_template exits 1" \
+  '! "$BASH4" "$GATE" --batch "$FIX/batch_struct_template.md" >/dev/null 2>&1'
+chk "j. stderr contains 'skeleton'" \
+  'run_gate --batch "$FIX/batch_struct_template.md" | grep -q "skeleton"'
+
 echo "===== VERDICT: $([ $PASS -eq 1 ] && echo 'ALL PASS' || echo 'FAIL') ====="
 [ $PASS -eq 1 ] && exit 0 || exit 1

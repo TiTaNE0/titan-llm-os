@@ -73,7 +73,10 @@ CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is cap
 - **Input (isolated):** search topics (broad hot AI + the 3-pillar domain vocab), the 24–48h
   window, English-only, `wins.md` + prior `reply_feed`s (learn / dedup) — NOT voice/register/grounding.
 - **Output:** `00_candidates.json` — array of `{url, author, age, views, likes, replies, lang,
-  hot|domain, text_snippet, source_tag}`. Raw retrieval + source honesty; no drafting, no ranking prose.
+  hot|domain, text_snippet, source_tag, post_type}`. Raw retrieval + source honesty; no drafting, no ranking prose.
+- **Thread-fetch sub-step (batched, post-shortlist):** after the Matcher's liveness shortlist, ONE batched
+  `grok -p` call fetches full thread context (opening post in full + highest-signal replies) for the survivors →
+  `00b_threads.json`. Routed to the Matcher; the orchestrator never ingests the thread text.
 - **Loop:** the orchestrator re-invokes Scout with widened queries until ≥8 live English candidates survive the gate (P7).
 - **Must not see:** voice.md, reply_register, project_authority, drafts.
 
@@ -81,16 +84,19 @@ CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is cap
 - **Why Sonnet (not Haiku):** liveness + 1:1 binding is a judgment call, and a wrong bind poisons
   every downstream draft of that target. Haiku's savings (~cents per run) don't cover that risk;
   Haiku stays on the mechanical roles (Asset fill, Producer assembly).
-- **Input (isolated):** `00_candidates.json` + `project_authority.md` only.
-- **Work:** apply the hard Liveness gate (corpse-drop, velocity, fresh-by-reach, English) →
-  bind 1:1 a distinct `project_authority` entry per survivor (no reuse), tag pillar/touches/ground_with.
-- **Output:** `01_anchored.json` — `{url, author, engagement, pillar, ground_with, why_live, entry_substance, entry_angle}`.
+- **Input (isolated):** `00_candidates.json` + `00b_threads.json` + `project_authority.md` only.
+- **Work:** apply the hard Liveness gate (corpse-drop, velocity, fresh-by-reach, English) → apply the
+  **replyability gate** (drop poll/meme/promo `post_type` unless `00b_threads.json` shows a real
+  discussion to join — groundable ≠ replyable) → bind 1:1 a distinct `project_authority` entry per
+  survivor against `thread_gist` (no reuse), tag pillar/touches/ground_with.
+- **Output:** `01_anchored.json` — `{url, author, engagement, pillar, ground_with, why_live, entry_substance, entry_angle, thread_gist, post_type}`.
 - **Must not see:** voice/register (it grounds, it doesn't write), search internals, other roles' reasoning.
 
 ### 3. Drafter  ·  Sonnet 4.6
-- **Input (isolated):** ONE anchored target at a time — `{tweet text + bound entry substance/angle}`
+- **Input (isolated):** ONE anchored target at a time — `{thread_gist + bound entry substance/angle}`
   + `voice.md` + `reply_register.md` + the never-list. **Not** the whole `project_authority`, not the
-  search, not other targets. One target, one head.
+  search, not other targets. One target, one head. (Drafts against what the thread is actually about,
+  incl. replies — not an opening fragment.)
 - **Work:** write the reply — Evgeny-B, skew-short (median one sentence, ≥half ≤12 words), varied
   opener, register chaos as the minority move.
 - **Output:** `02_drafts.json` — `{url, ground_with, draft, [VERIFY?]}` per target.
@@ -99,8 +105,11 @@ CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is cap
 ### 4. Critic / Judge  ·  cross-family, NON-Claude (GPT-5.5 or Grok)
 - **Why non-Claude:** a model grading its own family's output is a blind spot (`MKT-02` — the
   cross-family veto is load-bearing).
-- **Input (isolated):** the draft + the tweet + the bound entry's claim + a **compact rubric**
-  (voice fit, specificity present, no fabrication beyond the entry, not generic, length/register sane).
+- **Input (isolated):** the draft + the target URL the critic **opens and reads LIVE** (the live thread
+  is the judging basis) + `thread_gist` passed ONLY as "what the drafter believed" cross-reference + the
+  bound entry's claim as `grounded_claim` + a **compact rubric** of SIX criteria (voice fit, specificity
+  present, no fabrication beyond the entry, not generic, length/register sane, thread_fit — does the
+  reply engage the live thread's real ask/reveal, judged against the post as it is now).
 - **Mandate:** REFUTE, don't grade gently — the drafter is a pathological optimist about its own
   output. Each rubric criterion must be individually gradeable (per-criterion verdict, not one
   vibe score); a draft ships only if it survives every criterion.
@@ -134,8 +143,10 @@ CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is cap
 
 ```
 1. SCOUT (grok -p) → candidates.   while live<8 and not exhausted: widen, re-scout.
-2. MATCHER → anchored (live + 1:1 grounded). If <enough groundable: orchestrator asks Scout for more.
-3. for each target:  DRAFTER → draft  →  GATEKEEPER (gate.sh)  →  CRITIC (cross-family)
+2. MATCHER (liveness shortlist) → live survivors.
+2.5 THREAD-FETCH (Scout/grok, ONE batched call over survivors) → 00b_threads.json. Orchestrator routes, never ingests.
+   MATCHER applies replyability filter + binds 1:1 against thread_gist → anchored. If <enough replyable+groundable: ask Scout for more.
+3. for each target:  DRAFTER → draft  →  GATEKEEPER (gate.sh)  →  CRITIC (cross-family, live-read)
                       on FAIL/FIX → back to DRAFTER (≤2 retries) → else skip target
 4. GATEKEEPER --batch over the surviving set (repeat/length/opener/skew). FAIL → orchestrator
    returns the flagged targets to DRAFTER with the specific flag.
@@ -197,6 +208,8 @@ Every v2 asset becomes a role's tool or spec:
 3. No role reads another role's reasoning — only its file artifact.
 4. The orchestrator never ingests voice/register/grounding/search text; it routes artifacts + state.
 5. Determinism first: anything checkable by shell (`gate.sh`) is shell, not an LLM.
+6. Thread context flows as **data** through the file chain (`00b_threads.json` → `01_anchored.json`'s
+   `thread_gist`) — the orchestrator routes it without ingesting, exactly as it does the search text.
 
 ## 10. Human gates & safety (unchanged doctrine)
 - One human gate: review `replies_to_post.md`; operator posts manually. **Never auto-post.**
@@ -210,9 +223,14 @@ Every v2 asset becomes a role's tool or spec:
   multi-agent pipelines (this is not new infra for him).
 - We still don't have engagement data (`wins.md` empty). v3 makes the system **cleaner**, not proven
   to convert — that's the live test. Don't over-build beyond this before first real wins.
-- Cross-family Critic adds a non-Claude dependency; if unavailable, degrade to a Claude critic with a
-  loud "no cross-family veto this run" flag (don't silently skip it). What's load-bearing is the
-  critic's independent context + refute mandate, more than the family boundary.
+- Cross-family Critic adds a non-Claude dependency; if unavailable, ABORT the batch with all results
+  `held` and a loud held-line — the Phase-1 stub is scaffold-only, NOT a runtime fallback (2026-06-10
+  proved it ships irrelevant drafts as SHIP). What's load-bearing is the critic's independent context +
+  refute mandate, more than the family boundary.
+- Dual independent read: the orchestrator fetches thread context once for the Drafter (fetch-to-write,
+  step 2.5) and the cross-family Critic independently re-opens each URL live to judge (live-read-to-judge)
+  — independent context made literal: the gist that may have misled the writer is never the artifact that
+  clears the writer.
 - Every harness piece encodes an assumption about current model limits (retry caps, the Matcher
   split, per-role isolation depth). Re-test those assumptions each model generation and strip what's
   no longer load-bearing — don't let scaffolding outlive its reason.
@@ -223,7 +241,9 @@ Every v2 asset becomes a role's tool or spec:
   artifact schemas (`00_candidates`→`03_review`).
 - **Phase 1 (orchestrator, happy path):** Opus orchestrator runs Scout(grok -p)→Matcher→Drafter→
   Gatekeeper→Producer in one invocation to a review queue. Critic = Claude stub.
-- **Phase 2:** wire the **cross-family Critic** (non-Claude) + the retry loop + the 8–12 widen loop.
+- **Phase 2:** wire the **cross-family Critic** (non-Claude, live-read against Rubric v1.1 incl. thread_fit)
+  + the batched thread-fetch (`00b_threads.json`) + the retry loop + the 8–12 widen loop. The Phase-1 stub
+  is scaffold-only and is never a runtime fallback (ABORT + held on critic unavailability).
 - **Phase 3:** Asset role inline + Wins-logger post-cycle.
 - **Phase 4:** tune isolation/budgets from real runs; promote winners to `wins.md`.
 
@@ -233,6 +253,8 @@ Every v2 asset becomes a role's tool or spec:
   holding more than its own concern**.
 - The failures v2 hit at the margins (length creep, opener collision, register uniformity) don't
   recur, because no single context is juggling them.
+- No draft ships that could have been written without reading the live thread (thread_fit) — the
+  2026-06-10 failure mode (snippet-only context, irrelevant-but-clean drafts) does not recur.
 - Never auto-posts; `wins.md` fills after posting and feeds the next Scout.
 
 ## 14. Open unknowns (resolve by building)
@@ -240,3 +262,28 @@ Every v2 asset becomes a role's tool or spec:
 2. Cross-family Critic CLI availability + cost on the operator's stack.
 3. Orchestrator retry economics — caps so a stubborn target doesn't burn the budget.
 4. Whether Matcher+Liveness should split further (only if Matcher's context gets heavy).
+
+## 15. First-live-run post-mortem (2026-06-10_batch)
+
+The first live run produced **13/13 content-irrelevant drafts** — every mechanical gate green
+(`gate_single` pass, `gate_batch` pass), killed at the human gate. A post-hoc cross-family grok critic
+reading the live threads returned FIX 13/13. The drafts were clean, grounded, and on-voice; they simply
+did not engage the posts they replied to.
+
+Three structural defects (not wording bugs):
+- **RC-1 — snippet-only context.** The Drafter and Critic saw only the 280-char opening snippet. Where the
+  real ask, answer, or reveal lived in the replies (t13: the post was clickbait whose actual subject was
+  revealed downthread), the snippet misled and nothing corrected it.
+- **RC-2 — no replyability filter.** Polls, memes, and promos were bound and drafted as if they were
+  discussions to join. Groundable was treated as replyable; an authority entry that semantically touched
+  the snippet was enough to bind, even with no live conversation to add signal to.
+- **RC-3 — critic stub + missing thread_fit.** The Phase-1 Claude stub passed all 13 as SHIP, and the
+  rubric had no relevance/thread criterion. The cross-family veto existed on paper but did nothing this run.
+
+Batch-level tells the per-draft gate could not see: the `[concede] — the real X is [reframe]` skeleton
+appeared 5× under distinct vocabulary, and the em-dash splice ran across 4 drafts as the default move.
+
+Root cause is **upstream context + selection, not draft wording.** The fix is the batched thread-fetch
+(`00b_threads.json`, §4/§5), the Matcher replyability gate, the live-read Critic with `thread_fit`
+(Rubric v1.1), and the ABORT-not-fallback degradation rule (§11). gate.sh v2.3 adds the structural-template
+and em-dash-splice batch checks so the batch-level tells fail deterministically next time.

@@ -377,6 +377,86 @@ if [ -n "$BASH4" ]; then
   fi
 fi
 
+# ---------- GROUP: relevance-fix (2026-06-10 post-mortem) ---------------------
+echo "=== relevance-fix ==="
+
+# post_type enum present in schemas.md AND scout.md
+chk "RF01a schemas.md: post_type enum" \
+  'grep -q "post_type" "$C/agents/schemas.md" && grep -q "showcase" "$C/agents/schemas.md"'
+chk "RF01b scout.md: post_type" \
+  'grep -q "post_type" "$C/agents/role_specs/scout.md"'
+
+# 00b_threads.json defined in schemas.md AND read by matcher.md
+chk "RF02a schemas.md: 00b_threads.json defined" \
+  'grep -q "00b_threads.json" "$C/agents/schemas.md"'
+chk "RF02b matcher.md: reads 00b_threads.json" \
+  'grep -q "00b_threads.json" "$C/agents/role_specs/matcher.md"'
+
+# thread_gist present in schemas.md, matcher.md, drafter.md, critic.md
+chk "RF03a schemas.md: thread_gist" \
+  'grep -q "thread_gist" "$C/agents/schemas.md"'
+chk "RF03b matcher.md: thread_gist" \
+  'grep -q "thread_gist" "$C/agents/role_specs/matcher.md"'
+chk "RF03c drafter.md: thread_gist" \
+  'grep -q "thread_gist" "$C/agents/role_specs/drafter.md"'
+chk "RF03d critic.md: thread_gist" \
+  'grep -q "thread_gist" "$C/agents/role_specs/critic.md"'
+
+# thread_fit criterion present in critic.md
+chk "RF04  critic.md: thread_fit criterion" \
+  'grep -q "thread_fit" "$C/agents/role_specs/critic.md"'
+
+# matcher replyability filter present
+chk "RF05  matcher.md: replyability filter" \
+  'grep -iq "replyab" "$C/agents/role_specs/matcher.md"'
+
+# post_actually_about + live-read instruction present in critic.md
+chk "RF06a critic.md: post_actually_about" \
+  'grep -q "post_actually_about" "$C/agents/role_specs/critic.md"'
+chk "RF06b critic.md: live-read instruction (open + live)" \
+  'grep -iq "open" "$C/agents/role_specs/critic.md" && grep -iq "live" "$C/agents/role_specs/critic.md"'
+
+# derived jq views note present in schemas.md naming targets/tN.json + drafts/tN.json
+chk "RF07a schemas.md: derived jq views note" \
+  'grep -iq "derived jq views\|projection" "$C/agents/schemas.md"'
+chk "RF07b schemas.md: names targets/tN.json + drafts/tN.json" \
+  'grep -q "targets/tN.json" "$C/agents/schemas.md" && grep -q "drafts/tN.json" "$C/agents/schemas.md"'
+
+# gate.sh structural-template + em-dash checks reachable
+chk "RF08a gate.sh: structural-template check" \
+  'grep -q "the real" "$C/bin/gate.sh"'
+chk "RF08b gate.sh: em-dash/splice check" \
+  'grep -iq "em-dash\|splice" "$C/bin/gate.sh"'
+
+# PRODUCTION-BATCH STUB GUARD: any 03_review.json with claude-stub MUST also have held:true.
+echo "  -- production-batch stub guard --"
+STUB_GUARD_OK=1
+for rf in "$C"/runs/*/03_review.json; do
+  [ -f "$rf" ] || continue
+  if grep -q "claude-stub" "$rf"; then
+    if grep -Eq '"held"[[:space:]]*:[[:space:]]*true' "$rf"; then
+      echo "  [PASS] stub-guard: $(basename "$(dirname "$rf")") has claude-stub AND held:true"
+    else
+      echo "  [FAIL] stub-guard: $(basename "$(dirname "$rf")") has claude-stub but NOT held:true — a stubbed batch must be HELD"
+      STUB_GUARD_OK=0
+      PASS=0
+    fi
+  fi
+done
+[ $STUB_GUARD_OK -eq 1 ] && echo "  [PASS] RF09 all stubbed batches are held:true"
+
+# cross_family_veto/stub consistency: no 03_review.json may have cross_family_veto:true with claude-stub.
+VETO_OK=1
+for rf in "$C"/runs/*/03_review.json; do
+  [ -f "$rf" ] || continue
+  if grep -q "claude-stub" "$rf" && grep -Eq '"cross_family_veto"[[:space:]]*:[[:space:]]*true' "$rf"; then
+    echo "  [FAIL] veto-consistency: $(basename "$(dirname "$rf")") has claude-stub AND cross_family_veto:true"
+    VETO_OK=0
+    PASS=0
+  fi
+done
+[ $VETO_OK -eq 1 ] && echo "  [PASS] RF10 no stubbed batch claims cross_family_veto:true"
+
 # ---------- VERDICT -----------------------------------------------------------
 echo "===== VERDICT: $([ $PASS -eq 1 ] && echo 'ALL PASS' || echo 'FAIL') ====="
 [ $PASS -eq 1 ] && exit 0 || exit 1
