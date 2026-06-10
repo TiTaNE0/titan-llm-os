@@ -321,8 +321,8 @@ chk "AC35c schemas.md json: ground_with field (01_anchored)" \
   'echo "$SCHEMA_ALL_JSON" | grep -q "ground_with"'
 chk "AC35d schemas.md json: entry_substance field (01_anchored)" \
   'echo "$SCHEMA_ALL_JSON" | grep -q "entry_substance"'
-chk "AC35e schemas.md json: entry_angle field (01_anchored)" \
-  'echo "$SCHEMA_ALL_JSON" | grep -q "entry_angle"'
+chk "AC35e schemas.md json: contribution field (01_anchored, contributability gate)" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "contribution"'
 chk "AC36a schemas.md json: verify_flags field (02_drafts)" \
   'echo "$SCHEMA_ALL_JSON" | grep -q "verify_flags"'
 chk "AC36b schemas.md json: critic_verdict field (03_review)" \
@@ -456,6 +456,11 @@ for rf in "$C"/runs/*/03_review.json; do
   fi
 done
 [ $VETO_OK -eq 1 ] && echo "  [PASS] RF10 no stubbed batch claims cross_family_veto:true"
+
+chk "RF11 save-and-halt policy present in orchestrate skill" \
+  'grep -q "SAVE-AND-HALT" "$C/skill/twitter-reply-orchestrate.md" && grep -q "HALT.json" "$C/skill/twitter-reply-orchestrate.md"'
+chk "RF11b save-and-halt mirrored in PRD" \
+  'grep -q "Save-and-halt" "$C/Reply_Pipeline_PRD_v3.0_Agentic.md"' 
 
 # ---------- VERDICT -----------------------------------------------------------
 echo "===== VERDICT: $([ $PASS -eq 1 ] && echo 'ALL PASS' || echo 'FAIL') ====="

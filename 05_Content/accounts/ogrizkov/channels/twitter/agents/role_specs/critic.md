@@ -34,7 +34,7 @@ Following `../../runs/2026-06-10_batch/critic_prompt.txt`: a hostile critic with
 draft: OPEN the post URL, read the live thread, catch where the stored gist misled or went stale, refute
 (don't grade gently), never rewrite. Output ONE fenced ` ```json ` block only, no prose outside it.
 
-Inputs per draft: `url`, `snippet_the_writer_saw` (the stored gist — NOT the judging basis), `grounded_claim`, `DRAFT`.
+Inputs per draft: `url`, `snippet_the_writer_saw` (the stored gist — NOT the judging basis), `grounded_claim`, `claimed_contribution` (the Matcher's thread-perspective contribution sentence — thread_fit also fails if the draft does not deliver it), `DRAFT`.
 
 Output per draft: `{n, url, post_actually_about (from the LIVE read), voice_fit, specificity_present, no_fabrication, not_generic, length_register_sane, thread_fit, verdict: "SHIP" | "FIX:<failed criterion>"}`.
 

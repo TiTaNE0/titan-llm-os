@@ -102,7 +102,7 @@ Fields per target:
 - `ground_with` — the exact `project_authority.md` entry id bound to this target
 - `why_live` — one-sentence liveness rationale (age + velocity)
 - `entry_substance` — the bound entry's core claim/fact (copied verbatim from authority)
-- `entry_angle` — how the Drafter should enter from this entry (one clause, no drafting)
+- `contribution` — one sentence, THREAD-perspective: what this reply genuinely adds to THIS thread (answers the ask / extends the point / corroborates with specific experience), supportable by `entry_substance`. If the Matcher cannot write it honestly without redirecting the thread, the target is dropped (contributability gate, no drafting)
 - `thread_gist` — copied from `00b_threads.json`. Drafter and Critic read this, not the snippet.
 - `post_type` — copied from `00_candidates.json` (audit trail of what the Matcher's replyability filter saw)
 
@@ -124,7 +124,7 @@ Fields per target:
       "ground_with": "P5-launchd-agent",
       "why_live": "6h old, 310 likes in first 6h — high velocity, safe window.",
       "entry_substance": "launchd-scheduled Claude sub-agent running nightly, zero human trigger; 47 consecutive nights stable",
-      "entry_angle": "lead with the scheduler stability number, not the orchestration concept",
+      "contribution": "corroborates the orchestration-beats-autocomplete claim with a concrete stability datapoint from running it nightly",
       "thread_gist": "swyx argues orchestration beats autocomplete; the replies sharpen it to the cross-family veto being the load-bearing part.",
       "post_type": "discussion"
     }
@@ -138,7 +138,7 @@ Fields per target:
 
 Writer: Drafter (Sonnet 4.6). Readers: Gatekeeper (`gate.sh`), Critic, Producer.
 
-Drafter sees ONE target at a time — the bound `entry_substance` + `entry_angle` + `voice.md` +
+Drafter sees ONE target at a time — the bound `entry_substance` + `contribution` + `voice.md` +
 `reply_register.md`. Not the full `project_authority.md`. Not other targets.
 
 Fields per draft:

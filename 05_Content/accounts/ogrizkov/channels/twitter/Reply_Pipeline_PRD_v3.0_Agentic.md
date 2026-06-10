@@ -89,11 +89,11 @@ CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is cap
   **replyability gate** (drop poll/meme/promo `post_type` unless `00b_threads.json` shows a real
   discussion to join — groundable ≠ replyable) → bind 1:1 a distinct `project_authority` entry per
   survivor against `thread_gist` (no reuse), tag pillar/touches/ground_with.
-- **Output:** `01_anchored.json` — `{url, author, engagement, pillar, ground_with, why_live, entry_substance, entry_angle, thread_gist, post_type}`.
+- **Output:** `01_anchored.json` — `{url, author, engagement, pillar, ground_with, why_live, entry_substance, contribution, thread_gist, post_type}`. The `contribution` sentence (thread-perspective: what the reply adds to THIS thread) is the bind condition — if the Matcher cannot write it honestly, the target is dropped (**contributability gate**; 2026-06-10a lesson: topically-groundable ≠ genuinely-contributable, an entry-perspective angle manufactures pivots).
 - **Must not see:** voice/register (it grounds, it doesn't write), search internals, other roles' reasoning.
 
 ### 3. Drafter  ·  Sonnet 4.6
-- **Input (isolated):** ONE anchored target at a time — `{thread_gist + bound entry substance/angle}`
+- **Input (isolated):** ONE anchored target at a time — `{thread_gist + bound entry substance + contribution}`
   + `voice.md` + `reply_register.md` + the never-list. **Not** the whole `project_authority`, not the
   search, not other targets. One target, one head. (Drafts against what the thread is actually about,
   incl. replies — not an opening fragment.)
@@ -262,6 +262,17 @@ Every v2 asset becomes a role's tool or spec:
 2. Cross-family Critic CLI availability + cost on the operator's stack.
 3. Orchestrator retry economics — caps so a stubborn target doesn't burn the budget.
 4. Whether Matcher+Liveness should split further (only if Matcher's context gets heavy).
+
+## 14b. Save-and-halt (universal failure policy — added 2026-06-10 after grok ran out of credits mid-run b)
+
+Any role whose output is unobtainable for any reason (credits, auth, dead CLI, sub-agent fails twice,
+no fenced block after the one re-prompt) freezes the run: SAVE what exists (file artifacts are the
+checkpoint), RECORD `runs/<batch>/HALT.json` `{halted_at_stage, reason, completed_stages,
+artifacts_present, next_stage, resume_instruction}`, STOP all downstream stages (no asset/producer
+ceremony, no padding artifacts — polished output downstream of a dead dependency is fluff), RESUME
+from `next_stage` once the blocker clears (every stage is re-entrant via the file handoffs). Never
+substitute, never stub, never improvise a replacement model mid-run. The Critic degradation rule
+(§4.4) is the special case; this generalizes it to every role. Runbook: orchestrate skill § SAVE-AND-HALT.
 
 ## 15. First-live-run post-mortem (2026-06-10_batch)
 
