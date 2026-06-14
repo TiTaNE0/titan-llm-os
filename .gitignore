@@ -122,6 +122,11 @@ recaps/
 # Log JSON variants (md/jsonl already covered above)
 04_Logs/*.json
 
+# Needs Attention queue is runtime escalation state (like boards/logs). The
+# framework — 00_Templates/Needs_Attention_Template.md + queue_attention.sh — stays
+# tracked; the live instance is personal and local-only.
+/Needs_Attention.md
+
 # Self-referential vault symlink + Obsidian scratch + personal briefings/notes
 /Mission_Control
 /Untitled.base
