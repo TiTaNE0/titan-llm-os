@@ -1,10 +1,24 @@
-# CLAUDE.md
+# CLAUDE.md — TiTan_LLM_OS (Claude Code entrypoint)
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+## 0. BOOTSTRAP (CRITICAL — do this BEFORE responding to the first instruction)
+This vault runs an LLM OS. Claude Code auto-loads THIS file, not `AGENTS.md`, so the OS bootstrap must start here.
+- Read and adopt `./03_Brain/System_Agents.md` in full — kernel, macros, personas, error framework, telemetry contract.
+- Then follow `[[Context_Injection_Protocol]]`: pre-load kernel + active role + latest `04_Logs/` entry + project state before acting on the first instruction.
+- `AGENTS.md` (root) is the canonical OS loader for non-Claude agents (Codex/OpenCode/etc.); this section mirrors its §0 so Claude Code boots identically. Keep the two in sync.
+
+## 1. PROJECT PASSPORT: TiTan_LLM_OS
+- **Identity:** `[[TiTan_LLM_OS]]`  ·  **Board:** `./TiTan_LLM_OS_Board.md`
+- **Mission:** maintain, refactor, and expand the local LLM OS.
+- **Default persona:** Executioner (switch via `role=<Name>` at handshake).
+- **Constraints:** vault security (`03_Brain/`, `01_Projects/` read-only) and dogfooding (OS upgrades tracked as board tasks) per `System_Agents.md §2` / `AGENTS.md §2`.
+
+## 2. CODING GUIDELINES
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with the OS rules and the global `~/.claude/CLAUDE.md` as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
-## 1. Think Before Coding
+### 2.1 Think Before Coding
 
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
@@ -14,7 +28,7 @@ Before implementing:
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
-## 2. Simplicity First
+### 2.2 Simplicity First
 
 **Minimum code that solves the problem. Nothing speculative.**
 
@@ -26,7 +40,7 @@ Before implementing:
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
-## 3. Surgical Changes
+### 2.3 Surgical Changes
 
 **Touch only what you must. Clean up only your own mess.**
 
@@ -42,7 +56,7 @@ When your changes create orphans:
 
 The test: Every changed line should trace directly to the user's request.
 
-## 4. Goal-Driven Execution
+### 2.4 Goal-Driven Execution
 
 **Define success criteria. Loop until verified.**
 
