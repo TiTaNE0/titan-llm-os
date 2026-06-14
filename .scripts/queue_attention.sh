@@ -7,7 +7,7 @@
 # on-the-loop. Seeds the queue from 00_Templates/Needs_Attention_Template.md if absent.
 #
 # Entry line (under ## Open):
-#   - [ ] [[<task>]] | state: <state> | source: <source> | run: <run_id> | at: <ISO> | reason: <reason>
+#   - [ ] [[<task>]] | state: <state> | source: <source> | run_id: <run_id> | queued: <ISO> | reason: <reason>
 #
 # Contract: Tool_Registry.md § queue_attention (registration deferred to the Phase B
 #           /graduate session per Orchestrator A3 — Brain file not edited here).
@@ -133,7 +133,7 @@ if [[ ! -d "$QUEUE_DIR" ]]; then
 fi
 
 ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-ENTRY="- [ ] [[$TASK_NAME]] | state: $STATE | source: $SOURCE | run: $RUN_ID | at: $ISO | reason: $REASON"
+ENTRY="- [ ] [[$TASK_NAME]] | state: $STATE | source: $SOURCE | run_id: $RUN_ID | queued: $ISO | reason: $REASON"
 
 # Idempotency: no-op if an UNCHECKED entry already exists for this task+state+run_id.
 # Scope to the body under `## Open` so the schema example in the template header
@@ -143,7 +143,7 @@ if [[ -f "$QUEUE" ]]; then
        | grep '^- \[ \]' \
        | grep -F "[[$TASK_NAME]]" \
        | grep -F "state: $STATE " \
-       | grep -qF "run: $RUN_ID "; then
+       | grep -qF "run_id: $RUN_ID "; then
     echo "no-op: open escalation already queued for [[$TASK_NAME]] / $STATE / run $RUN_ID"
     END_TS_MS=$(($(date +%s) * 1000))
     "$SCRIPT_DIR/emit_telemetry.sh" queue_attention success $((END_TS_MS - START_TS_MS)) null "$SOURCE_PERSONA" 2>/dev/null || true

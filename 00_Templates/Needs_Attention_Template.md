@@ -13,15 +13,17 @@
 Each entry is one line under `## Open`:
 
 ```
-- [ ] [[<task>]] | state: <state> | source: <source> | run: <run_id> | at: <ISO8601> | reason: <reason>
+- [ ] [[<task>]] | state: <state> | source: <source> | run_id: <run_id> | queued: <ISO8601> | reason: <reason>
 ```
 
 - **task** — wiki-link to the blocked task.
 - **state** — `spec_gate | close_gate | retries_exhausted | no_progress | orphaned_lock | panel_escalate`
 - **source** — `orchestrator | pm_reviewer | failure_panel`
 - **run_id** — the run that raised it (`null` if outside a run).
-- **at** — ISO-8601 UTC timestamp (stamped by the atom).
+- **queued** — ISO-8601 UTC timestamp (stamped by the atom).
 - **reason** — free text; everything after `reason: ` is the reason, so it may contain any punctuation.
+
+(Field names match `Orchestrator_PRD_v2` § 5; the one-line checkbox serialization is the canonical shipped form — it adds the tick-to-resolve mechanism the PRD's YAML example lacked.)
 
 (Schema aligns with `Orchestrator_PRD_v2` § 5 so the PM reviewer and failure panel can write the same shape from day one.)
 

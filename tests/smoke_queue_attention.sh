@@ -43,8 +43,10 @@ grep -qF "state: spec_gate "        "$Q" || fail "Alpha state field missing"
 grep -qF "state: retries_exhausted " "$Q" || fail "Beta state field missing"
 grep -qF "reason: spec needs human review"      "$Q" || fail "Alpha reason missing"
 grep -qF "reason: 3 build loops, no convergence" "$Q" || fail "Beta reason missing (comma in reason broke parsing)"
-# ISO-8601 UTC timestamp present on entry lines.
-grep -qE '\| at: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z \|' "$Q" || fail "ISO-8601 timestamp missing/malformed"
+# ISO-8601 UTC timestamp present on entry lines (PRD field name: queued).
+grep -qE '\| queued: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z \|' "$Q" || fail "ISO-8601 queued timestamp missing/malformed"
+# PRD field name run_id present.
+grep -qF "run_id: run-001 " "$Q" || fail "run_id field missing (PRD §5 vocabulary)"
 # Exactly two open entries so far.
 OPEN=$(awk '/^## Open/{f=1;next} f' "$Q" | grep -c '^- \[ \]')
 [[ "$OPEN" -eq 2 ]] || fail "expected 2 open entries, got $OPEN"
