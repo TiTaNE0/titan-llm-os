@@ -27,7 +27,20 @@ EXPECTED="$1"
 # Resolve vault state file (script lives in .vault_link/.scripts/).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 VAULT_DIR="$(dirname "$SCRIPT_DIR")"
-STATE_FILE="$VAULT_DIR/.session_state.json"
+
+# Session resolution: a session exports TITAN_SESSION_ID and reads its OWN
+# per-session state file (race-free under concurrency). When unset, fall back to
+# the legacy singleton mirror — the back-compat path for the current handshake and
+# the existing atoms, none of which set the env var yet (Phase B wires this in via
+# /graduate on Context_Injection_Protocol.md § 1.5). Session id is sanitized to
+# match session_state_write.sh's filename rule.
+SESSION_ID="${TITAN_SESSION_ID:-}"
+if [[ -n "$SESSION_ID" ]]; then
+  SAFE_ID="${SESSION_ID//[^A-Za-z0-9._-]/_}"
+  STATE_FILE="$VAULT_DIR/.session_state.$SAFE_ID.json"
+else
+  STATE_FILE="$VAULT_DIR/.session_state.json"
+fi
 
 if [[ ! -f "$STATE_FILE" ]]; then
   echo "E4: no session state at $STATE_FILE - run handshake first" >&2

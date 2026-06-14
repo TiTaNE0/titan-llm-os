@@ -28,6 +28,16 @@ Required:
 
 Optional:
   --surface <name>       Agent surface (default: claude-code; others: opencode, chatgpt, ...)
+  --no-legacy-mirror     Skip writing the singleton .session_state.json mirror.
+                         The mirror is the back-compat bridge for callers that do
+                         not yet set TITAN_SESSION_ID (current handshake + atoms).
+                         Phase B passes this once every reader resolves by session id,
+                         fully eliminating the shared-file write (and its iCloud
+                         conflicted-copy risk).
+
+State files:
+  Canonical, per-session:  .session_state.<session-id>.json  (race-free by construction)
+  Legacy mirror (default): .session_state.json               (last-writer-wins; bridge only)
 
 Exit codes:
   0  success
@@ -39,15 +49,17 @@ PERSONA=""
 SESSION_ID=""
 STARTED_AT=""
 AGENT_SURFACE="claude-code"
+LEGACY_MIRROR=1
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --persona)     PERSONA="$2"; shift 2 ;;
-    --session-id)  SESSION_ID="$2"; shift 2 ;;
-    --started-at)  STARTED_AT="$2"; shift 2 ;;
-    --surface)     AGENT_SURFACE="$2"; shift 2 ;;
-    -h|--help)     usage; exit 0 ;;
-    *)             echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
+    --persona)           PERSONA="$2"; shift 2 ;;
+    --session-id)        SESSION_ID="$2"; shift 2 ;;
+    --started-at)        STARTED_AT="$2"; shift 2 ;;
+    --surface)           AGENT_SURFACE="$2"; shift 2 ;;
+    --no-legacy-mirror)  LEGACY_MIRROR=0; shift ;;
+    -h|--help)           usage; exit 0 ;;
+    *)                   echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
@@ -63,16 +75,26 @@ START_TS_MS=$(($(date +%s) * 1000))
 # pwd -P resolves the .vault_link symlink to its iCloud target.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 VAULT_DIR="$(dirname "$SCRIPT_DIR")"
-STATE_FILE="$VAULT_DIR/.session_state.json"
 
-# Atomic write: temp file in same dir, then rename.
-TMP_FILE="$(mktemp "$VAULT_DIR/.session_state.XXXXXX" 2>/dev/null)" || {
-  echo "E2: failed to create temp file in $VAULT_DIR" >&2
+# Filename-safe session id (opaque ids may carry composite separators; guard
+# against path traversal and odd chars by collapsing to [A-Za-z0-9._-]).
+SAFE_ID="${SESSION_ID//[^A-Za-z0-9._-]/_}"
+KEYED_FILE="$VAULT_DIR/.session_state.$SAFE_ID.json"
+LEGACY_FILE="$VAULT_DIR/.session_state.json"
+
+write_fail() {
+  echo "E2: $1" >&2
+  local end=$(($(date +%s) * 1000))
+  "$SCRIPT_DIR/emit_telemetry.sh" session_state_write error $((end - START_TS_MS)) E2 "$PERSONA" 2>/dev/null || true
   exit 2
 }
-trap 'rm -f "$TMP_FILE"' EXIT
 
-cat > "$TMP_FILE" <<EOF
+# Atomic write of one target: temp file in the same dir, then rename.
+write_state() {
+  local target="$1"
+  local tmp
+  tmp="$(mktemp "$VAULT_DIR/.session_state.XXXXXX" 2>/dev/null)" || write_fail "failed to create temp file in $VAULT_DIR"
+  cat > "$tmp" <<EOF
 {
   "persona": "$PERSONA",
   "session_id": "$SESSION_ID",
@@ -80,14 +102,14 @@ cat > "$TMP_FILE" <<EOF
   "agent_surface": "$AGENT_SURFACE"
 }
 EOF
+  mv "$tmp" "$target" || { rm -f "$tmp"; write_fail "failed to install state file at $target"; }
+}
 
-if ! mv "$TMP_FILE" "$STATE_FILE"; then
-  echo "E2: failed to install state file at $STATE_FILE" >&2
-  END_TS_MS=$(($(date +%s) * 1000))
-  "$SCRIPT_DIR/emit_telemetry.sh" session_state_write error $((END_TS_MS - START_TS_MS)) E2 "$PERSONA" 2>/dev/null || true
-  exit 2
+# Canonical per-session file (always). Legacy singleton mirror (default on).
+write_state "$KEYED_FILE"
+if [[ "$LEGACY_MIRROR" -eq 1 ]]; then
+  write_state "$LEGACY_FILE"
 fi
-trap - EXIT
 
 # Telemetry per Composition Rule 3 (write tool emits) + Rule 1 carve-out (emit_telemetry is the exempt callee).
 END_TS_MS=$(($(date +%s) * 1000))
