@@ -23,6 +23,7 @@
 # Post-Boot Ritual (Context_Injection_Protocol.md § 1.5). Per-session,
 # per-clone, never history. Read by every mutating tool atom in .scripts/.
 .session_state.json
+.session_state.*.json
 
 # Video binaries (reproducible from scripts; not in git)
 05_Content/modules/video/renders/*.mp4
