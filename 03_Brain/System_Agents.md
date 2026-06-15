@@ -42,8 +42,16 @@ Agents MUST NOT mark a task as done, archive task files, or move Kanban status t
 - This rule applies even when all success criteria appear to be met.
 - **Session-end scan (graduated 2026-05-16):** At session end, scan the board for any In Progress tasks whose work is visible in the current session context. If the task is complete, surface it to the user and offer to run `/close_task` immediately — do not defer to a future session.
 
+### 1.4 Orchestrator Gate Delegations (CRITICAL)
+These delegations apply **only to runs under the Orchestrator persona** ([[Agent_Roles]]). Interactive, human-driven macros are unchanged — every gate below stays a checkpoint; what changes is who mans it first. Each names a **keeper** and an **escalation path** to the human (the [[Needs_Attention]] queue, via `queue_attention`). Ratified via /graduate 2026-06-15 Phase B, per [[Orchestrator_PRD_v2]] § 8.
+
+- **Execution-approval delegation (§ 8.1):** for Orchestrator-*created* tasks, the `/new_task` step-7 HALT is delegated to keeper = the run's SCOPE allowlist + intake routing rules. Escalation: any uniqueness or board anomaly → `queue_attention` and skip. **Human-created tasks keep the step-7 HALT unchanged.**
+- **Spec-gate delegation (§ 8.2):** the `/execute_task` step-8 human "approved" keyword is delegated to keeper = a deterministic rubric (every acceptance criterion mapped to a spec section, file-change list present, zero open questions) **plus** an adversarial **PM-reviewer subagent** with **flag-only** authority (verdict APPROVE | FLAG — it can reject a rubric-pass, never rescue a rubric-fail). Escalation: rubric fail OR PM flag → `queue_attention` (`spec_gate`) and skip.
+- **Close-gate delegation (§ 8.3):** kernel § 1.3 ("`/close_task` is user-triggered only") is amended for Orchestrator runs: keeper = validator **SHIP** AND Verification Gateway **PASS** → auto-`/close_task`. Escalation: any FIX/BLOCK verdict or FAIL result → `queue_attention` (`close_gate`) and skip. **Outside Orchestrator runs, § 1.3 stands unchanged.**
+
 ## 2. Vault Security Protocol (CRITICAL)
 - **READ-ONLY:** You have strictly read-only access to `./.vault_link/01_Projects/` (Project Passports) and `./.vault_link/03_Brain/` (Architecture Rules). Do NOT modify files in these directories during standard coding sessions.
+- **`03_Brain/` carve-out (metric):** the Synthesizer writes `03_Brain/Weekly_Synthesis/` by design (`/synthesize`), and the Architect edits `03_Brain/` via `/graduate` with per-change user approval. The Vault-Security metric is therefore "**no `03_Brain/` mutations outside the Synthesizer synthesis carve-out and approved `/graduate` edits**" — NOT "never writes `03_Brain/`." (Reworded via /graduate 2026-06-15 Phase B, resolving the v1 self-contradiction.)
 - **READ/WRITE:** You may read and write to `./.vault_link/02_Tasks/`, `./.vault_link/04_Logs/`, - and the current project's board (e.g., `[[nearest-address-codes_Board]]`).
 - **Human-in-the-Loop:** For any macro that creates a new state (tasks, threads, or files), you MUST halt after creation and await user verification before proceeding to execution.
 

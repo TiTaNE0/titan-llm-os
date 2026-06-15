@@ -42,6 +42,8 @@ This writes `.vault_link/.session_state.json`, the authoritative live-persona re
 
 **State file is authoritative.** Never trust caller-supplied or ambient persona claims at the atom layer — always read the state file. This is the load-bearing invariant for the persona-origin guard (see [[Tool_Registry]] § Composition Rule 5).
 
+**Per-session state files (ratified /graduate 2026-06-15 Phase B, [[Orchestrator_PRD_v2]] § 8.5).** `session_state_write.sh` writes the canonical per-session file `.session_state.<id>.json` and, by default, the singleton mirror `.session_state.json` — which remains the **authoritative persona record for Claude Code sessions**. The handshake does **not** export `TITAN_SESSION_ID`: Claude Code runs each Bash tool call in a fresh shell (env does not persist), and headless `claude -p` single-process ticks are prohibited (API-credit billed — subscription-only mandate). Per-session isolation is therefore **opt-in** for concurrent manual Claude Code sessions on one vault, resolved by prefixing atom calls **inline** — `TITAN_SESSION_ID=<id> .vault_link/.scripts/<atom>.sh ...` — never via a persisted export. `session_state_cleanup.sh` and the read-only `.session_state.*.json` glob provide hygiene and "who's connected" visibility. The autonomous loop runs **serially per project** ([[Orchestrator_PRD_v2]] § 11), so the singleton suffices for it; keyed files matter only for human-run parallel windows.
+
 **Mid-session persona switches require a new handshake** (boot + post-boot ritual). Editing `.session_state.json` directly in-session is a kernel violation — it bypasses the per-change approval gate for Architect work and the macro-level checks for Executioner work.
 
 Added 2026-05-28 by [[TiTan_Kit_Integration_Phase2]].

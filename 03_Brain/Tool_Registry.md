@@ -9,12 +9,14 @@ This is the canonical list of atomic operations available to any macro. Adding a
 ## Tool Manifest
 
 ### `create_task`
-- **Inputs:** `title: str`, `project: str`, `priority: enum[low,med,high]`
-- **Outputs:** Path to created file in `02_Tasks/`
-- **Pre-conditions:** Project exists in `01_Projects/`; no existing task with same title
-- **Errors:** E1 if project missing; E3 if task already exists
+- **Inputs:** `title: str`, `project: str`, `priority: enum[low,medium,high]`, `source_persona: str`
+- **Outputs:** Path to created file in `02_Tasks/<project>/`
+- **Pre-conditions:** Project passport exists at `01_Projects/<project>.md`; no existing task with same title in `02_Tasks/` OR `99_Archive/Tasks/` (wiki-links resolve by basename — uniqueness is global)
+- **Errors:** E1 if project passport missing; E3 if title collides (live or archived) or args invalid; E4 if persona ≠ Executioner
 - **Idempotent:** ❌ (write-once)
-- **Persona Gate:** Executioner
+- **Persona Gate:** Executioner (source-persona arg + `persona_check.sh`)
+- **Script:** `.vault_link/.scripts/create_task.sh`
+- *(Implemented 2026-06-14 by [[Orchestrator_A1_Create_Task_Atom]] — the Phase 0 contract was registered but never built. Priority enum corrected `med` → `medium` to match `Task_Template`, the `/new_task` macro, and all existing tasks; ratified via /graduate 2026-06-15 Phase B.)*
 
 ---
 
@@ -278,6 +280,34 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Body-safety property:** YAML-only mutation. The atom transforms ONLY the YAML frontmatter block (between the first two `---` markers); task body markdown is never touched — important because body prose may legitimately contain phrases like `` `status: in_progress` `` (e.g., spec text referencing other tasks), and the atom must not false-positive on those.
 - **Script:** `.vault_link/.scripts/set_task_status.sh`
 - *(Added 2026-05-28 by [[TiTan_Kit_Integration_Phase2]] to close the YAML-status-mutation gap discovered while drafting the `/execute_task` slash command. Without this atom, Step 7 of the slash command would require an inline bash mutation outside `write_task_section.sh`'s scope, which would create a precedent for Hard Rule bending. User-decided 2026-05-28 to build the atom rather than document the bend.)*
+
+---
+
+### `session_state_cleanup`
+- **Inputs:** `[--session-id <id>]` `[--max-age-hours <N>]` `[--dry-run]`
+- **Outputs:** Removes stale `.session_state.<id>.json` files. Sweep mode (no `--session-id`) deletes keyed files older than `--max-age-hours` (default 24); `--session-id` removes one file regardless of age. NEVER touches the legacy singleton `.session_state.json`. On **stdout**: per-file `removed`/`would remove` lines + a summary.
+- **Pre-conditions:** None (script resolves vault via `pwd -P`)
+- **Errors:** E2 (invalid args); E3 (`--session-id` given but no matching file)
+- **Idempotent:** ✅ (a second sweep removes nothing new)
+- **Persona Gate:** Any (housekeeping; only ever touches the `.session_state.<id>.json` pattern)
+- **Telemetry:** MANDATORY (self-emits via `emit_telemetry.sh`)
+- **Script:** `.vault_link/.scripts/session_state_cleanup.sh`
+- *(Added 2026-06-14 by [[Orchestrator_A2_Session_State_Isolation]]; registered via /graduate 2026-06-15 Phase B.)*
+
+---
+
+### `queue_attention`
+- **Inputs:** `--task <[[Name]]|Name>` `--state <enum>` `--source <enum>` `--run-id <id>` `--reason <text>` `--source-persona <name>` `[--queue-file <path>]`
+  - `state` ∈ `{ spec_gate, close_gate, retries_exhausted, no_progress, orphaned_lock, panel_escalate }`
+  - `source` ∈ `{ orchestrator, pm_reviewer, failure_panel }`
+- **Outputs:** Appends ONE entry line under `## Open` in `Needs_Attention.md` (vault root; seeded from `00_Templates/Needs_Attention_Template.md` if absent). Atomic (mktemp + mv). Line format: `- [ ] [[<task>]] | state: <s> | source: <src> | run_id: <id> | queued: <ISO> | reason: <text>` (aligns with [[Orchestrator_PRD_v2]] § 5).
+- **Pre-conditions:** Queue parent dir exists; `source_persona` arg == live persona (Executioner)
+- **Errors:** E1 (queue parent missing / write fail); E3 (missing/invalid args); E4 (persona)
+- **Idempotent:** ✅ (no-op when an UNCHECKED entry with the same task+state+run_id exists; a resolved/checked entry permits re-escalation)
+- **Persona Gate:** Executioner (the loop dispatches as Executioner; `source` is a data field, not the executor)
+- **Telemetry:** MANDATORY (self-emits via `emit_telemetry.sh`)
+- **Script:** `.vault_link/.scripts/queue_attention.sh`
+- *(Added 2026-06-14 by [[Orchestrator_A3_Needs_Attention_Queue]]; registered via /graduate 2026-06-15 Phase B.)*
 
 ---
 
