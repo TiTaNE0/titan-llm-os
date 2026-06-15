@@ -1,0 +1,33 @@
+# Orchestrator_Config_Template.yaml
+#
+# Operational config for the autonomous loop (Phase C / C1). Copy to the vault root
+# as `Orchestrator_Config.yaml` (gitignored) and edit. The tick reads it every fire
+# (state lives on disk, not in conversation context).
+
+# SCOPE — projects the Orchestrator may touch. Tasks outside this allowlist are
+# invisible to it (PRD §3 SCOPE). One project per line.
+scope:
+  - TiTan_LLM_OS
+
+# STOP — hard limits per run (PRD §3 STOP).
+max_tasks_per_run: 3        # process at most N tasks, then stop the run
+no_progress_stop: true      # same error twice on one task -> stop that task (mirrors E5)
+
+# BUDGET — ceiling per run (PRD §3 BUDGET). On the /loop host there is no API meter
+# (subscription), so this is advisory + a parity field for a future Routine host.
+budget:
+  max_minutes: 60
+
+# HOST — trigger. `loop` = /loop in an open Claude Code session (subscription).
+# A subscription-billed Routine may replace it later as a pure config swap.
+# `claude -p` / any API-credit host is FORBIDDEN.
+host: loop
+interval: 30m
+
+# DISPATCH — macro per fetched Todo task. /new_task is used only for 00_Inbox intake.
+dispatch: execute_task
+
+# DEGRADED — until C2 (spec-gate PM reviewer) lands, the tick cannot auto-approve a
+# spec. When true, it escalates at the spec gate via queue_attention and skips,
+# instead of completing the task. Flip to false once C2 + close-gate auto-close ship.
+degraded_spec_gate: true

@@ -128,6 +128,11 @@ recaps/
 # tracked; the live instance is personal and local-only.
 /Needs_Attention.md
 
+# Orchestrator runtime: live config instance + per-run digests. Framework
+# (00_Templates/Orchestrator_Config_Template.yaml + .scripts/) stays tracked.
+/Orchestrator_Config.yaml
+04_Logs/Orchestrator/
+
 # Self-referential vault symlink + Obsidian scratch + personal briefings/notes
 /Mission_Control
 /Untitled.base
