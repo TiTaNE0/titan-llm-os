@@ -68,6 +68,7 @@ The 6-step ritual to keep the OS coherent:
 | `/new_task [Title] for [[Project]]` | Create task, append to Todo, **HALT** for review |
 | `/execute_task [[Name]] [--refresh]` | Drive the 7-agent kit chain (research → spec → build → test → validate) on a vault-aware project. HALTs at spec gate and at close gate. Executioner-only. |
 | `/close_task [Task_Name]` | Populate completion summary, archive, update Kanban, log |
+| `/orchestrator_tick` (via `/loop`) | One autonomous loop tick: fetch → dispatch → gates (rubric + PM-reviewer, auto-close) → report → exit. Orchestrator persona; subscription `/loop` host; no `claude -p`. |
 | `/archive_done` | Bulk-move all `status: done` tasks to `99_Archive/` |
 | `/trace [topic]` | Chronological evolution across Projects → Brain → Logs → Archive |
 

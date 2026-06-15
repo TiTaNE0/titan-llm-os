@@ -311,6 +311,54 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ---
 
+## Orchestrator Loop Atoms (Phase C)
+
+> Registered via /graduate 2026-06-15 Phase C. Built by [[Orchestrator_C1_Run_Loop_And_Dispatch]] – [[Orchestrator_C4_Stale_Lock_Recovery]]. They compose the autonomous outer loop ([[Orchestrator_PRD_v2]]); the `/orchestrator_tick` macro orchestrates them. Read-only atoms emit no telemetry (Composition Rule 4).
+
+### `fetch_next_task`
+- **Inputs:** `--project <name>` `[--board <path>]` `[--tasks-dir <path>]`
+- **Outputs:** Next eligible task basename from the project's Todo column on stdout — status `todo`, `type != epic`, not `blocked`; priority high>medium>low, board order as tiebreak (§4.1).
+- **Errors:** exit 1 if no eligible task (the loop STOP signal); E2 bad args / board missing.
+- **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
+- **Script:** `.vault_link/.scripts/fetch_next_task.sh`
+
+### `run_digest`
+- **Inputs:** `--run-id <id>` `--line <text>` `[--digest-dir <path>]`
+- **Outputs:** Appends one ISO-stamped line to `04_Logs/Orchestrator/<run_id>.md` (header created if absent). The REPORT primitive (§3); run-keyed, distinct from date-keyed `append_log`.
+- **Errors:** E2 bad args / write failure.
+- **Idempotent:** ❌ (always appends). **Persona Gate:** any. **Telemetry:** none (logging primitive).
+- **Script:** `.vault_link/.scripts/run_digest.sh`
+
+### `spec_rubric`
+- **Inputs:** `--task-path <abs>`
+- **Outputs:** Deterministic FORM layer of the spec gate (§4.4 layer 1): spec populated + file-change list present + zero open-question markers. The semantic layer is the `pm-reviewer` subagent.
+- **Errors:** exit 0 PASS; 3 rubric FAIL (reason on stderr); E2 bad args / file missing.
+- **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
+- **Script:** `.vault_link/.scripts/spec_rubric.sh`
+
+### `panel_guard`
+- **Inputs:** `--task <name>` `--run-id <id>` `[--state-file <path>]`
+- **Outputs:** Enforces the failure panel convenes at most once per task per run (§4.3). First convene exit 0; repeat exit 3 (escalate, do not re-panel).
+- **Errors:** E2 bad args.
+- **Idempotent:** ❌ (records convene state). **Persona Gate:** any. **Telemetry:** none.
+- **Script:** `.vault_link/.scripts/panel_guard.sh`
+
+### `task_owner`
+- **Inputs:** `--task-path <abs>` `[--run-id <id> --source-persona <name>]` `[--get]`
+- **Outputs:** Stamps/reads `orchestrator_run_id` in task YAML (run-ownership marker, §6). Set is atomic (mktemp+mv); `--get` prints the current value.
+- **Errors:** E1 task missing / write fail; E3 missing args; E4 persona (set only).
+- **Idempotent:** ❌ on set (last write wins); ✅ on `--get`. **Persona Gate:** Executioner (set); any (`--get`). **Telemetry:** MANDATORY on set.
+- **Script:** `.vault_link/.scripts/task_owner.sh`
+
+### `stale_lock_scan`
+- **Inputs:** `--project <name>` `--live-run-id <id>` `[--tasks-dir <path>]`
+- **Outputs:** Prints in_progress, non-epic task basenames carrying a DEAD (≠ live) `orchestrator_run_id` — orphans to queue (§6). Unstamped / live-owned / todo / epic are skipped.
+- **Errors:** E2 bad args / dir missing.
+- **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
+- **Script:** `.vault_link/.scripts/stale_lock_scan.sh`
+
+---
+
 ## Tool Composition Rules
 
 1. **No tool calls another tool — with one carve-out.** Composition happens at the macro layer. **Exception:** `emit_telemetry.sh` is kernel telemetry infrastructure, not a peer atom; any write tool MAY call it solely to self-emit its mandatory telemetry record per Rule 3. No other tool→tool calls are allowed. If you find yourself wanting to compose atoms inside a script, lift the composition to the macro layer instead. Added 2026-05-28 by [[TiTan_Kit_Integration_Phase2]] to legitimize `write_task_section.sh` → `emit_telemetry.sh`; the carve-out is **deliberately narrow** — `emit_telemetry.sh` is the only exempt callee, and only for telemetry.

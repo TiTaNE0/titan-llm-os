@@ -27,7 +27,8 @@ interval: 30m
 # DISPATCH — macro per fetched Todo task. /new_task is used only for 00_Inbox intake.
 dispatch: execute_task
 
-# DEGRADED — until C2 (spec-gate PM reviewer) lands, the tick cannot auto-approve a
-# spec. When true, it escalates at the spec gate via queue_attention and skips,
-# instead of completing the task. Flip to false once C2 + close-gate auto-close ship.
-degraded_spec_gate: true
+# DEGRADED — when true, the tick escalates at the spec gate via queue_attention and
+# skips instead of completing the task. C2 (spec_rubric + pm-reviewer) and close-gate
+# auto-close shipped 2026-06-15, so the default is now false: the loop completes tasks.
+# Set true only to deliberately run the loop in escalate-everything mode.
+degraded_spec_gate: false

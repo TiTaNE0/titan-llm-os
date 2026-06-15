@@ -164,6 +164,20 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 - One `status: in_progress` task per project. The lock is the only thing preventing two parallel `/execute_task` runs from racing on the board.
 - Researcher cache is the task .md itself, not an out-of-band cache. Single source of truth.
 
+### `/orchestrator_tick`
+Registered via /graduate 2026-06-15 Phase C ([[Orchestrator_PRD_v2]] §4; built by [[Orchestrator_C1_Run_Loop_And_Dispatch]]). One iteration of the autonomous outer loop — processes exactly ONE task and exits. Driven by the `/loop` host (`/loop 30m /orchestrator_tick`), subscription-billed; host-swappable to a subscription Routine; **`claude -p` / any API-credit host is forbidden**. Runs as the **Orchestrator** persona. Each tick re-reads disk — it never relies on conversation context (the `/loop` session accumulates; the vault's anchor files are the truth).
+
+1. **Boot + run id;** read `Orchestrator_Config.yaml` (SCOPE, MAX_TASKS, BUDGET, dispatch, `degraded_spec_gate`).
+2. **Ownership / stale-lock (§6):** `stale_lock_scan` → `queue_attention(orphaned_lock)` for orphans (never force-flip); resume live-owned in_progress tasks.
+3. **STOP (§3):** MAX_TASKS / budget / no-progress → `run_digest` a stop line + exit.
+4. **Fetch (§4.1):** `fetch_next_task` across SCOPE; none eligible → idle + exit.
+5. **Stamp** ownership (`task_owner`), then **dispatch** `/execute_task`.
+6. **Spec gate (§1.4):** `spec_rubric` + `pm-reviewer` (flag-only). APPROVE → build → **close gate** (validator SHIP + Gateway PASS → auto-`/close_task`). Rubric fail / reviewer flag / close fail → `queue_attention` + skip.
+7. **Failure panel (§4.3):** on a build/test FAIL the inner loop can't resolve, `panel_guard` → `failure-panel` → RETRY_BUILD(hints) | RESPEC | ESCALATE.
+8. **REPORT** (`run_digest` + `append_log` + `emit_telemetry`) and **exit** — one task per tick, never block on a human.
+
+The executable form lives at `project-template/.claude/commands/orchestrator_tick.md` (kit). Brain owns this contract; the kit owns the runnable command — same split as `/execute_task` and `/close_task`.
+
 ## 8. 📋 Template Protocol
 - **Standardization:** All new files created in `01_Projects/` and `02_Tasks/` MUST follow the English-only templates in `00_Templates/`.
 - **Project Initiation:** When a new project is mentioned, use `Project_Passport_Template.md`.
