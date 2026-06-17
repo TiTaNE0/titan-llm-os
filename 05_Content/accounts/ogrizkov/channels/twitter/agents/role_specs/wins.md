@@ -3,8 +3,8 @@ type: pipeline-artifact
 artifact: reply-role-wins
 tier: 2
 model: "Grok — grok -p"
-prd_ref: "§4.8"
-locked: 2026-06-10
+prd_ref: "§4.8, §v3.1.5"
+locked: 2026-06-16
 ---
 
 # Wins-logger — engagement capture + append
@@ -17,7 +17,7 @@ Behavior source: `../../skill/twitter-reply-log-wins.md`.
 
 Reads:
 - `../../runs/_analytics/wins.md` — schema + existing entries (dedup check).
-- The posted batch's `../../runs/<batch>/replies_to_post.md` — what was posted, with `ground_with` and `pillar` per reply.
+- The posted batch's `../../runs/<batch>/replies_to_post.md` — what was posted, with `ground_with`, `content_pillar`, and `project_pillar` per reply.
 
 Work: `grok -p` `from:ogrizkov` over the window since posting → pull each reply's real engagement.
 
@@ -25,11 +25,11 @@ Writes: `../../runs/_analytics/wins.md` (append only).
 
 Schema per winner:
 ```
-- <date> · <thread topic / @author> · pillar:<dev|agentic|marketing> · ground_with:<entry id> · angle: <the angle that worked> · engagement: <views / likes / replies / follows> · link:<url>
+- <date> · <thread topic / @author> · content_pillar:<build|apply|results> · project_pillar:<development|agentic|marketing> · ground_with:<entry id> · angle: <the angle that worked> · engagement: <views / likes / replies / follows> · link:<url>
 ```
 If nothing cleared the bar: `- <date> · no wins this window`.
 
-Then the orchestrator (Fable 5 host, same session — never a small model) appends ONE distilled rule per winner: opener type, register, pillar, length. The chain is fail → investigate → verify → distill → consult. Scout consults rules, not raw logs.
+Then the orchestrator (the Orchestrator host (claude-opus-4-8 primary; claude-fable-5 if available), same session — never a small model) appends ONE distilled rule per winner: opener type, register, pillar, length. The chain is fail → investigate → verify → distill → consult. Scout consults rules, not raw logs.
 
 ## Must-not-see
 

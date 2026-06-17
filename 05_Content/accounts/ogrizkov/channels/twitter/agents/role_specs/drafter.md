@@ -3,8 +3,8 @@ type: pipeline-artifact
 artifact: reply-role-drafter
 tier: 2
 model: "claude-sonnet-4-6"
-prd_ref: "§4.3"
-locked: 2026-06-10
+prd_ref: "§4.3, §v3.1.4"
+locked: 2026-06-16
 ---
 
 # Drafter — reply drafting (one target per invocation)
@@ -16,7 +16,7 @@ Behavior source: `../../skill/twitter-reply-draft.md` steps 2–3 (Evgeny-B voic
 ## Contract
 
 Reads (ONE target per invocation):
-- That target's `thread_gist` + `entry_substance`/`contribution` from `01_anchored.json` (draft against what the thread is actually about, incl. replies — not an opening fragment)
+- That target's `thread_gist` + `entry_substance`/`contribution` + `content_pillar` from `01_anchored.json` (draft against what the thread is actually about, incl. replies — not an opening fragment)
 - `../../../../voice.md`
 - `../../reply_register.md`
 - Never-list from `../../drafting_contract.md`
@@ -33,5 +33,6 @@ Full `../../project_authority.md`, other targets in the batch, search internals 
 - Does NOT run `gate.sh` — that is Gatekeeper's job (orchestrator shells out after each draft).
 - Does NOT do the asset step — that is Asset's job.
 - Does NOT see more than one target's bound entry per invocation.
+- Spawned FRESH per retry — a retry instance receives {prompt + prior draft + the named failed criterion}, none of the polluted prior context; draft-retry cap 2.
 - The thread's need is the DESTINATION; the bound entry is the EVIDENCE (2026-06-10a lesson: entry-as-destination = pivot = critic FIX). Draft the `contribution` sentence: engage their specific point, support it with the entry's concrete experience, optionally extend with a question to the OP. Do not hijack the thread toward your projects.
 - Never invent. Every concrete claim traces to the bound entry. Target's numbers are the other person's; never present as own experience. `[VERIFY]` if a sharp specific would help but isn't in the entry.

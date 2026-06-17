@@ -1,8 +1,8 @@
 ---
 type: pipeline-artifact
 artifact: reply-schemas
-prd_ref: "§4, §6"
-locked: 2026-06-10
+prd_ref: "§4, §6, §v3.1"
+locked: 2026-06-16
 ---
 
 # v3 Artifact Field Reference
@@ -10,6 +10,44 @@ locked: 2026-06-10
 Each stage writes one structured file to `runs/<batch>/`. Every hop is file-only — no role reads
 another role's reasoning, only its artifact. Batch id format: `<YYYY-MM-DD>_batch`, with suffix
 letters for same-day reruns (e.g. `2026-06-09b_batch`).
+
+`runs/_index/` is a SHARED non-batch directory holding `search_vectors.json` — written once by
+Vault_Scout, reused across all runs until TTL or vault change.
+
+---
+
+## search_vectors.json
+
+Writer: Vault_Scout (`claude-sonnet-4-6`). Reader: Orchestrator.
+
+Lives in `runs/_index/` — shared, non-batch; persists across runs. Re-generated when
+`project_authority.md` changes OR after 7-day TTL (driven by `generated_at`).
+
+Fields:
+- `generated_from` — `"project_authority.md@<hash>"` (hash of the source file at generation time)
+- `generated_at` — ISO 8601 timestamp; drives the 7-day TTL
+- `vectors[]` — array of vector objects:
+  - `id` — unique vector id (e.g. `"V-agentic-orchestration"`)
+  - `content_pillar` — one of `"build"` | `"apply"` | `"results"`
+  - `search_intent` — one sentence describing the live-thread angle to find on X
+  - `grounds_with` — array of `project_authority.md` entry ids that can honestly ground a reply
+  - `query_seeds` — pool of search query synonyms/phrasings; Orchestrator rotates/samples per run
+
+```json
+{
+  "generated_from": "project_authority.md@a3f9c12",
+  "generated_at": "2026-06-16T10:00:00Z",
+  "vectors": [
+    {
+      "id": "V-agentic-orchestration",
+      "content_pillar": "build",
+      "search_intent": "threads where people argue about agent-agnostic orchestration / model-as-runner / owning the routing graph",
+      "grounds_with": ["CAK-01", "TIT-01"],
+      "query_seeds": ["agent orchestration", "model agnostic", "routing graph", "claude code vs opencode"]
+    }
+  ]
+}
+```
 
 ---
 
@@ -87,7 +125,7 @@ Fields per entry:
 
 ## 01_anchored.json
 
-Writer: Matcher (Sonnet 4.6). Readers: Drafter (per-target), orchestrator (top-2 select), Producer.
+Writer: Matcher (Opus 4.8). Readers: Drafter (per-target), orchestrator (top-2 select), Producer.
 
 Matcher applies the hard Liveness gate (corpse-drop, velocity, fresh-by-reach, English) then
 binds each survivor 1:1 to a distinct `project_authority.md` entry. No entry is reused across
@@ -97,7 +135,9 @@ Fields per target:
 - `url` — same as candidates
 - `author` — same as candidates
 - `engagement` — object: `{views, likes, replies, velocity}` (velocity: subjective tier "low|mid|high")
-- `pillar` — which project pillar this maps to (from `project_authority.md`)
+- `content_pillar` — `"build"` | `"apply"` | `"results"` (pillar of THIS bind)
+- `project_pillar` — `"development"` | `"agentic"` | `"marketing"` (source pillar in project_authority.md)
+- `vector` — the source vector id from `search_vectors.json` that led the Scout to this candidate
 - `touches` — short string array of candidate topics the entry touches (e.g. `["scheduling", "reliability"]`)
 - `ground_with` — the exact `project_authority.md` entry id bound to this target
 - `why_live` — one-sentence liveness rationale (age + velocity)
@@ -119,7 +159,9 @@ Fields per target:
         "replies": 47,
         "velocity": "high"
       },
-      "pillar": "agentic-systems",
+      "content_pillar": "build",
+      "project_pillar": "agentic",
+      "vector": "V-agentic-orchestration",
       "touches": ["scheduling", "reliability", "orchestration"],
       "ground_with": "P5-launchd-agent",
       "why_live": "6h old, 310 likes in first 6h — high velocity, safe window.",
@@ -138,7 +180,7 @@ Fields per target:
 
 Writer: Drafter (Sonnet 4.6). Readers: Gatekeeper (`gate.sh`), Critic, Producer.
 
-Drafter sees ONE target at a time — the bound `entry_substance` + `contribution` + `voice.md` +
+Drafter sees ONE target at a time — the bound `entry_substance` + `contribution` + `content_pillar` + `voice.md` +
 `reply_register.md`. Not the full `project_authority.md`. Not other targets.
 
 Fields per draft:
@@ -174,8 +216,9 @@ Fields per result:
 - `gate_single` — `"pass"` or `"fail"` (gate.sh single-draft verdict)
 - `gate_batch` — `"pass"` or `"fail"` (gate.sh --batch verdict over the surviving set)
 - `critic_verdict` — `"SHIP"` or `"FIX:<one-line reason naming the failed criterion>"` (cross-family Critic).
-  The named criterion is one of the SIX: `voice_fit|specificity_present|no_fabrication|not_generic|length_register_sane|thread_fit`.
-- `status` — `"drafted"` | `"passed"` | `"failed"` | `"skipped"` | `"held"`
+  The named criterion is one of the SEVEN: `voice_fit|specificity_present|no_fabrication|not_generic|length_register_sane|thread_fit|positioning_alignment`.
+- `criteria` — array of per-criterion objects `{criterion, verdict: "pass"|"fail", confidence: <0-1 float>, reason: "<one line>"}`, one per criterion
+- `status` — `"drafted"` | `"passed"` | `"failed"` | `"skipped"` | `"held"` | `"quarantined"`
 - `retries` — integer, 0-indexed; how many Drafter retries this target consumed
 - `skip_reason` — string if status is `"skipped"`, null otherwise
 
@@ -199,6 +242,15 @@ to `grounded_claim`; fails if it distorts that claim or claims the author's numb
       "gate_single": "pass",
       "gate_batch": "pass",
       "critic_verdict": "SHIP",
+      "criteria": [
+        {"criterion": "voice_fit", "verdict": "pass", "confidence": 0.92, "reason": "flat opener, no hype"},
+        {"criterion": "specificity_present", "verdict": "pass", "confidence": 0.88, "reason": "47 nights named"},
+        {"criterion": "no_fabrication", "verdict": "pass", "confidence": 0.95, "reason": "claim traces to bound entry"},
+        {"criterion": "not_generic", "verdict": "pass", "confidence": 0.85, "reason": "launchd stability is specific to the builder"},
+        {"criterion": "length_register_sane", "verdict": "pass", "confidence": 0.9, "reason": "two short sentences"},
+        {"criterion": "thread_fit", "verdict": "pass", "confidence": 0.87, "reason": "directly corroborates swyx's orchestration point"},
+        {"criterion": "positioning_alignment", "verdict": "pass", "confidence": 0.83, "reason": "reads as active builder, build-pillar, no vanity metrics"}
+      ],
       "status": "passed",
       "retries": 0,
       "skip_reason": null
@@ -207,7 +259,16 @@ to `grounded_claim`; fails if it distorts that claim or claims the author's numb
       "url": "https://x.com/someone/status/9999",
       "gate_single": "fail",
       "gate_batch": "pass",
-      "critic_verdict": "FIX:specificity_present — mentions 'memory' but no number or tool",
+      "critic_verdict": "FIX:specificity_present",
+      "criteria": [
+        {"criterion": "voice_fit", "verdict": "pass", "confidence": 0.8, "reason": "flat opener"},
+        {"criterion": "specificity_present", "verdict": "fail", "confidence": 0.75, "reason": "mentions memory but no number or tool"},
+        {"criterion": "no_fabrication", "verdict": "pass", "confidence": 0.9, "reason": "no untraced claims"},
+        {"criterion": "not_generic", "verdict": "pass", "confidence": 0.7, "reason": "project angle present"},
+        {"criterion": "length_register_sane", "verdict": "pass", "confidence": 0.85, "reason": "within length norm"},
+        {"criterion": "thread_fit", "verdict": "pass", "confidence": 0.8, "reason": "addresses thread ask"},
+        {"criterion": "positioning_alignment", "verdict": "fail", "confidence": 0.6, "reason": "reads spectator not builder"}
+      ],
       "status": "skipped",
       "retries": 2,
       "skip_reason": "still failing gate after 2 retries"
@@ -226,10 +287,12 @@ auto-posted.
 Contains per target (passed only):
 - Target link
 - `ground_with` entry id
+- `content_pillar` and `project_pillar`
 - DRAFT reply text (marked DRAFT)
 - `[VERIFY]` flags if any
 - Asset html + png paths, or "open + screenshot" note if Asset role ran
 - Skipped targets listed at bottom with skip reasons
+- Quarantined targets listed (separately from skipped) with reject history — surfaced, never silently dropped
 
 All content marked **DRAFT**. Producer never posts.
 
@@ -257,3 +320,4 @@ see `runs/_schema/README.md`. Mapping:
 | `03_tactical_brief` | folded into `02_drafts.json` | brief fields moved into Drafter's isolated input context |
 | (new) | `03_review.json` | orchestrator audit trail (gate + critic verdicts per target) |
 | (new) | `replies_to_post.md` | Producer's assembly; equivalent to v2 final output but richer |
+| (new v3.1) | `runs/_index/search_vectors.json` | Vault_Scout output; shared non-batch; drives supply-driven top-of-funnel |

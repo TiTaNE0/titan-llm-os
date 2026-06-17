@@ -1,6 +1,6 @@
 # Skill: twitter-reply-orchestrate
 
-Orchestrator runbook — the host Claude Code session IS the orchestrator (`claude-fable-5`; fallback `claude-opus-4-8`). Roster + role contracts: `../agents/roster.md`.
+Orchestrator runbook — the host Claude Code session IS the orchestrator (claude-opus-4-8 host; claude-fable-5 if available). Roster + role contracts: `../agents/roster.md`.
 
 ---
 
@@ -14,8 +14,13 @@ At run start, one cheap `grok -p` call requesting a trivial fenced ` ```json ` b
 
 Orchestrator holds ONLY:
 - `batch_id` — string
-- Per-target status ∈ `{drafted, passed, failed, skipped}`
-- Per-target retry count (shared budget)
+- Per-target status ∈ `{drafted, passed, failed, skipped, quarantined, held}`
+- Per-target `retry_count` (draft cap 2)
+- `grok_calls` — global counter, cap `MAX_GROK_CALLS=40`
+- Per-vector `vector_fetches` count, cap `MAX_FETCH_PER_VECTOR=3`; vector marked `EXHAUSTED` on cap with no bind
+- Per-vector `vector_state` ∈ `{available, exhausted}`
+- `shipped_by_pillar` — counts per `{build, apply, results}`; drives 50/30/20 steering
+- Per-vector `query_rotation` — which `query_seeds` subset was used each run (rotation state lives here, not in the Scout — Scout is stateless)
 
 Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text / search results (PRD §9.4). It routes file artifacts. That thin state is what keeps its context clean.
 
@@ -25,55 +30,61 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 
 **0. PROBE** — see above; abort on failure.
 
+**0b. VAULT_SCOUT (cached).**
+   - Check `runs/_index/search_vectors.json`. Regenerate if: the file is missing; OR `project_authority.md` has changed since `generated_from` hash; OR `generated_at` is ≥7 days old.
+   - If none of the above: reuse the cached file; do not re-invoke Vault_Scout.
+   - When regeneration is needed: invoke Vault_Scout sub-agent (`claude-sonnet-4-6`); it reads `project_authority.md` only and writes `runs/_index/search_vectors.json`. Orchestrator does not ingest its output — it just routes the file path to the round-robin loop.
+   - Every vector in `search_vectors.json` must be phrased through the agentic lens (operator constraint — load-bearing for the supply guarantee).
+
 **1. Batch ID.** `batch_id = <YYYY-MM-DD>_batch`. If that directory exists, append a suffix letter (`a`, `b`, …). `mkdir runs/<batch_id>/`.
 
-**2. SCOUT — widen loop (cap 3 passes).**
-   - Invoke Scout: `grok -p "<brief demanding single fenced json block>"` → parse stdout for fenced ` ```json ` block → write `runs/<batch>/00_candidates.json`.
-   - Aim 18–25 candidates per pass: downstream gates (replyability + contributability + live-read critic) cut hard, so the pool must be wide for the batch to ship more than 2–3 replies.
-   - Count live English survivors in the JSON.
-   - If survivors <8 AND pass count <3: widen topics, re-invoke Scout, repeat.
-   - If cap (3) hit: emit loud **"widened 3 times, only M live this window"** to stdout. Proceed with whatever survived.
+**2. ROUND-ROBIN LOOP.**
+   - Load vectors from `runs/_index/search_vectors.json`.
+   - Pick the next vector using round-robin, biased toward the under-filled pillar via `shipped_by_pillar` (50/30/20 steering). Vectors are NON-EXCLUSIVE — a vector may yield more than one reply across the batch.
+   - From the chosen vector's `query_seeds` pool, pick an unused subset for this run (rotation state tracked in `query_rotation`; hand the **concrete query** to Scout — Scout is stateless).
+   - Invoke Scout (`grok -p`): single fetch → returns live candidates into `00_candidates.json` and full thread context into `00b_threads.json`. Increment `grok_calls` + `vector_fetches[vector]`.
+   - Matcher sub-agent (`claude-opus-4-8`):
+     - Shell corpse-drop pre-filter (by age/views) runs BEFORE the expensive Opus bind.
+     - Matcher confirms the candidate matches the vector → binds 1:1 to a vault entry → tags `content_pillar` / `project_pillar` / `vector` → writes `01_anchored.json` for this target; LOCK (`anchored_count += 1`).
+     - On Matcher fail: Matcher returns WHY; Scout fetches the next candidate on this vector (increment `grok_calls` + `vector_fetches[vector]`; a replacement CONSUMES vector quota — D3).
+     - On `vector_fetches[vector] == MAX_FETCH_PER_VECTOR` with no bind: mark vector `EXHAUSTED`.
 
-**3. MATCHER sub-agent (`claude-sonnet-4-6`) — liveness shortlist.**
-   - Inputs passed: `00_candidates.json` + `project_authority.md`.
-   - Matcher applies the liveness gate → a shortlist of live survivors (binding happens after 3.5).
+**3. STOP CONDITIONS** — check after every bind attempt (whichever fires first):
+   - `shipped == TARGET` (default 12) — soft target; see note below.
+   - All vectors `EXHAUSTED`.
+   - `grok_calls == MAX_GROK_CALLS` (40).
+   - Failure-rate breaker: failure rate >~40% across the batch OR low-confidence rejects scattering across different criteria each retry (signature of a systemic conflict).
 
-**3.5. THREAD-FETCH (Scout / grok, batched).**
-   - Orchestrator passes the Matcher's liveness-survivor URL list to Scout for ONE batched `grok -p` call.
-   - Parse the single fenced ` ```json ` block → write `runs/<batch>/00b_threads.json`.
-   - Route to Matcher; the orchestrator NEVER ingests the thread text (same firewall as the search results).
-   - Matcher then applies the replyability filter (drop poll/meme/promo without a real discussion) + the
-     contributability gate (bind only if an honest thread-perspective `contribution` sentence exists — no
-     pivot-binds) + binds each survivor 1:1 against `thread_gist` → writes `01_anchored.json` (carries
-     `thread_gist` + `post_type` + `contribution`).
-   - If replyable+groundable <8 AND a re-scout pass is unused (at most 1 extra): trigger one more Scout pass, re-run Matcher.
-   - Proceed with ≥1 anchored target; abort only if zero.
+   **12 is a soft target bounded by these stops, never a bare `while shipped<12`.** On early stop: ship what is real and report the shortfall in `batch_report.md`. Never pressure a gate.
 
-**4. PER-TARGET LOOP — shared retry budget: 2 retries across gate FAIL + Critic FIX per target.**
+**4. PER-TARGET DRAFT/JUDGE LOOP.**
 
-   For each target in `01_anchored.json`:
+   For each locked target in `01_anchored.json`:
 
-   a. **Drafter sub-agent (`claude-sonnet-4-6`):** receives {`thread_gist`, bound entry substance + `contribution`, `voice.md`, `reply_register.md`, `drafting_contract.md` never-list} for this ONE target → appends draft to `02_drafts.json`. The draft DELIVERS the `contribution` sentence (thread's need = destination, entry = evidence).
+   a. **Drafter sub-agent (`claude-sonnet-4-6`, FRESH per retry):** receives `{thread_gist, bound entry substance + contribution, content_pillar, voice.md, reply_register.md, drafting_contract.md never-list}` for this ONE target → appends draft to `02_drafts.json`.
 
    b. **GATEKEEPER:** `/opt/homebrew/bin/bash bin/gate.sh <draft>` (single-draft gate).
       - Exit 2 → **ABORT** (config error: need bash≥4; `brew install bash`). Never retry exit 2.
-      - Exit 1 → gate FAIL: if budget left, count retry, return to Drafter with the flag. If budget exhausted → `status=skipped`, record `skip_reason`.
+      - Exit 1 → gate FAIL: if draft retries remain, return to Drafter with the flag. If budget exhausted → `status=skipped`.
       - Exit 0 → proceed to Critic.
 
-   c. **CRITIC (Phase-2 grok, live-read):** per draft (or batched over survivors), the grok critic OPENS each
-      URL and judges against the LIVE thread. Orchestrator passes {`url`, `thread_gist` as cross-ref ONLY,
-      `grounded_claim`, `draft`} and routes the fenced JSON back without ingesting it.
+   c. **CRITIC (grok live-read):** Orchestrator passes `{url, thread_gist as cross-ref ONLY, grounded_claim, draft, content_pillar}` → routes the fenced JSON back without ingesting it. Grok opens the URL live and writes `criteria[]` per-criterion verdicts + `critic_verdict`, into `03_review.json`. Increment `grok_calls`.
       - On critic unavailability mid-run → HALT: all results `status=held`, `critic=UNAVAILABLE`, loud held-line. NEVER stub-fallback at runtime.
-      - `FIX:<criterion>`: if budget left, count retry, return to Drafter with the named criterion fed back. If budget exhausted → `status=skipped`.
-      - `SHIP` → `status=passed`.
 
-   d. Record all verdicts in `03_review.json`.
+   d. **FIX → ACTION ROUTING (v1.3)** — deterministic on `criteria[]` booleans, not the free-text FIX prose. Two retry budgets, kept SEPARATE so a style fix never consumes the bind budget:
+      - **STYLE budget (3 per target):** `voice_fit` / `specificity_present` / `not_generic` / `length_register_sane` / `positioning_alignment` are **style-fixable** → kill Drafter instance, spawn FRESH Drafter with `{prompt + prior draft + named criterion}`, retry. These are the cheap "return to the drafter" fixes; they do **not** count against the bind budget and do **not** quarantine a target on their own (a draft that only ever fails advisory criteria keeps going back to the drafter up to the style cap).
+      - **BIND budget (the two HARD gates only):** `no_fabrication` and `thread_fit` → **draft-fixable ONCE** (fresh Drafter), then **bind-bad** if the SAME hard gate fails again.
+      - **Immediate bind-bad** on `still_alive=false` or `drift=dead` — redrafting a dead thread is pointless.
+      - **Verdict gating:** route on the Critic's confidence-gate (HARD gate fail ≥0.65; advisory fail ≥0.80). A low-confidence misgiving is not a FIX — do not loop on it.
+      - **draft-fixable / style action:** kill + fresh Drafter with the named criterion.
+      - **bind-bad action:** return to Matcher/Scout for a replacement on that vector (replacement CONSUMES `vector_fetches` quota — D3).
 
-**5. BATCH GATE.**
-   - Assemble all `passed` drafts as `DRAFT:` lines → `gate.sh --batch`.
-   - Exit 2 → **ABORT**.
-   - Exit 1 → flagged targets return to Drafter within remaining shared budget; re-gate; re-batch. Any target that cannot clear → `status=skipped`.
-   - Exit 0 → proceed.
+   e. **PER-TARGET CIRCUIT BREAKER:** quarantine (`status=quarantined`, record full reject history, keep batch moving) only when EITHER a HARD gate has failed twice (bind budget spent) + 1 replacement failed, OR the STYLE budget (3) is exhausted with an advisory criterion still failing. A target is never quarantined while it is still making progress against the named fix.
+
+   f. Record all verdicts including `criteria[]` in `03_review.json`.
+
+**5. RATE-BASED ESCALATION** (replaces global SYSTEM HALT).
+   - Escalate to operator ONLY when failure rate >~40% of targets hit the breaker, OR when rejects are low-confidence and scatter across different criteria each retry. One stuck target = quarantine; half the batch stuck = escalate.
 
 **6. ASSET — top 2 by `engagement.views` among `passed` targets.**
    - Orchestrator selects deterministically (top 2 by views from `01_anchored.json`).
@@ -83,19 +94,22 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 
 **7. PRODUCER sub-agent (`claude-haiku-4-5`).**
    - Reads `01_anchored.json` + `02_drafts.json` + `03_review.json`.
-   - Writes `runs/<batch>/replies_to_post.md`: all DRAFT, includes skipped targets with `skip_reason`.
+   - Writes `runs/<batch>/replies_to_post.md`: all DRAFT, includes skipped targets with `skip_reason`, surfaces QUARANTINED targets with their full reject history as a separate section (distinct from skipped).
    - **STOP — human review. NEVER post.**
 
 **8. LOUD FLAGS** — emit to stdout AND `03_review.json`:
    - `"no cross-family veto this run"` (emitted only by the Phase-1 `claude-stub` — scaffold tests, never production; a stub batch is also forced `held: true`).
    - `"BATCH HELD — DO NOT POST"` whenever `held: true` (critic gate halt or any hard-block).
    - `"CRITIC UNAVAILABLE — batch HELD"` if the Phase-2 grok critic could not be invoked mid-run.
-   - Scout widen-exhaustion line if cap was hit.
+   - Per-vector `EXHAUSTED` line when `vector_fetches[vector] == MAX_FETCH_PER_VECTOR` with no bind.
+   - `MAX_GROK_CALLS reached` line when `grok_calls == 40`.
+   - Shortfall line when the batch stops before TARGET with reasons (from `batch_report.md`).
    - Every skipped target with its `skip_reason`.
+   - Every quarantined target with its reject history.
 
 **9. WINS-LOGGER (post-posting, ~1 day later).**
    - `grok -p from:ogrizkov` engagement over the window → Wins-logger appends real winners to `runs/_analytics/wins.md`.
-   - Orchestrator (Fable 5 host, same session) appends ONE distilled rule per winner (opener type, register, pillar, length). Distillation never delegated to a small model.
+   - The Orchestrator host (claude-opus-4-8 primary; claude-fable-5 if available) appends ONE distilled rule per winner (opener type, register, pillar, length). Distillation never delegated to a small model.
 
 ---
 
@@ -105,11 +119,16 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 |-----------|--------|
 | `grok` probe returns no fenced block | ABORT: "grok fenced-JSON probe failed; output shape changed" |
 | `gate.sh` exit 2 at any point | ABORT (config error: need bash≥4 — `/opt/homebrew/bin/bash`; `brew install bash`) |
-| `gate.sh` exit 1 (per-draft or batch) | Retry within shared budget (2/target); else skip + log reason |
+| `gate.sh` exit 1 (per-draft) | Retry within draft cap (2/target); else skip + log reason |
 | `render_asset.sh` exit 3 | Non-fatal: keep HTML, note "open + screenshot", continue batch |
 | `grok -p` returns no fenced block mid-run | Re-prompt once; if still no block → SAVE-AND-HALT (below) |
 | Any role's output unobtainable (credits/auth/CLI dead/sub-agent fails ×2) | SAVE-AND-HALT (below); never substitute, never stub, never improvise a replacement model |
-| Critic FIX | Return to Drafter with named criterion; retry within budget; else skip |
+| Critic FIX — draft-fixable criterion | Kill Drafter, spawn fresh Drafter with named criterion; retry within draft cap |
+| Critic FIX — bind-bad criterion | Return to Matcher/Scout for replacement on that vector (consumes vector quota) |
+| `MAX_FETCH_PER_VECTOR` reached with no bind | Mark vector EXHAUSTED; move to next vector; emit loud EXHAUSTED line |
+| `MAX_GROK_CALLS` (40) reached | Stop loop; ship what's real; emit loud cap-reached line; report shortfall in `batch_report.md` |
+| Draft cap (2) + 1 replacement exhausted on a target | `status=quarantined`; record reject history; keep batch moving |
+| Failure rate >~40% across batch | Rate-based escalation: surface to operator; do not spin |
 
 ## SAVE-AND-HALT (universal failure policy — 2026-06-10b lesson)
 
@@ -135,11 +154,12 @@ generalizes it to every role.
 
 | Role | Reads | Must never see |
 |------|-------|----------------|
-| Scout | 3-pillar domain vocab, 24–48h window, `wins.md`, prior `replies_to_post.md` | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
-| Scout (thread-fetch) | Matcher's liveness-survivor URL list, live X | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
-| Matcher | `00_candidates.json`, `00b_threads.json`, `project_authority.md` | `voice.md`, `reply_register.md`, search internals, other roles' reasoning |
-| Drafter | ONE target's `thread_gist` + ONE bound entry substance + `contribution`, `voice.md`, `reply_register.md`, never-list | Full `project_authority.md`, other targets, search internals, asset templates, gate internals |
-| Critic | Draft, `thread_gist`, the target URL opened live, bound entry claim, Rubric v1.1 | Full `voice.md` / `reply_register.md`, other drafts, gate internals |
+| Vault_Scout | `project_authority.md` | `voice.md`, `reply_register.md`, drafts, live X data, `runs/<batch>/` artifacts |
+| Scout | 3-pillar domain vocab (concrete query from orchestrator), 24–48h window, `wins.md`, prior `replies_to_post.md` | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
+| Scout (thread-fetch) | Orchestrator-provided URL + live X | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
+| Matcher | `00_candidates.json`, `00b_threads.json`, `project_authority.md`, `search_vectors.json` | `voice.md`, `reply_register.md`, search internals, other roles' reasoning |
+| Drafter | ONE target's `thread_gist` + ONE bound entry substance + `contribution`, `content_pillar`, `voice.md`, `reply_register.md`, never-list | Full `project_authority.md`, other targets, search internals, asset templates, gate internals |
+| Critic | Draft, `thread_gist`, the target URL opened live, bound entry claim, `content_pillar`, Rubric v1.3 | Full `voice.md` / `reply_register.md`, other drafts, gate internals |
 | Gatekeeper | Draft or batch file (shell; no LLM context) | — |
 | Asset | Top 1–2 `{draft + bound entry}` selected by orchestrator, aurora-frost template | Search internals, other targets, gate internals, `voice.md`, `reply_register.md` |
 | Producer | `01_anchored.json`, `02_drafts.json`, `03_review.json` | Search internals, `voice.md`, `reply_register.md`, `project_authority.md`, asset templates, gate internals |
@@ -153,11 +173,12 @@ Orchestrator never ingests voice / register / grounding / search text — routes
 
 | Cap | Value |
 |-----|-------|
-| Scout widen passes | 3 |
-| Groundable floor | 8 (triggers re-scout if unused pass available) |
-| Matcher re-scout | 1 extra pass max |
-| Shared retries per target (gate FAIL + Critic FIX combined) | 2 |
+| `MAX_FETCH_PER_VECTOR` (grok calls per vector per run) | 3 → mark EXHAUSTED on cap with no bind |
+| `MAX_GROK_CALLS` (global grok budget) | 40 |
+| TARGET (shipped replies) | 12 (soft) |
+| Bind-budget draft retries per target (HARD gates: no_fabrication, thread_fit) | 2 |
+| Style-budget draft retries per target (advisory criteria, separate pool) | 3 |
+| Replacement targets per target before quarantine | 1 |
 | Asset selection | Top 2 by `engagement.views` among SHIP |
-| grok thread-fetch calls | ≤2 (one batched call + at most one re-fetch after re-scout) |
-| grok critic calls | ≤13 + retries (one per draft, or one batched call, + FIX re-judges within budget) |
-| Total grok call ceiling | probe 1 + scout ≤3 + thread-fetch ≤2 + critic ≤13 + retry tail + wins 1 |
+| Failure-rate escalation threshold | ~40% |
+| Vault_Scout staleness TTL | 7 days |

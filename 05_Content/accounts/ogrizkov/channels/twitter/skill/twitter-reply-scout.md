@@ -1,3 +1,5 @@
+> **SUPERSEDED (v3.1)** — This standalone Run-1 feed skill is retained for reference only. The live Scout is driven by the Orchestrator's round-robin over `runs/_index/search_vectors.json` (see `agents/role_specs/scout.md` + `skill/twitter-reply-orchestrate.md`). The Orchestrator owns query-seed rotation; the Scout is stateless and does not hold rotation state. The Orchestrator hands one concrete vector query per call; per-vector fetch quota is enforced by the Orchestrator (`MAX_FETCH_PER_VECTOR=3` cap). Do not run this skill standalone for a v3.1 batch.
+
 # Skill: twitter-reply-scout (Run 1 — daily feed)
 
 Grok Build runbook. **Run 1 of 2.** Produces the daily reply-target **feed**, then exits.

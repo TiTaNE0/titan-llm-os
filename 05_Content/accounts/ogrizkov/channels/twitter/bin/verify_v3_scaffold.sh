@@ -72,9 +72,9 @@ for role in scout matcher drafter critic asset producer wins; do
     "grep -q \"^model:\" \"$C/agents/role_specs/$role.md\""
 done
 
-# AC 4-10: matcher model contains claude-sonnet-4-6
-chk "AC04-10 matcher model is claude-sonnet-4-6" \
-  'grep -q "claude-sonnet-4-6" "$C/agents/role_specs/matcher.md"'
+# AC 4-10: matcher model contains claude-opus-4-8
+chk "AC04-10 matcher model is claude-opus-4-8" \
+  'grep -q "claude-opus-4-8" "$C/agents/role_specs/matcher.md"'
 
 # AC 4-10: drafter model contains claude-sonnet-4-6
 chk "AC04-10 drafter model is claude-sonnet-4-6" \
@@ -199,27 +199,27 @@ chk "AC21d orchestrate.md: states it never ingests voice" \
 # ---------- GROUP: control-flow-caps ------------------------------------------
 echo "=== control-flow-caps ==="
 
-# AC 22: widen cap 3 + "widened 3 times" loud line
-chk "AC22a orchestrate.md: widen cap 3" \
-  'grep -iq "cap.*3\|3.*cap\|widen.*3\|3.*pass" "$C/skill/twitter-reply-orchestrate.md"'
-chk "AC22b orchestrate.md: loud widened 3 times line" \
-  'grep -q "widened 3 times" "$C/skill/twitter-reply-orchestrate.md"'
+# AC 22: orchestrate.md contains MAX_FETCH_PER_VECTOR
+chk "AC22  orchestrate.md: MAX_FETCH_PER_VECTOR defined" \
+  'grep -q "MAX_FETCH_PER_VECTOR" "$C/skill/twitter-reply-orchestrate.md"'
 
-# AC 23: groundable floor 8
-chk "AC23  orchestrate.md: groundable floor 8" \
-  'grep -iq "floor.*8\|8.*floor\|groundable.*8\|<8" "$C/skill/twitter-reply-orchestrate.md"'
+# AC 23: orchestrate.md contains MAX_GROK_CALLS and the value 40
+chk "AC23a orchestrate.md: MAX_GROK_CALLS defined" \
+  'grep -q "MAX_GROK_CALLS" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC23b orchestrate.md: MAX_GROK_CALLS value is 40" \
+  'grep -q "40" "$C/skill/twitter-reply-orchestrate.md"'
 
-# AC 24: matcher re-scout cap 1
-chk "AC24  orchestrate.md: re-scout cap 1 (at most 1 extra)" \
-  'grep -iq "re-scout\|rescout" "$C/skill/twitter-reply-orchestrate.md"'
-chk "AC24b matcher.md: re-scout cap 1" \
-  'grep -iq "re-scout\|1.*re-scout\|most 1" "$C/agents/role_specs/matcher.md"'
+# AC 24: v3.1 replacement mechanic (replaces re-scout in demand-driven model)
+chk "AC24  orchestrate.md: bind-bad triggers replacement" \
+  'grep -iq "replacement" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC24b orchestrate.md: per-target replacement cap 1 before quarantine" \
+  'grep -iq "1 replacement\|replacement.*1\|replacement.*before quarantin\|cap.*replacement\|replacement.*cap" "$C/skill/twitter-reply-orchestrate.md"'
 
-# AC 25: shared retry budget 2
-chk "AC25a orchestrate.md: shared retry budget 2" \
-  'grep -iq "shared.*2\|2.*shared\|shared.*budget.*2\|2.*retries" "$C/skill/twitter-reply-orchestrate.md"'
-chk "AC25b caps table: Shared retries = 2" \
-  'grep -i "shared" "$C/skill/twitter-reply-orchestrate.md" | grep -q "2"'
+# AC 25: draft retry budget 2 per target (v3.1 model)
+chk "AC25a orchestrate.md: draft retries per target 2" \
+  'grep -iq "draft.*retr\|retr.*draft\|draft cap\|2.*draft" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC25b caps table: Draft retries per target = 2" \
+  'grep -i "Draft retries per target" "$C/skill/twitter-reply-orchestrate.md" | grep -q "2"'
 
 # AC 26: skipped recorded in 03_review.json with skip_reason
 chk "AC26a orchestrate.md: skip_reason in 03_review.json" \
@@ -460,7 +460,110 @@ done
 chk "RF11 save-and-halt policy present in orchestrate skill" \
   'grep -q "SAVE-AND-HALT" "$C/skill/twitter-reply-orchestrate.md" && grep -q "HALT.json" "$C/skill/twitter-reply-orchestrate.md"'
 chk "RF11b save-and-halt mirrored in PRD" \
-  'grep -q "Save-and-halt" "$C/Reply_Pipeline_PRD_v3.0_Agentic.md"' 
+  'grep -q "Save-and-halt" "$C/Reply_Pipeline_PRD_v3.0_Agentic.md"'
+
+# ---------- GROUP: v3.1-supply-driven -----------------------------------------
+echo "=== v3.1-supply-driven ==="
+
+# AC43: vault_scout.md exists; has "tier: 2"; has claude-sonnet-4-6; mentions search_vectors.json; mentions 7-day staleness
+chk "AC43a agents/role_specs/vault_scout.md exists" \
+  '[ -f "$C/agents/role_specs/vault_scout.md" ]'
+chk "AC43b vault_scout.md has tier: 2" \
+  'grep -q "tier: 2" "$C/agents/role_specs/vault_scout.md"'
+chk "AC43c vault_scout.md has claude-sonnet-4-6" \
+  'grep -q "claude-sonnet-4-6" "$C/agents/role_specs/vault_scout.md"'
+chk "AC43d vault_scout.md mentions search_vectors.json" \
+  'grep -q "search_vectors.json" "$C/agents/role_specs/vault_scout.md"'
+chk "AC43e vault_scout.md mentions 7-day staleness TTL" \
+  'grep -iq "7 day\|7-day" "$C/agents/role_specs/vault_scout.md"'
+
+# AC44: roster has Vault_Scout; Orchestrator line has claude-opus-4-8 AND "host"; Matcher line has claude-opus-4-8; roster has MAX_GROK_CALLS AND 40
+chk "AC44a roster.md has Vault_Scout" \
+  'grep -iq "vault_scout\|Vault_Scout" "$C/agents/roster.md"'
+chk "AC44b roster.md Orchestrator line has claude-opus-4-8" \
+  'grep -i "orchestrator" "$C/agents/roster.md" | grep -q "claude-opus-4-8"'
+chk "AC44c roster.md Orchestrator line has host" \
+  'grep -i "orchestrator" "$C/agents/roster.md" | grep -iq "host"'
+chk "AC44d roster.md Matcher line has claude-opus-4-8" \
+  'grep -i "matcher" "$C/agents/roster.md" | grep -q "claude-opus-4-8"'
+chk "AC44e roster.md has MAX_GROK_CALLS" \
+  'grep -q "MAX_GROK_CALLS" "$C/agents/roster.md"'
+chk "AC44f roster.md has 40 (MAX_GROK_CALLS value)" \
+  'grep -q "40" "$C/agents/roster.md"'
+
+# AC45: schemas.md mentions search_vectors.json; SCHEMA_ALL_JSON has query_seeds, search_intent, grounds_with
+chk "AC45a schemas.md mentions search_vectors.json" \
+  'grep -q "search_vectors.json" "$C/agents/schemas.md"'
+chk "AC45b schemas.md json: query_seeds field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "query_seeds"'
+chk "AC45c schemas.md json: search_intent field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "search_intent"'
+chk "AC45d schemas.md json: grounds_with field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "grounds_with"'
+
+# AC46: SCHEMA_ALL_JSON has content_pillar, project_pillar, "vector", criteria, criterion, confidence; schemas.md has "Opus 4.8"; schemas.md matches quarantin
+chk "AC46a schemas.md json: content_pillar field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "content_pillar"'
+chk "AC46b schemas.md json: project_pillar field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "project_pillar"'
+chk "AC46c schemas.md json: vector field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "\"vector\""'
+chk "AC46d schemas.md json: criteria field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "criteria"'
+chk "AC46e schemas.md json: criterion field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "criterion"'
+chk "AC46f schemas.md json: confidence field" \
+  'echo "$SCHEMA_ALL_JSON" | grep -q "confidence"'
+chk "AC46g schemas.md mentions Opus 4.8" \
+  'grep -q "Opus 4.8" "$C/agents/schemas.md"'
+chk "AC46h schemas.md mentions quarantine" \
+  'grep -iq "quarantin" "$C/agents/schemas.md"'
+
+# AC47: critic.md has positioning_alignment, criteria, ordinal
+chk "AC47a critic.md has positioning_alignment" \
+  'grep -q "positioning_alignment" "$C/agents/role_specs/critic.md"'
+chk "AC47b critic.md has criteria" \
+  'grep -q "criteria" "$C/agents/role_specs/critic.md"'
+chk "AC47c critic.md has ordinal" \
+  'grep -iq "ordinal" "$C/agents/role_specs/critic.md"'
+
+# AC48: matcher.md has content_pillar, project_pillar, and a no-balance phrase
+chk "AC48a matcher.md has content_pillar" \
+  'grep -q "content_pillar" "$C/agents/role_specs/matcher.md"'
+chk "AC48b matcher.md has project_pillar" \
+  'grep -q "project_pillar" "$C/agents/role_specs/matcher.md"'
+chk "AC48c matcher.md has no-balance phrase" \
+  'grep -iq "not balance\|never.*balance\|orchestrator.*balance" "$C/agents/role_specs/matcher.md"'
+
+# AC49: orchestrate.md has key v3.1 tokens
+chk "AC49a orchestrate.md has MAX_FETCH_PER_VECTOR" \
+  'grep -q "MAX_FETCH_PER_VECTOR" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49b orchestrate.md has MAX_GROK_CALLS and 40" \
+  'grep -q "MAX_GROK_CALLS" "$C/skill/twitter-reply-orchestrate.md" && grep -q "40" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49c orchestrate.md mentions quarantine" \
+  'grep -iq "quarantin" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49d orchestrate.md mentions VAULT_SCOUT or vault_scout" \
+  'grep -iq "vault_scout\|VAULT_SCOUT" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49e orchestrate.md mentions bind-bad" \
+  'grep -iq "bind-bad" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49f orchestrate.md mentions rotation" \
+  'grep -iq "rotat" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49g orchestrate.md mentions round-robin" \
+  'grep -iq "round-robin\|round robin" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC49h orchestrate.md has soft target or bounded by" \
+  'grep -iq "soft target\|bounded by" "$C/skill/twitter-reply-orchestrate.md"'
+
+# AC50: orchestrate.md has claude-opus-4-8 AND "host"
+chk "AC50a orchestrate.md has claude-opus-4-8" \
+  'grep -q "claude-opus-4-8" "$C/skill/twitter-reply-orchestrate.md"'
+chk "AC50b orchestrate.md has host" \
+  'grep -iq "host" "$C/skill/twitter-reply-orchestrate.md"'
+
+# AC51: scout.md (skill) has stateless token AND MAX_FETCH_PER_VECTOR
+chk "AC51a scout skill has stateless marker" \
+  'grep -iq "stateless\|does not.*rotat\|not.*rotation state" "$C/skill/twitter-reply-scout.md"'
+chk "AC51b scout skill mentions MAX_FETCH_PER_VECTOR" \
+  'grep -q "MAX_FETCH_PER_VECTOR" "$C/skill/twitter-reply-scout.md"'
 
 # ---------- VERDICT -----------------------------------------------------------
 echo "===== VERDICT: $([ $PASS -eq 1 ] && echo 'ALL PASS' || echo 'FAIL') ====="

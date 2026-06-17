@@ -42,5 +42,6 @@ for polls/memes/promos with no substantive discussion to join.
 - Raw retrieval + source honesty only (`[X-live]` vs `[hypothesis]`).
 - No drafting, no ranking prose, no match judgments.
 - Tag `post_type` at retrieval from what the post visibly is.
+- **Prefer genuine discussion (2026-06-16 lesson).** Bias retrieval toward `discussion` / `question` posts — real debates, problems, hot takes, "why does X fail" threads. **Deprioritize product launches, ship-announcements, and self-showcases** (`announcement` / `promo` / `showcase`): the account replies to *conversations*, not to other people's launches, and the Matcher hard-drops those anyway, so surfacing them wastes the window. A launch only qualifies if a genuine technical debate has formed in its replies. Tag `post_type` honestly so the Matcher's replyability gate can enforce this.
 - English-only: drop non-English posts before output.
 - Widen loop: if survivors <8 and passes <3, widen and re-scout. Cap at 3 passes then proceed.
