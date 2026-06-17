@@ -9,7 +9,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 ## Tool Manifest
 
 ### `create_task`
-- **Inputs:** `title: str`, `project: str`, `priority: enum[low,medium,high]`, `source_persona: str`
+- **Inputs:** `title: str`, `project: str`, `priority: enum[low,medium,high]`, `source_persona: str`, `objective: str` *(optional — populates `§ Declarative Objective`; placeholder kept if omitted; added 2026-06-17 via [[Task_Contract_Population_And_Guard]])*
 - **Outputs:** Path to created file in `02_Tasks/<project>/`
 - **Pre-conditions:** Project passport exists at `01_Projects/<project>.md`; no existing task with same title in `02_Tasks/` OR `99_Archive/Tasks/` (wiki-links resolve by basename — uniqueness is global)
 - **Errors:** E1 if project passport missing; E3 if title collides (live or archived) or args invalid; E4 if persona ≠ Executioner
@@ -185,6 +185,17 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Called by:** `/execute_task` slash command step 5
 - **Dependencies:** None (uses `grep`/`awk` on YAML)
 - **Script:** `.vault_link/.scripts/in_progress_lock.sh`
+
+---
+
+### `task_contract_check`
+- **Inputs:** `--task-path <abs>`
+- **Outputs:** Refuses to execute a task whose header contract is still template placeholders. Checks `§ Declarative Objective`, `§ Definition of Done`, `§ Verification Gateway` for the exact `Task_Template` placeholder LINES (whole-line match — prose that merely mentions the strings is not a false positive).
+- **Errors:** exit 0 authored ("CONTRACT: OK"); exit 3 a placeholder remains (names the section on stderr); E2 bad args / file missing.
+- **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none (read-only per Composition Rule 4).
+- **Called by:** `/execute_task` Step 5.5 (pre-research guard); the Orchestrator tick routes a failure to `queue_attention`.
+- **Script:** `.vault_link/.scripts/task_contract_check.sh`
+- *(Added 2026-06-17 by [[Task_Contract_Population_And_Guard]]; registered via /graduate. Companion change: `create_task` gained optional `--objective` to populate `§ Declarative Objective` at creation.)*
 
 ---
 
