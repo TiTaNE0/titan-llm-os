@@ -40,6 +40,10 @@ Required:
   --priority <enum>          $ALLOWED_PRIORITIES
   --source-persona <name>    Caller-claimed persona (must be Executioner)
 
+Optional:
+  --objective <text>         Populate § Declarative Objective with this text instead of the
+                             template placeholder (back-compatible: placeholder kept if omitted)
+
 Exit codes:
   0  success
   1  project passport missing in 01_Projects/ (E1)
@@ -52,6 +56,7 @@ TITLE=""
 PROJECT=""
 PRIORITY=""
 SOURCE_PERSONA=""
+OBJECTIVE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -59,6 +64,7 @@ while [[ $# -gt 0 ]]; do
     --project)        PROJECT="$2"; shift 2 ;;
     --priority)       PRIORITY="$2"; shift 2 ;;
     --source-persona) SOURCE_PERSONA="$2"; shift 2 ;;
+    --objective)      OBJECTIVE="$2"; shift 2 ;;
     -h|--help)        usage; exit 0 ;;
     *)                echo "Unknown arg: $1" >&2; usage >&2; exit 3 ;;
   esac
@@ -151,6 +157,16 @@ sed \
   -e "s|^type: task.*|type: task|" \
   -e "s|{{title}}|$TITLE|g" \
   "$TEMPLATE" > "$TMP_FILE"
+
+# Optional: replace the Declarative Objective placeholder with a real objective.
+# awk -v carries arbitrary text safely (no sed metachar hazards). Back-compatible:
+# when --objective is omitted the template placeholder is left intact.
+if [[ -n "$OBJECTIVE" ]]; then
+  awk -v obj="$OBJECTIVE" '
+    $0 == "- [ ] (What we want to achieve)" { print "- [ ] " obj; next }
+    { print }
+  ' "$TMP_FILE" > "$TMP_FILE.obj" && mv "$TMP_FILE.obj" "$TMP_FILE"
+fi
 
 if ! mv "$TMP_FILE" "$DEST"; then
   echo "E1: failed to install task file at $DEST" >&2
