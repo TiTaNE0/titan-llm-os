@@ -60,7 +60,8 @@ Output per draft written to `runs/<batch>/03_review.json`:
     {"criterion": "not_generic", "verdict": "pass", "confidence": 0.8, "reason": "<one line>"},
     {"criterion": "length_register_sane", "verdict": "pass", "confidence": 0.9, "reason": "<one line>"},
     {"criterion": "thread_fit", "verdict": "pass", "confidence": 0.85, "reason": "<one line>"},
-    {"criterion": "positioning_alignment", "verdict": "pass", "confidence": 0.8, "reason": "<one line>"}
+    {"criterion": "positioning_alignment", "verdict": "pass", "confidence": 0.8, "reason": "<one line>"},
+    {"criterion": "voice_texture", "verdict": "pass", "confidence": 0.8, "reason": "<one line>"}
   ],
   "critic_verdict": "SHIP",
   "critic": "grok"
@@ -79,7 +80,7 @@ Full `../../../../voice.md`, `../../reply_register.md`, full `../../project_auth
 
 ## Rubric v1.3
 
-Seven criteria in two tiers, judged against the LIVE thread. **Confidence-gate:** a criterion only
+Eight criteria in two tiers, judged against the LIVE thread. **Confidence-gate:** a criterion only
 counts as failed when you are genuinely confident (confidence ≥ 0.65); a low-confidence misgiving is a
 `pass` with a noted reservation, never a kill. Verdict logic:
 
@@ -96,6 +97,7 @@ counts as failed when you are genuinely confident (confidence ≥ 0.65); a low-c
 - **not_generic** — fail only if a random developer with no specific project could post the identical reply. A grounded, specific reply that happens to be broadly useful is NOT generic.
 - **length_register_sane** — fail only if padded or if register chaos drowns the point.
 - **positioning_alignment** — reads like an active builder/user of agentic systems. Fail only if it reads like a pure spectator, or a results-pillar reply leans on vanity metrics instead of a build/process number.
+- **voice_texture** — reads like a real builder typed it fast (carries at least faint Evgeny-B ESL texture: a `;` contraction, dropped final period, `-`, lowercase opener, or tolerable comma-splice). Fail ONLY when the reply is egregiously clean — flawless native-polished or press-release English with ZERO register texture (confidence ≥ 0.80). ADVISORY only: routes back to the drafter as a style fix, NEVER loosens `no_fabrication` or `thread_fit`. Do not fail a grounded, on-topic reply merely for being tidy — only when cleanliness is a generation tell.
 
 The drafter gets ONE chance to fix an advisory miss (it routes back as a style fix, not a kill — see orchestrate §v3.1.4); only the two HARD gates drive bind-bad/quarantine.
 

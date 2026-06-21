@@ -21,6 +21,7 @@ Reads:
 Writes: `../../runs/_index/search_vectors.json` — cached, shared across batches.
 
 Re-run conditions: vault change (project_authority.md hash changed) OR 7-day TTL elapsed since `generated_at`. The Orchestrator owns the re-run decision — the Scout is stateless and never tracks whether it last ran.
+On the same re-run cadence, the Orchestrator runs `../bin/audit_authority.sh ../../project_authority.md` (citation reality-audit) before regenerating vectors; a NEEDS-ATTENTION entry is fix-or-drop before the next batch.
 
 ## Vector rule
 
@@ -33,6 +34,22 @@ Each vector carries:
 - `content_pillar` — one of build|apply|results (the reply content bucket this vector serves)
 - `grounds_with` — array of real `project_authority.md` entry ids that can honestly ground a reply on this topic
 - `query_seeds` — a pool of synonyms/phrasings; the Orchestrator rotates/samples a different subset per run, not the Scout
+
+## Pillar diversity (vector mix)
+
+The vault skews inward: left alone, the build pillar fills up with claude-agent-kit's own plumbing (CAK-*, TIT-*) and the account reads as navel-gazing. Diversify the pool deliberately — a diversified vector set is the goal.
+
+- **CAK-internal-architecture is a MINORITY of the build pillar.** Entries whose substance is the agent-kit's own internals (CAK-01..CAK-09, TIT-01/TIT-02) ground at most ~half of the build vectors — keep CAK-grounded build vectors ≤ ~half of build. The minority lane, not the default.
+- **Add applied / lived-friction build vectors grounded in real entries** (the majority lane — emit ≥3, each grounded in a real entry id):
+  - iOS / SwiftUI agent-assisted dev — DEV-05, DEV-06, DEV-07, DEV-08
+  - local-vs-cloud tradeoffs (tiered local→cloud, cost economy) — DEV-09
+  - PWA / offline debugging with agents (real-device, service-worker, sync) — DEV-04, DEV-05
+  - marketing craft (pipeline design, tone-firewall, confessional vs formula, asset reuse, self-relative metrics) — MKT-03, MKT-04, GRW-03, GRW-04, GRW-05, GRW-06
+- **Results vectors aim at live method/metric DEBATES, not metric-brag.** Ground in entries carrying a defensible method/measured contract — DEV-02, DEV-06, DEV-07, CAK-06. Never emit a "here are my numbers" brag vector.
+- **Stealth entries stay excluded.** GRW-01 and GRW-02 are anti-detection substance (reply_scope: excluded) and must NEVER ground a vector — pull from GRW non-stealth (GRW-03..GRW-06) only.
+  - GRW-01 / GRW-02 exclusion applies to all pillars — these are never valid `grounds_with` entries.
+
+Target mix per regeneration: CAK-grounded build vectors ≤ ~half of build, and ≥3 applied vectors grounded in DEV-* / GRW-(non-stealth) / MKT-* entries.
 
 ## Anti-staleness
 

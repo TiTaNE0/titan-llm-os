@@ -226,6 +226,11 @@ Batch-level fields:
 - `held` — boolean. True if the batch halted at the critic gate or any hard-block; a held batch must not be posted.
 - `cross_family_veto` — boolean. MUST be false whenever `critic` is `claude-stub` (the stub is not a cross-family veto).
 - `critic` — `"grok"` | `"claude-stub"` | `"UNAVAILABLE"`.
+- `_calibration` — object recording the critic calibration-probe result (see `../tests/critic_probes.json`). Orchestrator injects 1-2 known-bad probes at step 4c, judges with real drafts, strips before FIX-routing/Producer. Calibrated critic FIXes every probe; SHIP on any → `held:true` + abort. Fields: `probes_injected` (int), `probes_shipped` (int, non-zero ⇒ soft), `result` (`"pass"` | `"abort"`), `probe_ids` (array, traceable to fixture). Probe entries are NEVER in `results[]`; `_calibration` is the only on-disk trace.
+
+```json
+{"_calibration":{"probes_injected":2,"probes_shipped":0,"result":"pass","probe_ids":["probe-pivot-01","probe-fabnum-01"]}}
+```
 
 Criterion note — `no_fabrication` (absorbs the old `claim_sanity`): the draft's concrete claim must trace
 to `grounded_claim`; fails if it distorts that claim or claims the author's numbers/experience as the replier's.

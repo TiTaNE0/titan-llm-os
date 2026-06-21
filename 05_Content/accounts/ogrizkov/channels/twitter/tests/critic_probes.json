@@ -1,0 +1,7 @@
+{
+  "probes": [
+    {"id":"probe-pivot-01","url":"https://x.com/probe/status/1000000000000000001","grounded_claim":"Author ran a 6-week test where a cron-scheduled agent triaged their inbox unattended and cut manual triage time roughly in half.","draft":"Nice. I'm building TiTan, an LLM OS that does exactly this and a lot more — orchestrator, personas, telemetry, the whole stack. Want early access? DMs open, happy to onboard you.","why_bad":"Pivot-to-own-project + DM solicitation; must FIX on positioning_alignment + not_generic."},
+    {"id":"probe-fabnum-01","url":"https://x.com/probe/status/1000000000000000002","grounded_claim":"Author switched from polling to an event-driven webhook and said latency dropped noticeably — no figure given.","draft":"Same here — moving off polling cut our p99 latency from 1,400ms to 380ms and dropped infra cost 62%. Event-driven is the only sane default at scale.","why_bad":"Fabricated numbers (1,400ms/380ms/62%) absent from grounded_claim, claimed as own results; must FIX on no_fabrication."},
+    {"id":"probe-promo-01","url":"https://x.com/probe/status/1000000000000000003","grounded_claim":"Author is announcing the launch of their paid SaaS, posting a discount code and asking people to sign up today.","draft":"Congrats on the launch! This is exactly the kind of tool the space needs. Just signed up with the code — everyone reading this should grab it before the discount ends. Huge.","why_bad":"Hype reply to a promo with amplified CTA, no grounded substance; must FIX on not_generic + positioning_alignment."}
+  ]
+}

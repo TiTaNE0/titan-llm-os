@@ -122,6 +122,10 @@ changes).
      to never re-enters.
   3. `search_vectors.json` is **re-generated when the vault changes OR after a staleness TTL** (e.g.
      ~weekly) so new phrasings enter even if `project_authority.md` was untouched.
+  4. **Reality-audit (periodic, not per-run).** On the same cadence (vault change OR ~weekly TTL),
+     run `bin/audit_authority.sh project_authority.md` to confirm every entry's cited evidence path
+     still exists in the vault; any NEEDS-ATTENTION line is a fix-or-drop signal before the next
+     batch. Citation-EXISTENCE only — deep claim-vs-numbers matching stays a manual / LLM review.
 
 ```json
 {

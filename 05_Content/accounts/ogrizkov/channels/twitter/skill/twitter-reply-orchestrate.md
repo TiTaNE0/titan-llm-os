@@ -21,6 +21,7 @@ Orchestrator holds ONLY:
 - Per-vector `vector_state` ∈ `{available, exhausted}`
 - `shipped_by_pillar` — counts per `{build, apply, results}`; drives 50/30/20 steering
 - Per-vector `query_rotation` — which `query_seeds` subset was used each run (rotation state lives here, not in the Scout — Scout is stateless)
+- `calibration_probes` — for the current critic batch only: injected probe `id`s + their working-set positions. Orchestrator state ONLY; never written into the batch handed to grok and never into `results[]`. Cleared after each strip.
 
 Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text / search results (PRD §9.4). It routes file artifacts. That thin state is what keeps its context clean.
 
@@ -68,11 +69,15 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
       - Exit 1 → gate FAIL: if draft retries remain, return to Drafter with the flag. If budget exhausted → `status=skipped`.
       - Exit 0 → proceed to Critic.
 
-   c. **CRITIC (grok live-read):** Orchestrator passes `{url, thread_gist as cross-ref ONLY, grounded_claim, draft, content_pillar}` → routes the fenced JSON back without ingesting it. Grok opens the URL live and writes `criteria[]` per-criterion verdicts + `critic_verdict`, into `03_review.json`. Increment `grok_calls`.
+   c. **CRITIC (grok live-read) + CALIBRATION PROBE:**
+      - **INJECT:** pick 1-2 probes at random from `tests/critic_probes.json`; build the same `{url, thread_gist xref-only, grounded_claim, draft, content_pillar}` payload for each; append interleaved with the real drafts; record their ids + working-set positions in `calibration_probes`. NEVER pass `id`, `why_bad`, or any marker to grok — it must judge them as ordinary drafts.
+      - **JUDGE:** Orchestrator passes the full batch (real + probe) to grok; grok opens each URL live and writes `criteria[]` + `critic_verdict` for all entries; routes fenced JSON back without ingesting it. Increment `grok_calls`.
+      - **EVALUATE PROBES:** a calibrated critic FIXes every probe. If ANY probe verdict is SHIP → ABORT: `held:true`, loud flag "CALIBRATION FAILED — critic SHIPped a planted probe — batch HELD", write `_calibration` block `{probes_injected, probes_shipped, result:"abort", probe_ids:[...]}` into `03_review.json`, STOP — no 4d, no asset, no Producer (same posture as CRITIC-UNAVAILABLE). If all probes FIX → write `_calibration {result:"pass", probes_shipped:0, probe_ids:[...]}` and continue.
+      - **STRIP:** remove probe entries from the judged set before 4d; `results[]`, asset selection, and Producer see ONLY real drafts. Clear `calibration_probes`.
       - On critic unavailability mid-run → HALT: all results `status=held`, `critic=UNAVAILABLE`, loud held-line. NEVER stub-fallback at runtime.
 
    d. **FIX → ACTION ROUTING (v1.3)** — deterministic on `criteria[]` booleans, not the free-text FIX prose. Two retry budgets, kept SEPARATE so a style fix never consumes the bind budget:
-      - **STYLE budget (3 per target):** `voice_fit` / `specificity_present` / `not_generic` / `length_register_sane` / `positioning_alignment` are **style-fixable** → kill Drafter instance, spawn FRESH Drafter with `{prompt + prior draft + named criterion}`, retry. These are the cheap "return to the drafter" fixes; they do **not** count against the bind budget and do **not** quarantine a target on their own (a draft that only ever fails advisory criteria keeps going back to the drafter up to the style cap).
+      - **STYLE budget (3 per target):** `voice_fit` / `specificity_present` / `not_generic` / `length_register_sane` / `positioning_alignment` / `voice_texture` are **style-fixable** → kill Drafter instance, spawn FRESH Drafter with `{prompt + prior draft + named criterion}`, retry. These are the cheap "return to the drafter" fixes; they do **not** count against the bind budget and do **not** quarantine a target on their own (a draft that only ever fails advisory criteria keeps going back to the drafter up to the style cap).
       - **BIND budget (the two HARD gates only):** `no_fabrication` and `thread_fit` → **draft-fixable ONCE** (fresh Drafter), then **bind-bad** if the SAME hard gate fails again.
       - **Immediate bind-bad** on `still_alive=false` or `drift=dead` — redrafting a dead thread is pointless.
       - **Verdict gating:** route on the Critic's confidence-gate (HARD gate fail ≥0.65; advisory fail ≥0.80). A low-confidence misgiving is not a FIX — do not loop on it.
@@ -101,6 +106,7 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
    - `"no cross-family veto this run"` (emitted only by the Phase-1 `claude-stub` — scaffold tests, never production; a stub batch is also forced `held: true`).
    - `"BATCH HELD — DO NOT POST"` whenever `held: true` (critic gate halt or any hard-block).
    - `"CRITIC UNAVAILABLE — batch HELD"` if the Phase-2 grok critic could not be invoked mid-run.
+   - `"CALIBRATION FAILED — critic SHIPped a planted probe — batch HELD"` when any injected probe returned SHIP at 4c; batch forced `held:true`, `_calibration.result="abort"`.
    - Per-vector `EXHAUSTED` line when `vector_fetches[vector] == MAX_FETCH_PER_VECTOR` with no bind.
    - `MAX_GROK_CALLS reached` line when `grok_calls == 40`.
    - Shortfall line when the batch stops before TARGET with reasons (from `batch_report.md`).
@@ -129,6 +135,7 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 | `MAX_GROK_CALLS` (40) reached | Stop loop; ship what's real; emit loud cap-reached line; report shortfall in `batch_report.md` |
 | Draft cap (2) + 1 replacement exhausted on a target | `status=quarantined`; record reject history; keep batch moving |
 | Failure rate >~40% across batch | Rate-based escalation: surface to operator; do not spin |
+| Critic SHIPs a planted calibration probe (4c) | ABORT: `held:true`, loud "CALIBRATION FAILED" line, `_calibration.result="abort"`; strip probes; no downstream stages |
 
 ## SAVE-AND-HALT (universal failure policy — 2026-06-10b lesson)
 
