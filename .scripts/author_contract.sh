@@ -8,7 +8,7 @@
 # sections on an EXISTING task THROUGH a guarded script, so the guarded-script
 # invariant holds (no inline .md Edit, which the harness blocks).
 #
-# Contract: Tool_Registry.md § author_contract (registration deferred to /graduate).
+# Contract: Tool_Registry.md § author_contract (registered 2026-06-17 via /graduate).
 # Persona Gate: Executioner (source-persona arg + persona_check, like write_task_section).
 # Idempotent: No. Refuses an already-authored section unless --overwrite.
 # Telemetry: MANDATORY.

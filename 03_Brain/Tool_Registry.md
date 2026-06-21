@@ -204,7 +204,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Outputs:** Authors a task's HEADER contract section (Declarative Objective / Definition of Done / Verification Gateway), located by header text, through a guarded script — so an existing task's contract can be filled without an inline `.md` Edit (which the harness blocks). Atomic; refuses an already-authored section unless `--overwrite`.
 - **Errors:** E1 task/content missing or mv fail; E3 missing/invalid args, header not found, or already-authored without `--overwrite`; E4 persona.
 - **Idempotent:** ❌ (write). **Persona Gate:** Executioner. **Telemetry:** MANDATORY.
-- **Called by:** human/agent to satisfy the `task_contract_check` guard (`/execute_task` Step 5.5) on an existing task. Complements `create_task --objective` (create-time objective only).
+- **Called by:** `/new_task` at creation — its contract step authors `§ Definition of Done` + `§ Verification Gateway` (objective seeded by `create_task --objective`); and human/agent to fill or repair a contract on an existing task ahead of the `task_contract_check` guard (`/execute_task` Step 5.5).
 - **Script:** `.vault_link/.scripts/author_contract.sh`
 - *(Added 2026-06-17 — completes the population half of [[Task_Contract_Population_And_Guard]], whose guard shipped ahead of a full authoring path; registered via /graduate.)*
 
