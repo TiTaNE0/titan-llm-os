@@ -221,12 +221,12 @@ printf '%s' "$draft" | grep -qiE "($TOOLS)" && has_signal=1
 printf '%s' "$draft" | grep -qE '[a-z),] +[A-Z][A-Za-z.]+' && has_signal=1
 
 if [ "$has_signal" -eq 0 ]; then
-  if [ "$lenient" -eq 1 ]; then
-    echo "GATE WARN: no concrete signal (number/tool/proper-noun) — abstract draft (words=$words)" >&2
-  else
-    fail "no concrete signal — number, tool, or proper noun required (words=$words)"
-  fi
+  echo "GATE WARN: no concrete signal (number/tool/proper-noun) — abstract draft (words=$words)" >&2
 fi
 
-echo "GATE PASS: $words words, no '!', concrete signal present"
+if [ "$has_signal" -eq 1 ]; then
+  echo "GATE PASS: $words words, no '!', concrete signal present"
+else
+  echo "GATE PASS: $words words, no '!'"
+fi
 exit 0

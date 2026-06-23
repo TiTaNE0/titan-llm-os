@@ -79,8 +79,8 @@ chk "d. stderr contains \"contains banned '!'\"" \
   "run_gate \"\$FIX/bang.txt\" | grep -q \"contains banned\""
 
 echo "=== single-draft: no concrete signal ==="
-chk "e. no_signal exits 1" \
-  '! "$BASH4" "$GATE" "$FIX/no_signal.txt" >/dev/null 2>&1'
+chk "e. no_signal exits 0" \
+  '"$BASH4" "$GATE" "$FIX/no_signal.txt" >/dev/null 2>&1'
 chk "e. stderr contains 'no concrete signal'" \
   'run_gate "$FIX/no_signal.txt" | grep -q "no concrete signal"'
 

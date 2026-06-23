@@ -66,8 +66,9 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 
    b. **GATEKEEPER:** `/opt/homebrew/bin/bash bin/gate.sh <draft>` (single-draft gate).
       - Exit 2 → **ABORT** (config error: need bash≥4; `brew install bash`). Never retry exit 2.
-      - Exit 1 → gate FAIL: if draft retries remain, return to Drafter with the flag. If budget exhausted → `status=skipped`.
-      - Exit 0 → proceed to Critic.
+      - Exit 1 → gate FAIL (word-range out of [5,45] OR banned `!`): if draft retries remain, return to Drafter with the flag. If budget exhausted → `status=skipped`.
+      - Exit 0 → proceed to Critic. A `GATE WARN: no concrete signal` on stderr is non-blocking; specificity is owned by the Critic's `specificity_present` judgment.
+      - Missing specificity no longer causes exit 1 — it emits a stderr WARN and passes.
 
    c. **CRITIC (grok live-read) + CALIBRATION PROBE:**
       - **INJECT:** pick 1-2 probes at random from `tests/critic_probes.json`; build the same `{url, thread_gist xref-only, grounded_claim, draft, content_pillar}` payload for each; append interleaved with the real drafts; record their ids + working-set positions in `calibration_probes`. NEVER pass `id`, `why_bad`, or any marker to grok — it must judge them as ordinary drafts.
@@ -125,7 +126,7 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 |-----------|--------|
 | `grok` probe returns no fenced block | ABORT: "grok fenced-JSON probe failed; output shape changed" |
 | `gate.sh` exit 2 at any point | ABORT (config error: need bash≥4 — `/opt/homebrew/bin/bash`; `brew install bash`) |
-| `gate.sh` exit 1 (per-draft) | Retry within draft cap (2/target); else skip + log reason |
+| `gate.sh` exit 1 (word-range or banned `!`) | Retry within draft cap (2/target); else skip + log reason |
 | `render_asset.sh` exit 3 | Non-fatal: keep HTML, note "open + screenshot", continue batch |
 | `grok -p` returns no fenced block mid-run | Re-prompt once; if still no block → SAVE-AND-HALT (below) |
 | Any role's output unobtainable (credits/auth/CLI dead/sub-agent fails ×2) | SAVE-AND-HALT (below); never substitute, never stub, never improvise a replacement model |
