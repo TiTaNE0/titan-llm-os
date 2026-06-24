@@ -96,9 +96,9 @@ chk "AC04-10 scout model mentions Grok" \
 chk "AC04-10 wins model mentions Grok" \
   'grep -iq "grok" "$C/agents/role_specs/wins.md"'
 
-# AC 4-10: critic model is non-Claude — mentions grok and does NOT name a claude-* model as primary
-chk "AC04-10 critic model mentions grok (non-Claude primary)" \
-  'grep -iq "grok" "$C/agents/role_specs/critic.md"'
+# AC 4-10: critic model is non-Claude — mentions agy/gemini and does NOT name a claude-* model as primary
+chk "AC04-10 critic model mentions agy/gemini (non-Claude primary)" \
+  'grep -iqE "agy|gemini" "$C/agents/role_specs/critic.md"'
 # The model: line must not start with claude-
 chk "AC04-10 critic model: line does not name claude-* as primary" \
   '! grep "^model:" "$C/agents/role_specs/critic.md" | grep -qi "^model:.*\"claude-"'
@@ -410,11 +410,11 @@ chk "RF04  critic.md: thread_fit criterion" \
 chk "RF05  matcher.md: replyability filter" \
   'grep -iq "replyab" "$C/agents/role_specs/matcher.md"'
 
-# post_actually_about + live-read instruction present in critic.md
-chk "RF06a critic.md: post_actually_about" \
-  'grep -q "post_actually_about" "$C/agents/role_specs/critic.md"'
-chk "RF06b critic.md: live-read instruction (open + live)" \
-  'grep -iq "open" "$C/agents/role_specs/critic.md" && grep -iq "live" "$C/agents/role_specs/critic.md"'
+# post_snapshot_about (snapshot audit field) + snapshot-read instruction present in critic.md
+chk "RF06a critic.md: post_snapshot_about" \
+  'grep -q "post_snapshot_about" "$C/agents/role_specs/critic.md"'
+chk "RF06b critic.md: snapshot-read instruction (snapshot + captured_at)" \
+  'grep -iq "snapshot" "$C/agents/role_specs/critic.md" && grep -iq "captured_at" "$C/agents/role_specs/critic.md"'
 
 # derived jq views note present in schemas.md naming targets/tN.json + drafts/tN.json
 chk "RF07a schemas.md: derived jq views note" \

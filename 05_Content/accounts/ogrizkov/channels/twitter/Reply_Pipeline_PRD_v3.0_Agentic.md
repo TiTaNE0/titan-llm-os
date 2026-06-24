@@ -157,7 +157,7 @@ changes).
     + bind to a vault entry + write the contribution + tag content_pillar (shared pivot/thread-fit
     STANDARD with the Critic). It judges ONE candidate at a time — it does NOT balance the batch.
     Pass → LOCK (anchored_count += 1). Fail → tell Scout WHY; Scout fetches the next candidate.
-4.  DRAFTER (Sonnet, fresh instance) → GATEKEEPER (gate.sh) → CRITIC (grok, live-read of its own).
+4.  DRAFTER (Sonnet, fresh instance) → GATEKEEPER (gate.sh) → CRITIC (Gemini, snapshot-read via agy -p).
 5.  STOP CONDITION (whichever first): shipped == TARGET (default 12); OR all vectors EXHAUSTED;
     OR total grok calls == MAX_GROK_CALLS (global budget); OR failure-rate breaker (v3.1.4) fires.
 6.  ASSET (top 1-2) → PRODUCER → replies_to_post.md. STOP at human review. Never post.
@@ -176,10 +176,14 @@ changes).
   context. The Matcher only tags the pillar of its single bind; the Orchestrator counts shipped
   pillars and steers the next pick toward the under-filled bucket.
 - **Single fetch, no redundant re-pull.** The Scout fetch exists because the Drafter and Matcher are
-  Claude and cannot browse X — they need the text handed to them. The Critic **is** grok and opens the
-  URL as part of its own single judging call, so its independent live read is not a second fetch step.
-  (If the critic were ever a non-browsing model, it would judge the stored fetch instead — accepting
-  weaker independence; that tradeoff is why a browsing critic is preferred.)
+  Claude and cannot browse X — they need the text handed to them. The Critic is Gemini (via `agy -p`)
+  and judges from the persisted `00b_threads` snapshot (full opening post + top_replies + engagement at
+  `captured_at`) — it never opens the URL. This "snapshot-critic" design accepts weaker independence
+  (the Critic judges the capture-time snapshot rather than an independent live read), but the tradeoff
+  is explicitly sanctioned: the cross-family veto is preserved (Gemini ≠ Claude), the snapshot is richer
+  than the gist (complete opening post + replies + engagement), and `captured_at` records the staleness
+  window honestly. The Scout enriches `00b_threads.json` with `engagement` and `captured_at` so the
+  Critic has a complete judging basis.
 
 ### v3.1.4 Retry & quarantine (no silent drops, no global halt)
 
@@ -348,13 +352,11 @@ CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is cap
 - **Output:** `02_drafts.json` — `{url, ground_with, draft, [VERIFY?]}` per target.
 - **Must not see:** the asset templates, the gate internals.
 
-### 4. Critic / Judge  ·  cross-family, NON-Claude — Grok live-read (v3.1)
+### 4. Critic / Judge  ·  cross-family, NON-Claude — Gemini snapshot-read (v3.1, updated 2026-06-24)
 - **Why non-Claude:** a model grading its own family's output is a blind spot (`MKT-02` — the
-  cross-family veto is load-bearing).
-- **Input (isolated):** the draft + the target URL the critic **opens and reads LIVE** (the live thread
-  is the judging basis) + `thread_gist` passed ONLY as "what the drafter believed" cross-reference + the
-  bound entry's claim as `grounded_claim` + the target's `content_pillar` + a **compact rubric** of
-  criteria, each individually gradeable. The criteria:
+  cross-family veto is load-bearing). Independence = non-Claude family (Gemini ≠ Claude) + judging from
+  the persisted `00b_threads` snapshot.
+- **Input (isolated):** the draft + the persisted `00b_threads` snapshot `{opening_post, top_replies, thread_gist, engagement, captured_at}` (the judging basis — the Critic NEVER opens the URL) + `thread_gist` passed as "what the drafter believed" cross-reference (also a snapshot field) + the bound entry's claim as `grounded_claim` + the target's `content_pillar` + a **compact rubric** of criteria, each individually gradeable. Calibration probes use `snapshot:null` — judged from `grounded_claim`+`DRAFT`. The criteria:
   1. **voice_fit** — flat, specific, no hype/bait.
   2. **specificity_present** — ≥1 concrete signal tied to the bound entry.
   3. **no_fabrication** — every claim traces to `grounded_claim`; the author's numbers are not claimed as ours.
@@ -435,7 +437,7 @@ the mechanism that fixes "context mess" — not bigger windows, but smaller, wal
 | 1 | Scout (retrieve + thread-fetch) | Grok (X access) | `grok -p` (headless capture) |
 | 2 | Matcher (liveness pre-filter + bind) | `claude-opus-4-8` *(v3.1, ⬆ from Sonnet)* | `claude -p` / sub-agent |
 | 3 | Drafter | `claude-sonnet-4-6` | `claude -p` / fresh sub-agent per retry |
-| 4 | Critic (live-read) | Grok (`grok-build`, live-read) *(v3.1: settled on Grok)* | `grok -p`, cross-family veto |
+| 4 | Critic (snapshot-read) | Gemini 3.1 Pro (High) *(updated 2026-06-24: Gemini via agy -p, snapshot-read)* | `agy -p`, cross-family veto |
 | 5 | Gatekeeper | — (shell) | `bin/gate.sh` |
 | 6 | Asset | `claude-haiku-4-5` | sub-agent + `bin/render_asset.sh` |
 | 7 | Producer | `claude-haiku-4-5` | sub-agent |
@@ -449,10 +451,13 @@ Routing rationale (v3.1, 2026-06-15):
   the gate that confirms the Scout returned what a vector asked for, so its judgment carries more weight.
   A deterministic corpse-drop pre-filter (shell, by age/views) runs *before* the Opus bind to keep the
   expensive judgment off obvious dead candidates.
-- **Critic → Grok, live-read.** Settled on Grok after evaluating alternatives (v3.1): it is cross-family
-  (≠ the Claude Drafter) **and** the only model with live X access, so its independent live read of the
-  thread is part of its own single call. A non-browsing critic (e.g. Gemini via `agy`) was rejected —
-  it cannot open X, and proved unreliable in headless mode. Run at high effort.
+- **Critic → Gemini 3.1 Pro (High) via `agy -p`, snapshot-read.** Updated 2026-06-24: the Critic is now
+  Gemini via the Google Antigravity CLI (`agy -p --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions`).
+  Gemini cannot browse X; instead the Critic judges the persisted `00b_threads` snapshot (full opening
+  post + top_replies + engagement at `captured_at`). The cross-family veto is preserved (Gemini ≠ Claude).
+  Independence rests on non-Claude family + the complete snapshot (richer than the gist). The snapshot-critic
+  tradeoff is sanctioned by PRD §178-182. agy is slow but completes within 10m; `--print-timeout 10m` ensures
+  agy waits for its own response. If agy genuinely exceeds 10m it self-aborts → CRITIC-UNAVAILABLE → SAVE-AND-HALT.
 - **Drafter → Sonnet 4.6**, spawned **fresh per retry** (kill the polluted instance; the new one gets
   prompt + prior draft + the named correction). Adequate for constrained drafting; cheap.
 - **Vault_Scout → Sonnet 4.6.** Parsing the vault into search vectors is extraction + intent-shaping,

@@ -72,31 +72,32 @@ the thing we search by.
 | 1 | **Scout** | **grok** (`grok -p`) | Live X retrieval per vector + thread-context fetch. Only model with live X access. |
 | 2 | **Matcher** | Opus 4.8 | Liveness + replyability + contributability gates (incl. domain/mechanism transfer drop — same-theme-but-mechanism-foreign binds are dropped); binds each thread 1:1 to a distinct vault entry; tags pillars. |
 | 3 | **Drafter** | Sonnet 4.6 | Writes one reply per target, in voice, grounded in the bound entry. Fresh instance per retry. |
-| 4 | **Critic** | **grok** (cross-family) | Opens each URL live, judges against Rubric v1.3, SHIP/FIX. The independent veto. |
+| 4 | **Critic** | **Gemini 3.1 Pro (High)** via `agy -p` (cross-family) | Judges against Rubric v1.3 from the persisted `00b_threads` snapshot, SHIP/FIX. The independent veto. Never opens the URL. |
 | 5 | **Gatekeeper** | — (shell) | `bin/gate.sh` — deterministic word-range/`!`/batch-variety checks (single-draft specificity is a non-fatal WARN, not a block — owned by the Critic). No model. |
 | 6 | **Asset** | Haiku 4.5 | Fills the aurora-frost card for the top 1–2 (optional). |
 | 7 | **Producer** | Haiku 4.5 | Assembles `replies_to_post.md` (the human gate). Never posts. |
 | 8 | **Wins-logger** | grok + orchestrator | ~1 day after posting, pulls real engagement → `wins.md`; orchestrator distills one rule per winner. |
 
-**Cross-family veto is preserved:** the Drafter is Claude, the Critic is grok — a draft is never graded
-by its own model family. (agy/Gemini was evaluated as the critic and rejected — it hangs in headless
-mode and can't browse X.)
+**Cross-family veto is preserved:** the Drafter is Claude, the Critic is Gemini (via `agy -p`) — a draft is never graded
+by its own model family. Independence = non-Claude family + judging from the persisted `00b_threads` snapshot (full opening
+post + replies + engagement at `captured_at`). Gemini cannot browse X; the Scout enriches `00b_threads.json` with
+engagement stats and `captured_at` so the Critic has a complete snapshot to judge from, without opening the URL.
 
 ---
 
 ## 5. End-to-end flow
 
 ```
-0.  PROBE          grok fenced-JSON probe. Fails → ABORT (no spend).
+0.  PROBE          grok + agy fenced-JSON probes. Either fails → ABORT (no spend).
 0b. VAULT_SCOUT    project_authority.md → runs/_index/search_vectors.json (cached / 7-day TTL).
 1.  ROUND-ROBIN    Orchestrator picks the next vector, biased toward the under-filled pillar (50/30/20).
                    Vectors are NON-EXCLUSIVE (one vector can yield >1 reply). Query seeds rotated per run.
 2.  SCOUT (grok)   Searches that vector → live candidates + thread context in ONE fetch
-                   (00_candidates.json + 00b_threads.json). Recency-filtered; already-engaged URLs excluded.
+                   (00_candidates.json + 00b_threads.json with engagement+captured_at). Recency-filtered; already-engaged URLs excluded.
 3.  MATCHER (Opus) Corpse-drop pre-filter → replyability gate → contributability gate → 1:1 bind →
                    tag content_pillar/project_pillar/vector → 01_anchored.json (LOCK).
                    Off-vector or no-honest-contribution → back to Scout for next candidate on that vector.
-4.  PER TARGET:    DRAFTER (Sonnet, fresh per retry) → GATEKEEPER (gate.sh) → CRITIC (grok, live-read).
+4.  PER TARGET:    DRAFTER (Sonnet, fresh per retry) → GATEKEEPER (gate.sh) → CRITIC (Gemini via agy, snapshot-read).
                    FIX routing (§7) decides retry vs replace vs quarantine.
 5.  STOP when:     shipped == TARGET (12, soft) OR all vectors EXHAUSTED OR grok budget hit OR
                    failure-rate breaker fires. Ship what's real; report any shortfall.
@@ -114,7 +115,7 @@ mode and can't browse X.)
 |------|--------|-------|
 | `runs/_index/search_vectors.json` | Vault_Scout | vectors: `{id, content_pillar, search_intent, grounds_with[], query_seeds[]}` + `generated_at` (TTL) |
 | `runs/<batch>/00_candidates.json` | Scout | live candidates `{url, author, age, views, likes, replies, lang, vector, text_snippet, post_type}` |
-| `runs/<batch>/00b_threads.json` | Scout | thread context `{url, opening_post, top_replies[], thread_gist, replyable}` |
+| `runs/<batch>/00b_threads.json` | Scout | thread context + judging snapshot `{url, opening_post, top_replies[], thread_gist, engagement{views,likes,replies,quotes,reposts,bookmarks}, captured_at, replyable}` |
 | `runs/<batch>/01_anchored.json` | Matcher | bound targets `{url, engagement, content_pillar, project_pillar, vector, ground_with, entry_substance, contribution, thread_gist, post_type}` |
 | `runs/<batch>/02_drafts.json` | Drafter | `{url, ground_with, draft, verify_flags[]}` per target |
 | `runs/<batch>/03_review.json` | Orchestrator | per-result `{gate, critic_verdict, criteria[], status, …}` + batch flags |
@@ -153,8 +154,8 @@ mandate forced noun-injection; specificity-in-context is now the Critic's `speci
 overuse, length uniformity). Exit 0 = pass (word-range/`!`/batch ok), 1 = rewrite (word-range, `!`, or a
 batch check), 2 = config error (abort; needs bash ≥4).
 
-### Critic — Rubric v1.3 (fair-judge, recalibrated 2026-06-16)
-Opens each URL live and grades a draft against the CURRENT thread. **Mandate: be a fair judge — SHIP
+### Critic — Rubric v1.3 (fair-judge, recalibrated 2026-06-16; snapshot-read as of 2026-06-24)
+Gemini 3.1 Pro (High) via `agy -p`. Judges from the persisted `00b_threads` snapshot (opening post + replies + engagement at `captured_at`) — never opens the URL. **Mandate: be a fair judge — SHIP
 what a sharp builder would post; fail a criterion only on a MATERIAL problem, not a stylistic nitpick.**
 Two tiers, confidence-gated:
 
@@ -232,7 +233,7 @@ ask the session to run a batch. It will:
 probe grok → (re)build search_vectors if stale → round-robin scout+match toward 12 → draft/gate/critic
 loop → write `runs/<YYYY-MM-DD>_batch/replies_to_post.md` → stop for review.
 
-**Prereqs:** `grok` CLI logged in; `agy` not required (Gemini critic was rejected); bash ≥4 at
+**Prereqs:** `grok` CLI logged in (Scout + Wins-logger); `agy` CLI logged in and responding (`~/.local/bin/agy`, Google Antigravity — required for the Critic); bash ≥4 at
 `/opt/homebrew/bin/bash`; `python3`; `project_authority.md` current (drives the vectors); `voice.md` +
 `reply_register.md` + `drafting_contract.md` for the Drafter.
 
@@ -246,7 +247,7 @@ substituting a model or stubbing the critic. Nothing is ever auto-posted.
 - **SAVE-AND-HALT (universal):** any role whose output is unobtainable (credits, auth, dead CLI, sub-agent
   fails ×2, no fenced block after one re-prompt) → save artifacts, write `runs/<batch>/HALT.json`, stop all
   downstream stages, resume from `next_stage` when the blocker clears. Never substitute/stub/improvise a model.
-- **Critic degradation:** if the grok critic can't be invoked mid-run → ABORT, all results `held`,
+- **Critic degradation:** if the agy/Gemini critic can't be invoked mid-run (unreachable / no fenced block / print-timeout self-abort after 10m) → ABORT, all results `held`,
   `critic: UNAVAILABLE`, loud held-line. The Claude stub is scaffold-test-only, NEVER a runtime fallback
   (2026-06-10 proved it ships irrelevant drafts as SHIP).
 

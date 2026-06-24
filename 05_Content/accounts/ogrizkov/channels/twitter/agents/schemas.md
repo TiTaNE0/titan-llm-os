@@ -101,7 +101,11 @@ Fields per entry:
 - `opening_post` — full text of the opening post (not the 280-char snippet)
 - `top_replies` — array of `{author, text}`, highest-signal replies (incl. any reveal/punchline/answer)
 - `thread_gist` — one sentence: what the thread is actually about, incl. what the replies add
+- `engagement` — `{views, likes, replies, quotes, reposts, bookmarks}`, each int|null. Raw counts only (no `velocity`). X often hides bookmarks; all nullable, degrades gracefully.
+- `captured_at` — ISO-8601 fetch time; the staleness window the Critic accepts (PRD §178-182). Scout fills explicitly (not file-mtime).
 - `replyable` — boolean Scout hint (false for polls/memes/promos with no substantive discussion)
+
+This artifact is the Critic's judging snapshot — the Scout must capture the opening post text and stats completely. The Critic NEVER opens the URL; it judges from this snapshot.
 
 ```json
 {
@@ -115,6 +119,15 @@ Fields per entry:
         {"author": "swyx", "text": "right, and the veto has to be cross-family or it's theatre"}
       ],
       "thread_gist": "swyx argues orchestration beats autocomplete; the replies sharpen it to the cross-family veto being the load-bearing part.",
+      "engagement": {
+        "views": 42000,
+        "likes": 310,
+        "replies": 47,
+        "quotes": 12,
+        "reposts": 38,
+        "bookmarks": null
+      },
+      "captured_at": "2026-06-09T10:15:00Z",
       "replyable": true
     }
   ]
@@ -225,7 +238,7 @@ Fields per result:
 Batch-level fields:
 - `held` — boolean. True if the batch halted at the critic gate or any hard-block; a held batch must not be posted.
 - `cross_family_veto` — boolean. MUST be false whenever `critic` is `claude-stub` (the stub is not a cross-family veto).
-- `critic` — `"grok"` | `"claude-stub"` | `"UNAVAILABLE"`.
+- `critic` — `"gemini"` | `"grok"` | `"claude-stub"` | `"UNAVAILABLE"`. (`"grok"` retained for historical batches; new batches emit `"gemini"`)
 - `_calibration` — object recording the critic calibration-probe result (see `../tests/critic_probes.json`). Orchestrator injects 1-2 known-bad probes at step 4c, judges with real drafts, strips before FIX-routing/Producer. Calibrated critic FIXes every probe; SHIP on any → `held:true` + abort. Fields: `probes_injected` (int), `probes_shipped` (int, non-zero ⇒ soft), `result` (`"pass"` | `"abort"`), `probe_ids` (array, traceable to fixture). Probe entries are NEVER in `results[]`; `_calibration` is the only on-disk trace.
 
 ```json
@@ -238,7 +251,7 @@ to `grounded_claim`; fails if it distorts that claim or claims the author's numb
 ```json
 {
   "batch": "2026-06-09_batch",
-  "critic": "grok",
+  "critic": "gemini",
   "cross_family_veto": true,
   "held": false,
   "results": [

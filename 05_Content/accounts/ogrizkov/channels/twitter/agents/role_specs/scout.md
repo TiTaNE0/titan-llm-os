@@ -30,8 +30,13 @@ Invocation: orchestrator calls `grok -p` with a brief demanding a SINGLE fenced 
 When the orchestrator passes the Matcher's liveness-survivor URL list, fetch thread context for ALL
 survivors in ONE `grok -p` call → a SINGLE fenced ` ```json ` block → `runs/<batch>/00b_threads.json`.
 Read the opening post in full (not the 280-char snippet) plus the highest-signal replies (the
-reveal / answer / punchline). Raw retrieval only — no drafting, no match judgment. Set `replyable: false`
-for polls/memes/promos with no substantive discussion to join.
+reveal / answer / punchline). Also capture per-thread `engagement` `{views, likes, replies, quotes,
+reposts, bookmarks}` (each nullable — X often hides bookmarks) and set `captured_at` (ISO-8601 fetch
+time). Raw retrieval only — no drafting, no match judgment. Set `replyable: false` for
+polls/memes/promos with no substantive discussion to join.
+
+This artifact (`00b_threads.json`) IS the Critic's judging snapshot — capture the opening post text
+and stats completely. The Critic never opens a URL; it judges from this snapshot at `captured_at`.
 
 ## Must-not-see
 
