@@ -70,10 +70,10 @@ the thing we search by.
 | 0 | **Orchestrator** | Opus 4.8 host (Fable 5 if available) | Runs the loop, holds thin state, routes artifacts, owns 50/30/20 balance + retry/quarantine decisions. Never ingests voice/grounding/search text. |
 | 0b | **Vault_Scout** | Sonnet 4.6 | Parses `project_authority.md` → `runs/_index/search_vectors.json`. Cached; re-runs on vault change or 7-day TTL. |
 | 1 | **Scout** | **grok** (`grok -p`) | Live X retrieval per vector + thread-context fetch. Only model with live X access. |
-| 2 | **Matcher** | Opus 4.8 | Liveness + replyability + contributability gates; binds each thread 1:1 to a distinct vault entry; tags pillars. |
+| 2 | **Matcher** | Opus 4.8 | Liveness + replyability + contributability gates (incl. domain/mechanism transfer drop — same-theme-but-mechanism-foreign binds are dropped); binds each thread 1:1 to a distinct vault entry; tags pillars. |
 | 3 | **Drafter** | Sonnet 4.6 | Writes one reply per target, in voice, grounded in the bound entry. Fresh instance per retry. |
 | 4 | **Critic** | **grok** (cross-family) | Opens each URL live, judges against Rubric v1.3, SHIP/FIX. The independent veto. |
-| 5 | **Gatekeeper** | — (shell) | `bin/gate.sh` — deterministic word/`!`/specificity checks. No model. |
+| 5 | **Gatekeeper** | — (shell) | `bin/gate.sh` — deterministic word-range/`!`/batch-variety checks (single-draft specificity is a non-fatal WARN, not a block — owned by the Critic). No model. |
 | 6 | **Asset** | Haiku 4.5 | Fills the aurora-frost card for the top 1–2 (optional). |
 | 7 | **Producer** | Haiku 4.5 | Assembles `replies_to_post.md` (the human gate). Never posts. |
 | 8 | **Wins-logger** | grok + orchestrator | ~1 day after posting, pulls real engagement → `wins.md`; orchestrator distills one rule per winner. |
@@ -140,11 +140,18 @@ technical debate that has formed in a launch's replies). The Scout deprioritizes
 For each bind the Matcher must write a one-sentence `contribution` from the THREAD's perspective: what
 the reply adds to THIS thread. If the honest sentence requires redirecting the thread toward our
 project's topic, that's a pivot → DROP. (A vault entry merely touching the topic is not enough.)
+**Domain/mechanism transfer (2026-06-23):** bind only if the entry's specific mechanism maps onto what
+the OP is actually discussing — same theme + different mechanism/domain = DROP. **Forced-bind tell:** if
+the `contribution` can only be made concrete with a proper noun/number the thread isn't about, the bind
+is forced → DROP. (A cross-domain entry whose mechanism genuinely transfers still binds.)
 
 ### Gatekeeper — `bin/gate.sh` (deterministic, no LLM)
-Per draft: 5–45 words, zero `!`, ≥1 concrete signal (a digit, a known tool token, or a mid-sentence
-proper noun). `--batch` mode also checks cross-draft variety (no repeated openers, structural-template,
-em-dash overuse, length uniformity). Exit 0 = pass, 1 = rewrite, 2 = config error (abort; needs bash ≥4).
+Per draft: 5–45 words, zero `!`. Missing concrete signal (digit / known tool token / mid-sentence proper
+noun) is a non-fatal `GATE WARN` only — it no longer hard-fails (2026-06-23: the deterministic specificity
+mandate forced noun-injection; specificity-in-context is now the Critic's `specificity_present` judgment).
+`--batch` mode still hard-fails cross-draft variety (no repeated openers, structural-template, em-dash
+overuse, length uniformity). Exit 0 = pass (word-range/`!`/batch ok), 1 = rewrite (word-range, `!`, or a
+batch check), 2 = config error (abort; needs bash ≥4).
 
 ### Critic — Rubric v1.3 (fair-judge, recalibrated 2026-06-16)
 Opens each URL live and grades a draft against the CURRENT thread. **Mandate: be a fair judge — SHIP
@@ -155,7 +162,11 @@ Two tiers, confidence-gated:
   - `no_fabrication` — every claim traces to the bound entry; the post author's numbers aren't claimed
     as ours; no invented personal/employment detail. (Kept strict — this protects credibility.)
   - `thread_fit` — engages what the post is actually about, and the post is a genuine discussion (not a
-    promo). Passes if it adds one real builder data point / grounded take / sharp question.
+    promo). Passes if it adds one real builder data point / grounded take / sharp question that speaks to
+    the OP's SPECIFIC point — a data point counts only when it's about the SAME thing the OP is discussing,
+    not merely the same theme. FAILS on **topic-adjacent flex** (2026-06-23): a reply that rides the broad
+    theme while flexing domain-foreign jargon/numbers that don't map to the OP's point. (A cross-domain
+    data point whose mechanism genuinely maps still ships.)
 - **ADVISORY** (block SHIP only if egregious, ≥ 0.80; else pass with a note): `voice_fit`,
   `specificity_present`, `not_generic`, `length_register_sane`, `positioning_alignment`.
 - **Cross-pass stability:** on re-judge, judge fresh and fairly — do not invent a new objection once the

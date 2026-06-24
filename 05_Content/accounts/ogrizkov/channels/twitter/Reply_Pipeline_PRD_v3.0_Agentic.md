@@ -12,7 +12,7 @@ positioning: agentic-systems (50/30/20 — build / apply / results)
 architecture: supply-driven (vault-first) as of v3.1
 ---
 
-# X Reply Pipeline — PRD v3.0 (agentic loop, isolated roles)
+# X Reply Pipeline — PRD v3.1 (agentic loop, isolated roles)
 
 ## 1. Why v3 (the real problem)
 
@@ -195,7 +195,7 @@ maps to an action via this table:
 | Failed criterion | Default route | Why |
 |---|---|---|
 | 1 voice_fit | draft-fixable | how it was written; a fresh draft within the same bind fixes it |
-| 2 specificity_present | draft-fixable | drafter can add the concrete signal from the bound entry |
+| 2 specificity_present | draft-fixable (advisory) | reason harder from the bound entry's earned stance so a concrete detail belongs to the OP's point — NOT inject a token to clear a gate (2026-06-23; specificity is now a Critic advisory, not a shell hard-fail) |
 | 3 no_fabrication | draft-fixable | drafter overreached past `grounded_claim`; redraft within it |
 | 4 not_generic | draft-fixable | drafter can sharpen to the builder-specific take |
 | 5 length_register_sane | draft-fixable | pure mechanical rewrite |
@@ -289,6 +289,14 @@ Claude-family roles are spawned via `claude -p`/sub-agents; non-Claude roles are
 CLI processes (`grok -p …`, cross-family CLI) and their headless stdout is captured + parsed.
 
 ## 4. Roles (each: model · isolated input · structured output · must-not-see)
+
+> **Note (v3.1, 2026-06-24):** the per-role behavioral detail in this section is retained for design
+> history. Where it conflicts with shipped behavior, the canonical sources win — the live role specs in
+> `agents/role_specs/*` (`matcher.md`, `drafter.md`, `critic.md`), `drafting_contract.md`, `bin/gate.sh`,
+> and the §v3.1 sections above. Specifically superseded here: the Gatekeeper's specificity check is now a
+> non-fatal WARN (not Exit 0/1), grounding is a lens/stance not a concrete-signal to surface, the Matcher
+> drops domain/mechanism-mismatched binds, the Critic's `thread_fit` FAILs topic-adjacent flex, and the
+> Critic mandate is Rubric v1.3 "fair judge" (not the older "refute, don't grade gently").
 
 ### 1. Scout — X retrieval  ·  Grok (`grok -p`)
 - **Why Grok:** it has live X/web access; the orchestrator invokes `grok -p "<scout brief>"`
