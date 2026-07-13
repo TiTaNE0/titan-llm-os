@@ -12,9 +12,12 @@ scope:
 # STOP — hard limits per run (PRD §3 STOP).
 max_tasks_per_run: 3        # process at most N tasks, then stop the run
 no_progress_stop: true      # same error twice on one task -> stop that task (mirrors E5)
+idle_stop_after: 4          # stop after N consecutive idle ticks (2 h at 30 m interval)
+max_ticks_per_session: 20   # stop after N ticks (dispatch+idle); absent = disabled
 
-# BUDGET — ceiling per run (PRD §3 BUDGET). On the /loop host there is no API meter
-# (subscription), so this is advisory + a parity field for a future Routine host.
+# BUDGET — ceiling per run (PRD §3 BUDGET). Enforced by budget_check.sh: wall-clock
+# minutes since the run's first digest line. The /loop host has no token meter
+# (subscription) — wall-clock is the honest proxy. Parity with a future Routine host.
 budget:
   max_minutes: 60
 

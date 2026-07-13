@@ -1,5 +1,7 @@
 # Delegation Protocol (Multi-Agent Coordination)
 
+> **STATUS: NOT YET IMPLEMENTED — design only.** `/delegate` and `/recall` are registered in the kernel but have no atoms: `04_Logs/Delegations/` has never been created, and `update_kanban` defers Delegated-column transitions to Phase 3 (see [[Tool_Registry]] § update_kanban Persona Gate note). Do not attempt delegation; treat this file as the build spec. *(Banner added 2026-07-07 via /graduate, [[Brain_Audit_Drift_Repair]].)*
+
 > **Pattern:** Supervisor + Specialists. The active persona stays in the driver's seat but can hand off scoped sub-tasks to other personas — with full audit trail.
 
 This is Phase 2 work. It assumes [[Agent_Roles]] is loaded and active.

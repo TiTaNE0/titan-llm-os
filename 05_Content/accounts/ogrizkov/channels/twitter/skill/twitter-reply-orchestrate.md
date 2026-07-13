@@ -6,7 +6,11 @@ Orchestrator runbook — the host Claude Code session IS the orchestrator (claud
 
 ## PROBE
 
-At run start, one cheap `grok -p` call requesting a trivial fenced ` ```json ` block (e.g. `{"probe": "ok"}`). If no parseable fenced block is extracted from stdout → **ABORT** with message: "grok fenced-JSON probe failed; output shape changed". De-risks PRD §14.1 before spending any budget.
+At run start, two cheap liveness probes (both must pass before spending any budget):
+
+1. **grok probe** — one `grok -p` call requesting a trivial fenced ` ```json ` block (e.g. `{"probe": "ok"}`). If no parseable fenced block → **ABORT**: "grok fenced-JSON probe failed; output shape changed". De-risks Scout + Wins-logger (PRD §14.1).
+
+2. **agy probe** — one `agy -p '{"probe": "ok"}' --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions` call requesting the same trivial block. If no parseable fenced block → **ABORT**: "agy fenced-JSON probe failed — Critic unavailable before budget spend". De-risks the Critic before any Scout/Matcher cost is incurred.
 
 ---
 
@@ -21,6 +25,7 @@ Orchestrator holds ONLY:
 - Per-vector `vector_state` ∈ `{available, exhausted}`
 - `shipped_by_pillar` — counts per `{build, apply, results}`; drives 50/30/20 steering
 - Per-vector `query_rotation` — which `query_seeds` subset was used each run (rotation state lives here, not in the Scout — Scout is stateless)
+- `calibration_probes` — for the current critic batch only: injected probe `id`s + their working-set positions. Orchestrator state ONLY; never written into the batch handed to the Critic and never into `results[]`. Cleared after each strip.
 
 Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text / search results (PRD §9.4). It routes file artifacts. That thin state is what keeps its context clean.
 
@@ -65,14 +70,19 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 
    b. **GATEKEEPER:** `/opt/homebrew/bin/bash bin/gate.sh <draft>` (single-draft gate).
       - Exit 2 → **ABORT** (config error: need bash≥4; `brew install bash`). Never retry exit 2.
-      - Exit 1 → gate FAIL: if draft retries remain, return to Drafter with the flag. If budget exhausted → `status=skipped`.
-      - Exit 0 → proceed to Critic.
+      - Exit 1 → gate FAIL (word-range out of [5,45] OR banned `!`): if draft retries remain, return to Drafter with the flag. If budget exhausted → `status=skipped`.
+      - Exit 0 → proceed to Critic. A `GATE WARN: no concrete signal` on stderr is non-blocking; specificity is owned by the Critic's `specificity_present` judgment.
+      - Missing specificity no longer causes exit 1 — it emits a stderr WARN and passes.
 
-   c. **CRITIC (grok live-read):** Orchestrator passes `{url, thread_gist as cross-ref ONLY, grounded_claim, draft, content_pillar}` → routes the fenced JSON back without ingesting it. Grok opens the URL live and writes `criteria[]` per-criterion verdicts + `critic_verdict`, into `03_review.json`. Increment `grok_calls`.
-      - On critic unavailability mid-run → HALT: all results `status=held`, `critic=UNAVAILABLE`, loud held-line. NEVER stub-fallback at runtime.
+   c. **CRITIC (Gemini snapshot-read via agy -p) + CALIBRATION PROBE:**
+      - **INJECT:** pick 1-2 probes at random from `tests/critic_probes.json`; build payload `{url, content_pillar, grounded_claim, claimed_contribution, DRAFT, snapshot:null}` for each probe (probes have no real thread snapshot — judge from grounded_claim+DRAFT); append interleaved with the real drafts; record their ids + working-set positions in `calibration_probes`. NEVER pass `id`, `why_bad`, or any marker to agy — it must judge them as ordinary drafts.
+      - **JUDGE:** For each real draft, build the snapshot payload from its `00b_threads` entry: `{url, content_pillar, grounded_claim, claimed_contribution, DRAFT, snapshot:{opening_post, top_replies, thread_gist, engagement, captured_at}}`. Orchestrator passes the full batch (real + probe) to agy via `run_traced.sh --role critic --model gemini-3.1-pro --provider google -- agy -p "<prompt>" --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions`. The call BLOCKS until agy responds (up to 10m). agy NEVER opens the URL — it judges from the snapshot. Routes fenced JSON back without ingesting it. (No `grok_calls` increment — this is not a grok call.)
+      - **EVALUATE PROBES:** a calibrated critic FIXes every probe. If ANY probe verdict is SHIP → ABORT: `held:true`, loud flag "CALIBRATION FAILED — critic SHIPped a planted probe — batch HELD", write `_calibration` block `{probes_injected, probes_shipped, result:"abort", probe_ids:[...]}` into `03_review.json`, STOP — no 4d, no asset, no Producer (same posture as CRITIC-UNAVAILABLE). If all probes FIX → write `_calibration {result:"pass", probes_shipped:0, probe_ids:[...]}` and continue.
+      - **STRIP:** remove probe entries from the judged set before 4d; `results[]`, asset selection, and Producer see ONLY real drafts. Clear `calibration_probes`.
+      - On agy/Gemini critic unavailability mid-run (unreachable / no fenced block / print-timeout self-abort after 10m) → HALT: all results `status=held`, `critic=UNAVAILABLE`, loud held-line. NEVER stub-fallback at runtime.
 
    d. **FIX → ACTION ROUTING (v1.3)** — deterministic on `criteria[]` booleans, not the free-text FIX prose. Two retry budgets, kept SEPARATE so a style fix never consumes the bind budget:
-      - **STYLE budget (3 per target):** `voice_fit` / `specificity_present` / `not_generic` / `length_register_sane` / `positioning_alignment` are **style-fixable** → kill Drafter instance, spawn FRESH Drafter with `{prompt + prior draft + named criterion}`, retry. These are the cheap "return to the drafter" fixes; they do **not** count against the bind budget and do **not** quarantine a target on their own (a draft that only ever fails advisory criteria keeps going back to the drafter up to the style cap).
+      - **STYLE budget (3 per target):** `voice_fit` / `specificity_present` / `not_generic` / `length_register_sane` / `positioning_alignment` / `voice_texture` are **style-fixable** → kill Drafter instance, spawn FRESH Drafter with `{prompt + prior draft + named criterion}`, retry. These are the cheap "return to the drafter" fixes; they do **not** count against the bind budget and do **not** quarantine a target on their own (a draft that only ever fails advisory criteria keeps going back to the drafter up to the style cap).
       - **BIND budget (the two HARD gates only):** `no_fabrication` and `thread_fit` → **draft-fixable ONCE** (fresh Drafter), then **bind-bad** if the SAME hard gate fails again.
       - **Immediate bind-bad** on `still_alive=false` or `drift=dead` — redrafting a dead thread is pointless.
       - **Verdict gating:** route on the Critic's confidence-gate (HARD gate fail ≥0.65; advisory fail ≥0.80). A low-confidence misgiving is not a FIX — do not loop on it.
@@ -100,7 +110,8 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 **8. LOUD FLAGS** — emit to stdout AND `03_review.json`:
    - `"no cross-family veto this run"` (emitted only by the Phase-1 `claude-stub` — scaffold tests, never production; a stub batch is also forced `held: true`).
    - `"BATCH HELD — DO NOT POST"` whenever `held: true` (critic gate halt or any hard-block).
-   - `"CRITIC UNAVAILABLE — batch HELD"` if the Phase-2 grok critic could not be invoked mid-run.
+   - `"CRITIC UNAVAILABLE — batch HELD"` if the Phase-2 agy/Gemini critic could not be invoked mid-run (unreachable / no fenced block / print-timeout fired after 10m).
+   - `"CALIBRATION FAILED — critic SHIPped a planted probe — batch HELD"` when any injected probe returned SHIP at 4c; batch forced `held:true`, `_calibration.result="abort"`.
    - Per-vector `EXHAUSTED` line when `vector_fetches[vector] == MAX_FETCH_PER_VECTOR` with no bind.
    - `MAX_GROK_CALLS reached` line when `grok_calls == 40`.
    - Shortfall line when the batch stops before TARGET with reasons (from `batch_report.md`).
@@ -118,8 +129,10 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 | Condition | Action |
 |-----------|--------|
 | `grok` probe returns no fenced block | ABORT: "grok fenced-JSON probe failed; output shape changed" |
+| `agy` probe returns no fenced block | ABORT: "agy fenced-JSON probe failed — Critic unavailable before budget spend" |
+| agy/Gemini critic exceeds 10m print-timeout | agy self-aborts → CRITIC-UNAVAILABLE → SAVE-AND-HALT |
 | `gate.sh` exit 2 at any point | ABORT (config error: need bash≥4 — `/opt/homebrew/bin/bash`; `brew install bash`) |
-| `gate.sh` exit 1 (per-draft) | Retry within draft cap (2/target); else skip + log reason |
+| `gate.sh` exit 1 (word-range or banned `!`) | Retry within draft cap (2/target); else skip + log reason |
 | `render_asset.sh` exit 3 | Non-fatal: keep HTML, note "open + screenshot", continue batch |
 | `grok -p` returns no fenced block mid-run | Re-prompt once; if still no block → SAVE-AND-HALT (below) |
 | Any role's output unobtainable (credits/auth/CLI dead/sub-agent fails ×2) | SAVE-AND-HALT (below); never substitute, never stub, never improvise a replacement model |
@@ -129,6 +142,7 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 | `MAX_GROK_CALLS` (40) reached | Stop loop; ship what's real; emit loud cap-reached line; report shortfall in `batch_report.md` |
 | Draft cap (2) + 1 replacement exhausted on a target | `status=quarantined`; record reject history; keep batch moving |
 | Failure rate >~40% across batch | Rate-based escalation: surface to operator; do not spin |
+| Critic SHIPs a planted calibration probe (4c) | ABORT: `held:true`, loud "CALIBRATION FAILED" line, `_calibration.result="abort"`; strip probes; no downstream stages |
 
 ## SAVE-AND-HALT (universal failure policy — 2026-06-10b lesson)
 
@@ -159,7 +173,7 @@ generalizes it to every role.
 | Scout (thread-fetch) | Orchestrator-provided URL + live X | `voice.md`, `reply_register.md`, `project_authority.md` grounding entries, drafts |
 | Matcher | `00_candidates.json`, `00b_threads.json`, `project_authority.md`, `search_vectors.json` | `voice.md`, `reply_register.md`, search internals, other roles' reasoning |
 | Drafter | ONE target's `thread_gist` + ONE bound entry substance + `contribution`, `content_pillar`, `voice.md`, `reply_register.md`, never-list | Full `project_authority.md`, other targets, search internals, asset templates, gate internals |
-| Critic | Draft, `thread_gist`, the target URL opened live, bound entry claim, `content_pillar`, Rubric v1.3 | Full `voice.md` / `reply_register.md`, other drafts, gate internals |
+| Critic | Draft, persisted `00b_threads` snapshot `{opening_post, top_replies, thread_gist, engagement, captured_at}`, bound entry claim, `content_pillar`, Rubric v1.3 | Full `voice.md` / `reply_register.md`, other drafts, gate internals, live X / any URL to open |
 | Gatekeeper | Draft or batch file (shell; no LLM context) | — |
 | Asset | Top 1–2 `{draft + bound entry}` selected by orchestrator, aurora-frost template | Search internals, other targets, gate internals, `voice.md`, `reply_register.md` |
 | Producer | `01_anchored.json`, `02_drafts.json`, `03_review.json` | Search internals, `voice.md`, `reply_register.md`, `project_authority.md`, asset templates, gate internals |

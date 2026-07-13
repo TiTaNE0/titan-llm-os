@@ -20,6 +20,9 @@
 #   * STRUCTURAL-TEMPLATE — too many drafts using the "the real X is" reframe skeleton.
 #   * EM-DASH-SPLICE-RATE — the spaced em-dash splice may not be the default move.
 #
+# v2.4 (2026-06-20): additive, --batch only. SKELETON-SHAPE — too many drafts open concede or
+#   close on a narrow aphorism (the 2026-06-20 all-same-skeleton failure, invisible to 0a-0g).
+#
 # Usage:
 #   gate.sh <draft_file>            # single-draft check (word/!/specificity)
 #   echo "draft" | gate.sh          # same, via stdin
@@ -144,6 +147,28 @@ if [ "${1:-}" = "--batch" ]; then
     status=1
   fi
 
+  # 0h) skeleton-shape — 2026-06-20: vocabulary varied but every draft used concede→specific→aphorism.
+  CONCEDE_OPEN='^[[:space:]]*(exactly|same here|same diagnosis|same reason|right,|you.?re right|that.?s real|fair,|agreed,|same )'
+  APHORISM='(is just|just means|just whatever|costs more than|stops mattering|disappears|, not )'
+  skeln=0
+  for d in "${drafts[@]}"; do
+    is_skel=0
+    printf '%s' "$d" | grep -qiE "$CONCEDE_OPEN" && is_skel=1
+    last=$(printf '%s' "$d" | grep -oE '[^.!?]+[.!?]?[[:space:]]*$')
+    clause=$(printf '%s' "$last" | sed -E 's/^.+( — | – |: |, )//')
+    if printf '%s' "$clause" | grep -qiE "$APHORISM" \
+       && ! printf '%s' "$clause" | grep -qE '[0-9]' \
+       && ! printf '%s' "$clause" | grep -qE '[a-z),] +[A-Z][A-Za-z.]+'; then
+      is_skel=1
+    fi
+    (( is_skel )) && skeln=$((skeln+1))
+  done
+  maxskel=$(( (n + 2) / 3 ))   # ceil(n/3)
+  if (( skeln > maxskel )); then
+    echo "  x $skeln of $n drafts use the concede-opener or generalizing-aphorism-closer skeleton (cap $maxskel) — rotate form: lead with a question, pure data with no closer, disagree, or one blunt sentence" >&2
+    status=1
+  fi
+
   # 1) over-repeated abstraction keywords
   IFS='|' read -ra KWS <<<"$WATCH"
   for kw in "${KWS[@]}"; do
@@ -196,12 +221,12 @@ printf '%s' "$draft" | grep -qiE "($TOOLS)" && has_signal=1
 printf '%s' "$draft" | grep -qE '[a-z),] +[A-Z][A-Za-z.]+' && has_signal=1
 
 if [ "$has_signal" -eq 0 ]; then
-  if [ "$lenient" -eq 1 ]; then
-    echo "GATE WARN: no concrete signal (number/tool/proper-noun) — abstract draft (words=$words)" >&2
-  else
-    fail "no concrete signal — number, tool, or proper noun required (words=$words)"
-  fi
+  echo "GATE WARN: no concrete signal (number/tool/proper-noun) — abstract draft (words=$words)" >&2
 fi
 
-echo "GATE PASS: $words words, no '!', concrete signal present"
+if [ "$has_signal" -eq 1 ]; then
+  echo "GATE PASS: $words words, no '!', concrete signal present"
+else
+  echo "GATE PASS: $words words, no '!'"
+fi
 exit 0

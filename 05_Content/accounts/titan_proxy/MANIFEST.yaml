@@ -41,7 +41,7 @@ personas:
   ru_business:
     file: "[[personas/ru_business]]"
     variant_key: b
-    domain: mtproxy.link
+    domain: bestproxy.deals
     language: ru
     locale: ru_RU
     design: "[[design/sapphire]]"

@@ -41,6 +41,7 @@ Agents MUST NOT mark a task as done, archive task files, or move Kanban status t
 - Stating "Done." or "Task complete." in prose without running `/close_task` is NOT task completion — it is a kernel violation.
 - This rule applies even when all success criteria appear to be met.
 - **Session-end scan (graduated 2026-05-16):** At session end, scan the board for any In Progress tasks whose work is visible in the current session context. If the task is complete, surface it to the user and offer to run `/close_task` immediately — do not defer to a future session.
+- **Orchestrator amendment (graduated 2026-07-07):** under Orchestrator runs this gate is *delegated, not removed* — see § 1.4 Close-gate delegation (validator **SHIP** + Verification Gateway **PASS** → auto-`/close_task`; anything else escalates via `queue_attention`). Outside Orchestrator runs, § 1.3 stands unchanged.
 
 ### 1.4 Orchestrator Gate Delegations (CRITICAL)
 These delegations apply **only to runs under the Orchestrator persona** ([[Agent_Roles]]). Interactive, human-driven macros are unchanged — every gate below stays a checkpoint; what changes is who mans it first. Each names a **keeper** and an **escalation path** to the human (the [[Needs_Attention]] queue, via `queue_attention`). Ratified via /graduate 2026-06-15 Phase B, per [[Orchestrator_PRD_v2]] § 8.
@@ -61,7 +62,7 @@ These delegations apply **only to runs under the Orchestrator persona** ([[Agent
 - **Session Start:** Always read the latest log file in `04_Logs/` before taking action to restore context.
 
 ## 4. Kanban Management
-- When changing a task status, you MUST move the task link `[[Task_Name]]` from its current header to the new one in `Master_Board.md`.
+- When changing a task status, you MUST move the task link `[[Task_Name]]` from its current header to the new one in the task's project board (`<Project>_Board.md`, e.g. `TiTan_LLM_OS_Board.md`).
 - The status in the task's individual file YAML MUST match its column in the Kanban Board.
 
 ## 5. 🔗 Wiki-Links Protocol (Context Traversal)
@@ -104,7 +105,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 ### `/archive_done`
 1. **Identify:** Recursively scan `./.vault_link/02_Tasks/*/*.md` (one level deep into project subfolders) for all `.md` files where YAML frontmatter contains `status: done` or `status: completed`.
 2. **Move:** For each match, preserve the project subfolder — relocate `02_Tasks/<Project>/<File>.md` → `99_Archive/Tasks/2026/<Project>/<File>.md`. Run `mkdir -p` on the archive subfolder if needed.
-3. **Cleanup:** Review `./.vault_link/Master_Board.md`. If a link to an archived task remains in the 'Done' column, keep it but ensure the link remains valid or append an "(Archived)" suffix to the display text if necessary.
+3. **Cleanup:** Review each affected project's board (`./.vault_link/<Project>_Board.md`). If a link to an archived task remains in the 'Done' column, keep it but ensure the link remains valid or append an "(Archived)" suffix to the display text if necessary.
 4. **Report:** Output a list of all moved tasks and confirm the new location.
 
 ### `/new_task [Title] for [[Project]]`
@@ -113,6 +114,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 3. **Source Template:** Read `00_Templates/Task_Template.md`.
 4a. **Uniqueness Guard:** Run `find ./.vault_link/02_Tasks ./.vault_link/99_Archive/Tasks -name '[Title].md' 2>/dev/null`. If any match → refuse with E3 (basename collision; wiki-links require uniqueness).
 4b. **Create:** `Invoke: create_task(title=[Title], project={{PROJECT}}, priority=medium)`
+4c. **Contract:** Author the header contract through the guarded writer — never an inline `.md` edit (harness-blocked). `create_task` (4b) seeds `§ Declarative Objective` via `--objective`; author `§ Definition of Done` and `§ Verification Gateway` with `Invoke: author_contract(task_path, section=dod|gateway, content=<criteria | test-command + protocol>, source_persona=Executioner)` (multi-line content via a `--content-file`/mktemp). **Content source + non-blocking rule:** an interactive caller supplies the DoD and test command (ask once if absent); the Orchestrator uses the `00_Inbox` body and, if a section is unspecified, leaves the placeholder rather than blocking — `/execute_task` step 5.5 then escalates the unfilled contract via `queue_attention`. *(graduated 2026-06-17)*
 5. **Kanban:** `Invoke: update_kanban(board_path={{PROJECT}}_Board.md, task_link=[[Title]], from_column=none, to_column=Todo)` — `from_column=none` is the insertion mode implemented in `update_kanban.sh` (synthesizes `- [ ] [[Title]]` at the top of Todo; no manual board edit). *(graduated 2026-06-07)*
 6. **Confirm:** Output `"Task [Title] created and added to [[{{PROJECT}}_Board]]."`
 7. **HALT:** You MUST stop here. Do NOT proceed to implementation. Wait for the user to provide "Execution Approval".
@@ -300,6 +302,19 @@ The executable form lives at `project-template/.claude/commands/orchestrator_tic
 5. Surface top error classes and duration outliers from the table.
 6. See [[Observability]] for full schema.
 7. **Telemetry:** handled by the script itself (see step 3); no separate emit needed.
+
+### `/retrospective [period]`
+1. **Persona Gate:** Must be `Executioner` (or fail E4) — the ritual proposes, never applies.
+2. `period` ∈ {`day`, `week`, `month`}; default `month`.
+3. **Execute:** `metrics_aggregate.sh <period>` and `metrics_aggregate.sh <period> --breakdown error_class`; Read both report CSVs.
+4. **Read:** `Needs_Attention.md` — tally open entries by state, resolved entries by `resolved:` class.
+5. **Correlate:** top `error_class × macro`, recurring escalation reasons, resolution-class distribution — every finding cites counts.
+6. **Output:** `proposals[]` — each names a target artifact (project `CLAUDE.md`, kit `CLAUDE.md` template, `spec_rubric.sh`, or a named agent brief), a concrete change, and its evidence. The command edits NONE of them.
+7. **Escalate:** append one `retro_promote` entry via `queue_attention.sh` (task `Retrospective_<period>_<date>`).
+8. **HALT:** Promotion to Brain rules, rubric, or briefs requires Architect + `/graduate`.
+9. **Telemetry:** Emit `retrospective` record.
+
+*(Registered via /graduate 2026-07-07; built by [[Orchestrator_Feedback_Loop]] slice A — gives the telemetry and attention queue a consumer, closing the encode-the-fix loop.)*
 
 ### `/enable_module <name>`
 1. **Persona Gate:** Architect or Content Producer.

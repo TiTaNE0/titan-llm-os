@@ -96,9 +96,9 @@ chk "AC04-10 scout model mentions Grok" \
 chk "AC04-10 wins model mentions Grok" \
   'grep -iq "grok" "$C/agents/role_specs/wins.md"'
 
-# AC 4-10: critic model is non-Claude — mentions grok and does NOT name a claude-* model as primary
-chk "AC04-10 critic model mentions grok (non-Claude primary)" \
-  'grep -iq "grok" "$C/agents/role_specs/critic.md"'
+# AC 4-10: critic model is non-Claude — mentions agy/gemini and does NOT name a claude-* model as primary
+chk "AC04-10 critic model mentions agy/gemini (non-Claude primary)" \
+  'grep -iqE "agy|gemini" "$C/agents/role_specs/critic.md"'
 # The model: line must not start with claude-
 chk "AC04-10 critic model: line does not name claude-* as primary" \
   '! grep "^model:" "$C/agents/role_specs/critic.md" | grep -qi "^model:.*\"claude-"'
@@ -410,11 +410,11 @@ chk "RF04  critic.md: thread_fit criterion" \
 chk "RF05  matcher.md: replyability filter" \
   'grep -iq "replyab" "$C/agents/role_specs/matcher.md"'
 
-# post_actually_about + live-read instruction present in critic.md
-chk "RF06a critic.md: post_actually_about" \
-  'grep -q "post_actually_about" "$C/agents/role_specs/critic.md"'
-chk "RF06b critic.md: live-read instruction (open + live)" \
-  'grep -iq "open" "$C/agents/role_specs/critic.md" && grep -iq "live" "$C/agents/role_specs/critic.md"'
+# post_snapshot_about (snapshot audit field) + snapshot-read instruction present in critic.md
+chk "RF06a critic.md: post_snapshot_about" \
+  'grep -q "post_snapshot_about" "$C/agents/role_specs/critic.md"'
+chk "RF06b critic.md: snapshot-read instruction (snapshot + captured_at)" \
+  'grep -iq "snapshot" "$C/agents/role_specs/critic.md" && grep -iq "captured_at" "$C/agents/role_specs/critic.md"'
 
 # derived jq views note present in schemas.md naming targets/tN.json + drafts/tN.json
 chk "RF07a schemas.md: derived jq views note" \
@@ -427,6 +427,12 @@ chk "RF08a gate.sh: structural-template check" \
   'grep -q "the real" "$C/bin/gate.sh"'
 chk "RF08b gate.sh: em-dash/splice check" \
   'grep -iq "em-dash\|splice" "$C/bin/gate.sh"'
+chk "RF12a gate.sh: skeleton-shape check present" 'grep -iq "skeleton-shape\|skeln" "$C/bin/gate.sh"'
+chk "RF12b tests/fixtures/same_skeleton.md exists" '[ -f "$C/tests/fixtures/same_skeleton.md" ]'
+chk "RF12c tests/fixtures/varied_form.md exists" '[ -f "$C/tests/fixtures/varied_form.md" ]'
+chk "RF12d same_skeleton.md batch rejected (exit 1)" '"$BASH4" "$C/bin/gate.sh" --batch "$C/tests/fixtures/same_skeleton.md" >/dev/null 2>&1; [ $? -eq 1 ]'
+chk "RF12e varied_form.md batch accepted (exit 0)" '"$BASH4" "$C/bin/gate.sh" --batch "$C/tests/fixtures/varied_form.md" >/dev/null 2>&1; [ $? -eq 0 ]'
+chk "RF12f drafter.md carries FORM-ROTATION mandate" 'grep -iq "FORM ROTATION\|form-rotation\|form rotation" "$C/agents/role_specs/drafter.md"'
 
 # PRODUCTION-BATCH STUB GUARD: any 03_review.json with claude-stub MUST also have held:true.
 echo "  -- production-batch stub guard --"
@@ -564,6 +570,33 @@ chk "AC51a scout skill has stateless marker" \
   'grep -iq "stateless\|does not.*rotat\|not.*rotation state" "$C/skill/twitter-reply-scout.md"'
 chk "AC51b scout skill mentions MAX_FETCH_PER_VECTOR" \
   'grep -q "MAX_FETCH_PER_VECTOR" "$C/skill/twitter-reply-scout.md"'
+
+# ---------- GROUP: critic-calibration-probe -----------------------------------
+echo "=== critic-calibration-probe ==="
+chk "RF13a tests/critic_probes.json exists" '[ -f "$C/tests/critic_probes.json" ]'
+chk "RF13b critic_probes.json parses + >=2 probes" 'python3 -c "import json,sys; d=json.load(open(sys.argv[1])); p=d.get(\"probes\", d if isinstance(d,list) else []); sys.exit(0 if len(p)>=2 else 1)" "$C/tests/critic_probes.json"'
+chk "RF13c orchestrate.md mentions calibration/probe" 'grep -iq "calibration\|probe" "$C/skill/twitter-reply-orchestrate.md"'
+chk "RF13d schemas.md documents _calibration" 'grep -q "_calibration" "$C/agents/schemas.md"'
+
+# ---------- GROUP: voice-texture-restoration ----------------------------------
+echo "=== voice-texture-restoration ==="
+chk "RF14a critic.md contains voice_texture criterion" 'grep -q "voice_texture" "$C/agents/role_specs/critic.md"'
+chk "RF14b drafter.md mentions register/texture/tic" 'grep -iq "register\|texture\|tic" "$C/agents/role_specs/drafter.md"'
+chk "RF14c orchestrate step 4d STYLE list contains voice_texture" 'grep -i "STYLE budget" "$C/skill/twitter-reply-orchestrate.md" | grep -q "voice_texture"'
+chk "RF14d drafter.md has NO anti-tic instruction" '! grep -iq "no .;. typo" "$C/agents/role_specs/drafter.md"'
+
+echo "=== vector-diversity ==="
+chk "RF15a vault_scout has 'minority'" 'grep -iq "minority" "$C/agents/role_specs/vault_scout.md"'
+chk "RF15b vault_scout has 'applied'" 'grep -iq "applied" "$C/agents/role_specs/vault_scout.md"'
+chk "RF15c vault_scout has 'iOS'" 'grep -iq "iOS" "$C/agents/role_specs/vault_scout.md"'
+chk "RF15d vault_scout has 'local-vs-cloud'" 'grep -iq "local-vs-cloud" "$C/agents/role_specs/vault_scout.md"'
+chk "RF15e vault_scout caps CAK" 'grep -iq "CAK" "$C/agents/role_specs/vault_scout.md"'
+chk "RF15f vault_scout excludes GRW-01/GRW-02" 'grep -q "GRW-01" "$C/agents/role_specs/vault_scout.md" && grep -q "GRW-02" "$C/agents/role_specs/vault_scout.md" && grep -iq "exclud" "$C/agents/role_specs/vault_scout.md"'
+
+echo "=== authority-reality-audit ==="
+chk "RF16a bin/audit_authority.sh exists" '[ -f "$C/bin/audit_authority.sh" ]'
+chk "RF16b bin/audit_authority.sh is executable" '[ -x "$C/bin/audit_authority.sh" ]'
+chk "RF16c audit on project_authority.md exits 0 (all citations resolve)" '( cd "$C" && "$BASH4" bin/audit_authority.sh project_authority.md ) >/dev/null 2>&1'
 
 # ---------- VERDICT -----------------------------------------------------------
 echo "===== VERDICT: $([ $PASS -eq 1 ] && echo 'ALL PASS' || echo 'FAIL') ====="

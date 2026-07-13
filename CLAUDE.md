@@ -12,6 +12,9 @@ This vault runs an LLM OS. Claude Code auto-loads THIS file, not `AGENTS.md`, so
 - **Default persona:** Executioner (switch via `role=<Name>` at handshake).
 - **Constraints:** vault security (`03_Brain/`, `01_Projects/` read-only) and dogfooding (OS upgrades tracked as board tasks) per `System_Agents.md §2` / `AGENTS.md §2`.
 
+## 1b. PIPELINES (run-phrase → runbook)
+- **"Run the @ogrizkov Twitter reply pipeline."** → load and follow `05_Content/accounts/ogrizkov/channels/twitter/skill/twitter-reply-orchestrate.md`, the current runbook (version-agnostic — the runbook itself is the source of truth for the active version). It is self-contained and points to its own roster / role-specs / PRD / overview. That one sentence is the entire start prompt; everything else lives in the runbook.
+
 ## 2. CODING GUIDELINES
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with the OS rules and the global `~/.claude/CLAUDE.md` as needed.

@@ -7,7 +7,7 @@ voice: "[[voice/business_ru]]"
 landing: "[[channels/landing/ru_business]]"
 language: ru
 locale: ru_RU
-domain: mtproxy.link
+domain: bestproxy.deals
 status: active
 ---
 
@@ -42,13 +42,13 @@ The page feels like a corporate communications product — Apple-keynote registe
 
 ## SEO + metadata (mirrors `src/app/b/page.tsx`)
 
-- Domain: `mtproxy.link`
+- Domain: `bestproxy.deals`
 - Title: `Titan Proxy | Бизнес-платформа для надёжного Telegram — Непрерывность и безопасность`
 - Description: `Корпоративная сеть для защиты коммуникаций команды. Постоянная доступность, шифрование, без простоев. Для бизнеса и удалённых команд.`
 - Keywords: `business continuity, enterprise Telegram, team security, workflow stability, remote work, business communication`
 - OG title: `Titan | Непрерывная связь в Telegram для бизнеса`
-- OG image: `https://mtproxy.link/og-image-b.png?v=3`
-- Canonical: `https://mtproxy.link/`
+- OG image: `https://bestproxy.deals/og-image-b.png?v=3`
+- Canonical: `https://bestproxy.deals/`
 
 ## Channel outputs
 

@@ -42,6 +42,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - **Source honesty** (same rule as `05_Marketing_System/schemas/scout_schema.md`): every entry
   cites where the fact comes from; numbers only if documented; otherwise general version or
   `[VERIFY: ...]`. No invented metrics.
+- **Stealth / anti-detection substance is excluded from public reply grounding.** Entries whose substance is bot-detection evasion, fingerprint/behavioral-entropy stealth, or anti-detection timing (e.g. GRW-01, GRW-02) are NOT for public reply grounding — they are reputational landmines. They stay in this file as authority context but are excluded from public replies; the Matcher must never bind them. Marked per-entry with `reply_scope: excluded`.
 
 ## Schema
 
@@ -316,6 +317,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - substance: A self-developing, human-in-the-loop content pipeline that engages LinkedIn in four phases (Warm-Up, Authority, Anchor, Maintenance), engineered for JA4 fingerprint consistency + behavioral entropy to stay statistically invisible to enterprise bot detection (Akamai/DataDome). Playwright-stealth, Gemini Flash/Pro, Telegram approve/reject HITL.
 - angle: Real growth automation isn't a bot spamming — it's a HITL pipeline engineered to look human to the detection layer, with you approving every move.
 - tags: [automation, growth, linkedin, stealth, hitl, playwright, anti-detection]
+- reply_scope: excluded (anti-detection — not for public reply grounding)
 - postable_as: experience
 - reuse: 7d
 
@@ -326,6 +328,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - substance: Scheduled via launchd; user pushback caught that hardcoded fire times are a metronomic detection signature, so added random_window_jitter (per-mode max delays) with a re-check after sleep. 5 cardinal manual-sync rules codified in SOUL.md + CLAUDE.md.
 - angle: Predictable timing is itself a tell; jitter isn't polish, it's part of staying invisible — and the rules belong in the memory file, not your head.
 - tags: [scheduling, jitter, stealth, anti-detection, agent-rules, automation]
+- reply_scope: excluded (anti-detection — not for public reply grounding)
 - postable_as: experience
 - reuse: 7d
 

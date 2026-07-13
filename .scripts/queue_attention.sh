@@ -26,7 +26,7 @@
 
 set -euo pipefail
 
-ALLOWED_STATES="spec_gate close_gate retries_exhausted no_progress orphaned_lock panel_escalate"
+ALLOWED_STATES="spec_gate close_gate retries_exhausted no_progress orphaned_lock panel_escalate retro_promote"
 ALLOWED_SOURCES="orchestrator pm_reviewer failure_panel"
 
 usage() {

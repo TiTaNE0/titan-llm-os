@@ -1,5 +1,13 @@
 # Skill: twitter-reply-draft (Run 2 — generate drafts)
 
+> **⚠ SUPERSEDED by v3.1 (2026-06-24).** This is the legacy v2 single-agent (single-head Grok Build)
+> runbook. The live pipeline is the v3 agentic loop — see `PIPELINE_OVERVIEW.md`,
+> `skill/twitter-reply-orchestrate.md`, and the canonical role specs in `agents/role_specs/*`. Its
+> gate and grounding model below is OUT OF DATE: specificity is no longer a deterministic shell hard-fail
+> (`gate.sh` now WARNs and passes; specificity-in-context is the Critic's judgment), grounding is a
+> lens/stance to reason FROM (never inject a token to clear a gate), and binds drop on domain/mechanism
+> mismatch. Kept for historical reference only; do not follow the per-draft gate / grounding steps here.
+
 Grok Build runbook. **Run 2 of 2.** Generates full reply drafts from the feed, ready to
 review and post. Writes a file; never posts.
 

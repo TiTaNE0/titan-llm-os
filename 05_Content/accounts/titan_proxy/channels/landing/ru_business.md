@@ -7,7 +7,7 @@ voice: "[[voice/business_ru]]"
 type: landing
 status: active
 source_of_truth: src/data/copy.ts (COPY_B, FAQ_B, STATUS_BADGE_B)
-url_target: https://mtproxy.link/
+url_target: https://bestproxy.deals/
 last_synced: 2026-05-19
 ---
 

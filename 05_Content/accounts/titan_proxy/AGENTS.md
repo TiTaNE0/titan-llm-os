@@ -27,7 +27,7 @@ If a request names a persona, channel, variant letter, or domain, your **first a
 |------------|-------------|
 | Persona slug (`ru_family`, `ru_devops`, `ru_business`) | `[[personas/<slug>]]` |
 | Variant letter (`a`, `b`, `c`) | persona in `MANIFEST.yaml` where `variant_key == <letter>` |
-| Domain (`mtproxy.guru`, `titanproxy.tech`, `mtproxy.link`) | persona in `MANIFEST.yaml` where `domain == <domain>` |
+| Domain (`mtproxy.guru`, `titanproxy.tech`, `bestproxy.deals`) | persona in `MANIFEST.yaml` where `domain == <domain>` |
 | Phrase ("the family one", "the business landing", "Iranian variant") | best-match persona by description |
 
 If you cannot resolve to exactly one persona, **stop and ask** — do not guess.
