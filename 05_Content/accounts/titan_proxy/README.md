@@ -39,7 +39,7 @@ titan_proxy/
 | Variant | Persona | Design | Voice | Domain | Code anchor |
 |---------|---------|--------|-------|--------|-------------|
 | **A** | [[personas/ru_devops]] | [[design/cyber_overdrive]] | [[voice/terminal_ru]] | titanproxy.tech | `COPY_A`, `FAQ_A`, `STATUS_BADGE_A` |
-| **B** | [[personas/ru_business]] | [[design/sapphire]] | [[voice/business_ru]] | mtproxy.link | `COPY_B`, `FAQ_B`, `STATUS_BADGE_B` |
+| **B** | [[personas/ru_business]] | [[design/sapphire]] | [[voice/business_ru]] | bestproxy.deals | `COPY_B`, `FAQ_B`, `STATUS_BADGE_B` |
 | **C** | [[personas/ru_family]] | [[design/ember]] | [[voice/family_ru]] | mtproxy.guru | `COPY_C`, `FAQ_C`, `STATUS_BADGE_C` |
 
 ## Where the actual code lives

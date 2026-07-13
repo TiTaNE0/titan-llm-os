@@ -5,7 +5,7 @@ platform_handles:
   telegram_bot: "@TitanTGProxy_bot"
 domains:
   variant_a: "titanproxy.tech"
-  variant_b: "mtproxy.link"
+  variant_b: "bestproxy.deals"
   variant_c: "mtproxy.guru"
 status: active
 created: 2026-05-19
