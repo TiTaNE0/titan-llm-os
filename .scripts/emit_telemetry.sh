@@ -37,6 +37,17 @@ TELEMETRY_FILE="$TELEMETRY_DIR/${MONTH}.jsonl"
 
 mkdir -p "$TELEMETRY_DIR"
 
+# Reject malformed calls — never write corrupt JSONL (see 2026-06.jsonl:556).
+# Exit stays 0: telemetry must never block a macro.
+reject() {
+  printf '%s\treject\t%s\n' "$TS" "$1" \
+    >> "$TELEMETRY_DIR/.write_failures.log" 2>/dev/null || true
+  exit 0
+}
+[ "$#" -ge 2 ] && [ "$#" -le 6 ] || reject "bad-arg-count:$#"
+for a in "$@"; do case "$a" in --*) reject "flag-style-arg:$a";; esac; done
+case "$DURATION_MS" in ''|*[!0-9]*) reject "non-numeric-duration:$DURATION_MS";; esac
+
 # JSON-encode error_class (string or null)
 if [ "$ERROR_CLASS" = "null" ] || [ -z "$ERROR_CLASS" ]; then
   ERR_FIELD="null"

@@ -114,6 +114,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Inputs:** `record: TelemetryRecord` (see Section "Telemetry Schema")
 - **Outputs:** JSONL line appended to `04_Logs/Telemetry/<YYYY-MM>.jsonl`
 - **Errors:** None (best-effort; never blocks macro execution)
+- **Arg validation:** flag-style args (`--*`), arg count outside 2–6, or non-numeric `duration_ms` → no JSONL write; rejection logged to `.write_failures.log`; exit stays 0 per the never-blocks contract. *(Added 2026-07-07 via /graduate, [[Brain_Audit_Drift_Repair]] — closes the corrupt-record hole at 2026-06.jsonl:556.)*
 - **Idempotent:** ❌
 - **Persona Gate:** Any
 
@@ -378,6 +379,32 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Errors:** E2 bad args / dir missing.
 - **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
 - **Script:** `.vault_link/.scripts/stale_lock_scan.sh`
+
+---
+
+### `resolve_attention`
+- **Inputs:** `--task <[[Name]]|Name>` `--state <enum>` `--run-id <id>` `--resolution <fixed_code|fixed_spec|fixed_brief|fixed_brain|wont_fix|duplicate|promoted>` `--source-persona <name>` `[--note <single-line text>]` `[--queue-file <path>]`
+- **Outputs:** Flips the first UNCHECKED `- [ ]` entry under `## Open` matching the `(task, state, run_id)` triple to `- [x]` and appends ` | resolved: <class> | resolved_at: <ISO8601Z> [| note: <text>]`. Atomic via mktemp + mv. The `resolved:` class is the countable field consumed by `/retrospective`.
+- **Pre-conditions:** Queue file exists; a matching open entry exists (or the matching entry is already checked → idempotent no-op).
+- **Errors:** E1 queue file missing / write failure; E3 invalid args, invalid resolution class, newline in `--note`, or no matching open entry; E4 persona.
+- **Idempotent:** ✅ (already-resolved matching entry → exit 0 no-op, no double-append)
+- **Persona Gate:** Executioner (source-persona arg + `persona_check.sh`)
+- **Telemetry:** MANDATORY (`resolve_attention` record; per Rule 1 carve-out)
+- **Script:** `.vault_link/.scripts/resolve_attention.sh`
+- *(Implemented 2026-07-07 by [[Orchestrator_Feedback_Loop]] slice A; registered via /graduate 2026-07-07. Resolve-side counterpart to `queue_attention` — resolution is a distinct verb from queueing, hence a sibling atom rather than a write-side flag.)*
+
+---
+
+### `run_gateway`
+- **Inputs:** `--task-path <abs>` `--source-persona <name>` `[--orchestrator-mode]`
+- **Outputs:** Self-extracts the `**Test Command:**` from the task file's `§ 🧪 Verification Gateway` (NEVER accepts the command as an argument — single source of truth is the file), validates it, executes it via `bash -c`, and prints the pinned stdout contract: `GATEWAY_CMD=<cmd>` / `GATEWAY_EXIT=<inner exit>` / `--- GATEWAY OUTPUT ---` / combined output. Atom exit 0 means "gateway ran"; the inner result is `GATEWAY_EXIT`.
+- **Validation chain (all E3):** command substitution (`$(` or backtick) denied anywhere; absolute-path leading token denied; destructive leading tokens (`rm dd mkfs shred truncate kill`) denied; first-token-bounded allowlist (`bash sh npm pnpm npx uv make go grep git curl docker python(3) pytest xcodebuild sqlite3 test cd` + `./` and `.vault_link/` path prefixes). Under `--orchestrator-mode`, `gateway_provenance != human` in task frontmatter (absent = `human`) → E3 refuse.
+- **Errors:** E1 task file / section / Test Command missing; E3 allowlist or provenance refusal (distinct stderr reasons); E4 persona.
+- **Idempotent:** depends on the gateway command itself (the atom adds no state).
+- **Persona Gate:** Executioner (source-persona arg + `persona_check.sh`)
+- **Telemetry:** MANDATORY (`run_gateway` record)
+- **Script:** `.vault_link/.scripts/run_gateway.sh`
+- *(Implemented 2026-07-07 by [[Harden_Verification_Gateway_Eval]]; registered via /graduate 2026-07-07. Replaces the raw `eval "$TEST_CMD"` at `/execute_task` Step 13. Documented residual gaps: `&&`/`;` chains under trusted human authorship, `cd`-absolute args, no sandbox — the provenance gate is the control for the untrusted-inbox path. `gateway_provenance` is stamped at authoring time by `author_contract.sh --provenance`.)*
 
 ---
 
