@@ -173,7 +173,7 @@ Registered via /graduate 2026-06-15 Phase C ([[Orchestrator_PRD_v2]] §4; built 
 1. **Boot + run id;** read `Orchestrator_Config.yaml` (SCOPE, MAX_TASKS, BUDGET, dispatch, `degraded_spec_gate`).
 2. **Ownership / stale-lock (§6):** `stale_lock_scan` → `queue_attention(orphaned_lock)` for orphans (never force-flip); resume live-owned in_progress tasks.
 3. **STOP (§3):** MAX_TASKS / budget / no-progress → `run_digest` a stop line + exit.
-4. **Fetch (§4.1):** `fetch_next_task` across SCOPE; none eligible → idle + exit.
+4. **Fetch (§4.1):** `fetch_next_task` for the host repo's own project only (`AGENTS.md` Identity, the same resolution `/execute_task` Step 3 uses), and only if that project is in SCOPE; none eligible → idle + exit. *(Amended /graduate 2026-10-30: a tick dispatches into the repo it runs in, so fetching another scope project's task builds in the wrong repo — the 2026-06-26 no_progress incident.)*
 5. **Stamp** ownership (`task_owner`), then **dispatch** `/execute_task`.
 6. **Spec gate (§1.4):** `spec_rubric` + `pm-reviewer` (flag-only). APPROVE → build → **close gate** (validator SHIP + Gateway PASS → auto-`/close_task`). Rubric fail / reviewer flag / close fail → `queue_attention` + skip.
 7. **Failure panel (§4.3):** on a build/test FAIL the inner loop can't resolve, `panel_guard` → `failure-panel` → RETRY_BUILD(hints) | RESPEC | ESCALATE.
