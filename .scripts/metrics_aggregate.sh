@@ -66,7 +66,9 @@ REPORT_DIR="$TELEMETRY_DIR/reports"
 REPORT="$REPORT_DIR/${PERIOD}_${TODAY}.csv"
 mkdir -p "$REPORT_DIR"
 
-TELEMETRY=$(cat "$TELEMETRY_DIR/"*.jsonl 2>/dev/null | grep -v '^$' || true)
+# Parse line-by-line and drop unparseable records: `jq -s` on raw input fails
+# the whole slurp on one bad line (2026-06.jsonl:556 blanked every window).
+TELEMETRY=$(cat "$TELEMETRY_DIR/"*.jsonl 2>/dev/null | grep -v '^$' | jq -R -c 'fromjson?' 2>/dev/null || true)
 
 if [[ -n "$BREAKDOWN" ]]; then
   # Breakdown mode: only process known breakdown dimensions.

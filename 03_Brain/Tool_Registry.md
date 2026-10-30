@@ -380,6 +380,14 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
 - **Script:** `.vault_link/.scripts/stale_lock_scan.sh`
 
+### `budget_check`
+- **Inputs:** `--run-id <id>` `--ceiling <minutes>` `[--digest-dir <path>]`
+- **Outputs:** Wall-clock minutes since the run's first digest line, checked against `budget.max_minutes` (§3 BUDGET). Exit 0 under the ceiling (or no digest lines yet); exit 3 when elapsed >= ceiling → the tick writes a `stop` line.
+- **Errors:** E2 invalid args / missing digest file / unparseable timestamp; E3 ceiling reached.
+- **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
+- **Script:** `.vault_link/.scripts/budget_check.sh`
+- *(Built by [[Orchestrator_Budget_Measurement]]; registered via /graduate 2026-10-30. Epoch parse pins `TZ=UTC` — BSD date reads the literal `Z` as local time otherwise.)*
+
 ---
 
 ### `resolve_attention`

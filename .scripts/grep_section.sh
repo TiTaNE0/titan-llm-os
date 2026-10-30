@@ -26,7 +26,7 @@ Modes:
               or HTML-comment lines (anchor markers don't count as content)
   populated   header exists AND body has non-blockquote, non-HTML-comment content
 
-Header regex: ^##\s+(\S+\s+)?<section_name>\s*\$
+Header match: "## [token ]<section_name>", section_name compared literally
 (leading emoji or marker token optional)
 
 Exit codes:
@@ -58,21 +58,25 @@ case "$MODE" in
     ;;
 esac
 
-# Escape regex metacharacters in section name for awk ERE.
-ESCAPED_SECTION="$(printf '%s' "$SECTION" | sed 's/[][\\.^$*+?()|/]/\\&/g')"
-
-RESULT="$(awk -v section="$ESCAPED_SECTION" -v mode="$MODE" '
+# Section name is compared as a literal string, passed via ENVIRON: `awk -v`
+# processes backslash escapes, which silently undid regex escaping and made
+# names like "Notes (draft)" or "a+b" fail as header-not-found.
+RESULT="$(GS_SECTION="$SECTION" awk -v mode="$MODE" '
   BEGIN {
     in_section = 0
     has_content = 0
     header_found = 0
-    # Match: ## (optional non-space token + space)? <section> (optional trailing space)
-    pattern = "^##[[:space:]]+([^[:space:]]+[[:space:]]+)?" section "[[:space:]]*$"
+    section = ENVIRON["GS_SECTION"]
   }
 
-  # Target section header
-  $0 ~ pattern {
-    if (!header_found) {
+  # Target section header: ## (optional non-space token + space)? <section> (optional trailing space)
+  !header_found && /^##[[:space:]]/ {
+    h = $0
+    sub(/^##[[:space:]]+/, "", h)
+    sub(/[[:space:]]+$/, "", h)
+    rest = h
+    sub(/^[^[:space:]]+[[:space:]]+/, "", rest)
+    if (h == section || rest == section) {
       header_found = 1
       in_section = 1
       next

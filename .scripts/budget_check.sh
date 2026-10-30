@@ -10,7 +10,7 @@
 # parses the literal-Z suffix in LOCAL time, skewing the epoch by the UTC
 # offset (hours) and falsely breaching a 60m ceiling immediately.
 #
-# Contract: Tool_Registry.md § budget_check (registration deferred to /graduate).
+# Contract: Tool_Registry.md § Orchestrator Loop Atoms § budget_check (registered /graduate 2026-10-30).
 # Persona Gate: any (read-only operational guard).
 # Telemetry: none.
 #
