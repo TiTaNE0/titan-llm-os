@@ -41,6 +41,7 @@ Agents MUST NOT mark a task as done, archive task files, or move Kanban status t
 - Stating "Done." or "Task complete." in prose without running `/close_task` is NOT task completion — it is a kernel violation.
 - This rule applies even when all success criteria appear to be met.
 - **Session-end scan (graduated 2026-05-16):** At session end, scan the board for any In Progress tasks whose work is visible in the current session context. If the task is complete, surface it to the user and offer to run `/close_task` immediately — do not defer to a future session.
+- **Commit instruction (graduated 2026-11-07):** a user-typed `/close_task` is the explicit instruction to commit the task's spec file list via `commit_task` — on `task/<slug>` when on the default branch, else the current branch. It never pushes or merges.
 - **Orchestrator amendment (graduated 2026-07-07):** under Orchestrator runs this gate is *delegated, not removed* — see § 1.4 Close-gate delegation (validator **SHIP** + Verification Gateway **PASS** → auto-`/close_task`; anything else escalates via `queue_attention`). Outside Orchestrator runs, § 1.3 stands unchanged.
 
 ### 1.4 Orchestrator Gate Delegations (CRITICAL)
@@ -48,7 +49,7 @@ These delegations apply **only to runs under the Orchestrator persona** ([[Agent
 
 - **Execution-approval delegation (§ 8.1):** for Orchestrator-*created* tasks, the `/new_task` step-7 HALT is delegated to keeper = the run's SCOPE allowlist + intake routing rules. Escalation: any uniqueness or board anomaly → `queue_attention` and skip. **Human-created tasks keep the step-7 HALT unchanged.**
 - **Spec-gate delegation (§ 8.2):** the `/execute_task` step-8 human "approved" keyword is delegated to keeper = a deterministic rubric (every acceptance criterion mapped to a spec section, file-change list present, zero open questions) **plus** an adversarial **PM-reviewer subagent** with **flag-only** authority (verdict APPROVE | FLAG — it can reject a rubric-pass, never rescue a rubric-fail). Escalation: rubric fail OR PM flag → `queue_attention` (`spec_gate`) and skip.
-- **Close-gate delegation (§ 8.3):** kernel § 1.3 ("`/close_task` is user-triggered only") is amended for Orchestrator runs: keeper = validator **SHIP** AND Verification Gateway **PASS** → auto-`/close_task`. Escalation: any FIX/BLOCK verdict or FAIL result → `queue_attention` (`close_gate`) and skip. **Outside Orchestrator runs, § 1.3 stands unchanged.**
+- **Close-gate delegation (§ 8.3):** kernel § 1.3 ("`/close_task` is user-triggered only") is amended for Orchestrator runs: keeper = validator **SHIP** AND Verification Gateway **PASS** → auto-`/close_task`. Escalation: any FIX/BLOCK verdict or FAIL result → `queue_attention` (`close_gate`) and skip. Under the Orchestrator the close commits only onto `orch/<run-id>` (`commit_task --run-id`) and never pushes or merges; a commit refusal or failure → `queue_attention` (`close_gate`, reason `commit_task E<n>: …`) and the task stays `in_progress`. **Outside Orchestrator runs, § 1.3 stands unchanged.**
 
 ### 1.5 Cross-Harness Model Routing (CRITICAL)
 
@@ -89,6 +90,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 ### `/close_task [Task_Name]`
 1. **Identify:** Read the task's `project:` YAML field to resolve `<Project>`. If ambiguous, `Invoke: scan_inbox()` is not applicable — use `find ./.vault_link/02_Tasks -name '[Task_Name].md'` as a one-time lookup only.
 2. **Extract:** Pull technical facts from current session context (code changes, decisions, blockers resolved).
+2.5. **Commit:** `Invoke: commit_task(task_path, source_persona=Executioner[, run_id])` — stages only the spec's `### Files touched` entries inside the project's code repo. Runs before Populate so a refusal leaves the task untouched and `in_progress`. *(graduated 2026-11-07)*
 3. **Populate:** `Invoke: populate_summary(task_path, {technical_meat, deviations, debt, proof})`
 4. **Status flip:** `Invoke: set_task_status(task_path=02_Tasks/<Project>/[Task_Name].md, from_status=in_progress, to_status=done)`. MUST run BEFORE Archive so it targets the live `02_Tasks/` path (the same `task_path` used by Populate) and the file is already `status: done` when it is moved — keeping YAML and Kanban column consistent per § 4.
 5. **Archive:** `Invoke: archive_file(source=02_Tasks/<Project>/[Task_Name].md, dest=99_Archive/Tasks/2026/<Project>/[Task_Name].md)`
@@ -96,7 +98,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 7. **Log:** `Invoke: append_log(date=today, entry="✅ [[Task_Name]] completed: <1-line summary>.")`
 8. **Telemetry:** `Invoke: emit_telemetry(macro=close_task, status=success|error, duration_ms, error_class, persona)`
 
-**On error:** E1 if task file or archive parent directory missing (do NOT auto-create); E2 if file move fails (retry once, then halt with exact error); E3 if the Status-flip step finds YAML status != `in_progress` (task was never started or is in an unexpected state — halt, do not force the flip), OR if task YAML status contradicts Kanban column position (halt, surface 3-option reconciliation menu).
+**On error:** E1 if task file or archive parent directory missing (do NOT auto-create); E2 if file move fails (retry once, then halt with exact error); E3 if the Status-flip step finds YAML status != `in_progress` (task was never started or is in an unexpected state — halt, do not force the flip), OR if task YAML status contradicts Kanban column position (halt, surface 3-option reconciliation menu); E2 if `commit_task` git operations fail; E3 if `commit_task` refuses a precondition — either way the task stays `in_progress`.
 
 ### `/graduate`
 1. **Outcome**: A proposal for a new "Core Principle" or "Architecture Rule" is generated based on successful patterns from the last 7 days.
@@ -181,7 +183,7 @@ Registered via /graduate 2026-06-15 Phase C ([[Orchestrator_PRD_v2]] §4; built 
 3. **STOP (§3):** MAX_TASKS / budget / no-progress → `run_digest` a stop line + exit.
 4. **Fetch (§4.1):** `fetch_next_task` for the host repo's own project only (`AGENTS.md` Identity, the same resolution `/execute_task` Step 3 uses), and only if that project is in SCOPE; none eligible → idle + exit. *(Amended /graduate 2026-10-30: a tick dispatches into the repo it runs in, so fetching another scope project's task builds in the wrong repo — the 2026-06-26 no_progress incident.)*
 5. **Stamp** ownership (`task_owner`), then **dispatch** `/execute_task`.
-6. **Spec gate (§1.4):** `spec_rubric` + `pm-reviewer` (flag-only). APPROVE → build → **close gate** (validator SHIP + Gateway PASS → auto-`/close_task`). Rubric fail / reviewer flag / close fail → `queue_attention` + skip.
+6. **Spec gate (§1.4):** `spec_rubric` + `pm-reviewer` (flag-only). APPROVE → build → **close gate** (validator SHIP + Gateway PASS → auto-`/close_task`). Rubric fail / reviewer flag / close fail → `queue_attention` + skip. The close commits the spec file list onto `orch/<run-id>` (`commit_task`); a commit refusal → `queue_attention` (`close_gate`).
 7. **Failure panel (§4.3):** on a build/test FAIL the inner loop can't resolve, `panel_guard` → `failure-panel` → RETRY_BUILD(hints) | RESPEC | ESCALATE.
 8. **REPORT** (`run_digest` + `append_log` + `emit_telemetry`) and **exit** — one task per tick, never block on a human.
 
