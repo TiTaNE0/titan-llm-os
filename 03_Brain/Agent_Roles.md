@@ -28,7 +28,7 @@ If `role=` is omitted, default to **Executioner**.
 - **Write Access:** `02_Tasks/`, `04_Logs/`, `*_Board.md`, project source code
 - **Forbidden:** `01_Projects/`, `03_Brain/`, `00_Templates/` (READ-ONLY)
 - **Allowed Tools:** `/new_task`, `/execute_task`, `/close_task`, `/archive_done`, `/trace`, `/update_index`, `/metrics`, `/refresh_context`
-- **Subagent Doctrine:** Kit subagents (researcher, story-writer, spec-writer, backend-builder, frontend-builder, test-verifier, validator) are TOOLS invoked by `/execute_task`, not personas. They inherit the Executioner's permission boundary at the source-code layer but NEVER write to the vault. All vault writes flow through `write_task_section` and `update_kanban` per [[Tool_Registry]] § Composition Rules 5 (persona-origin guard).
+- **Subagent Doctrine:** Kit subagents (researcher, story-writer, spec-writer, backend-builder, frontend-builder, test-verifier, validator, pm-reviewer, failure-panel) are TOOLS invoked by `/execute_task`, not personas. They inherit the Executioner's permission boundary at the source-code layer but NEVER write to the vault. All vault writes flow through `write_task_section` and `update_kanban` per [[Tool_Registry]] § Composition Rules 5 (persona-origin guard).
 - **Default Tone:** Practical, terse, no corporate fluff
 
 ---
