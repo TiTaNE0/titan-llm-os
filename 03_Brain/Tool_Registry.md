@@ -416,6 +416,20 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ---
 
+### `commit_task`
+- **Inputs:** `--task-path <path>` `--source-persona <name>` `[--run-id <id>]`
+- **Outputs:** Reads the task's `## Spec` → `### Files touched` block itself, keeps entries inside the cwd's git repo, stages exactly those dirty paths, commits `task(<Project>): <Task_Name>`. Branch: `task/<slug>` when HEAD is on the default branch, the current branch otherwise, `orch/<run-id>` with `--run-id`. Stdout: `COMMIT_BRANCH=` / `COMMIT_SHA=` / `COMMIT_STAGED=` plus `SKIPPED:` and `WARN_OUT_OF_LIST:` lines. Nothing to commit = exit 0, `COMMIT_SHA=none`.
+- **Pre-conditions (all E3, before any git change):** Files touched block with marked entries; HEAD attached and born; no merge / cherry-pick / revert / rebase / sequencer in progress; default branch resolvable (`origin/HEAD`, else exactly one of `main`/`master`); valid branch name; nothing staged outside the list; under `--run-id`, no out-of-list tracked changes.
+- **Errors:** E1 task file missing or cwd not a work tree; E2 git switch/add/commit failed (incl. hooks); E3 precondition refusal; E4 persona.
+- **Side effects:** Switches to the commit branch and stays there; never switches back, pushes, merges, stashes or resets.
+- **Idempotent:** ✅ (re-run with nothing dirty → no-op)
+- **Persona Gate:** Executioner (source-persona arg + `persona_check.sh`)
+- **Telemetry:** MANDATORY (`commit_task` record)
+- **Script:** `.vault_link/.scripts/commit_task.sh`
+- *(Implemented by [[Close_Task_Commit_Step]]; registered via /graduate 2026-11-07. Called by `/close_task` before Populate.)*
+
+---
+
 ## Tool Composition Rules
 
 1. **No tool calls another tool — with one carve-out.** Composition happens at the macro layer. **Exception:** `emit_telemetry.sh` is kernel telemetry infrastructure, not a peer atom; any write tool MAY call it solely to self-emit its mandatory telemetry record per Rule 3. No other tool→tool calls are allowed. If you find yourself wanting to compose atoms inside a script, lift the composition to the macro layer instead. Added 2026-05-28 by [[TiTan_Kit_Integration_Phase2]] to legitimize `write_task_section.sh` → `emit_telemetry.sh`; the carve-out is **deliberately narrow** — `emit_telemetry.sh` is the only exempt callee, and only for telemetry.
