@@ -37,16 +37,17 @@ done
 [[ -f "$TASK_PATH" ]] || { echo "E2: task file not found: $TASK_PATH" >&2; exit 2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$SCRIPT_DIR/lib_section.sh"
 
 # (a) spec populated — reuse the canonical emoji-tolerant section matcher.
 if ! "$SCRIPT_DIR/grep_section.sh" "$TASK_PATH" "Spec" populated >/dev/null 2>&1; then
   echo "RUBRIC FAIL: ## Spec is empty" >&2; exit 3
 fi
 
-# Extract the Spec section body (from the Spec header to the next ## header).
-BODY="$(awk '
+# Extract the Spec section body (from the Spec header to the next template ## header).
+BODY="$(awk "$SECTION_AWK"'
   /^##[[:space:]]/ {
-    if (inspec) exit
+    if (inspec && sec_is_template($0)) exit
     if ($0 ~ /Spec[[:space:]]*$/) { inspec=1; next }
   }
   inspec { print }
@@ -57,8 +58,11 @@ if ! printf '%s' "$BODY" | grep -qiE '\.(sh|md|ya?ml|json|py|ts|js|tsx|jsx)\b|/[
   echo "RUBRIC FAIL: no file-change list in spec" >&2; exit 3
 fi
 
-# (c) zero open-question markers.
-if printf '%s' "$BODY" | grep -qiE 'open question|[[:space:]]TBD\b|\?\?\?|[[:space:]]TODO\b|FIXME'; then
+# (c) zero open-question markers. Heading lines are skipped: the mandatory
+# "### Open questions" heading would otherwise fail every spec. Separate greps (no
+# pipe) because SIGPIPE under pipefail can hide a match.
+BODY_TEXT="$(printf '%s\n' "$BODY" | grep -vE '^#+[[:space:]]' || true)"
+if printf '%s' "$BODY_TEXT" | grep -qiE 'open question|[[:space:]]TBD\b|\?\?\?|[[:space:]]TODO\b|FIXME'; then
   echo "RUBRIC FAIL: open questions remain in spec" >&2; exit 3
 fi
 
