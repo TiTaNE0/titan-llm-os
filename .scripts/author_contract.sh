@@ -57,6 +57,7 @@ done
 
 START_TS_MS=$(($(date +%s) * 1000))
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$SCRIPT_DIR/lib_section.sh"
 emit_err() { local e=$(($(date +%s) * 1000)); "$SCRIPT_DIR/emit_telemetry.sh" author_contract error $((e - START_TS_MS)) "$1" "${SOURCE_PERSONA:-unknown}" 2>/dev/null || true; }
 
 if [[ -z "$TASK_PATH" || -z "$SECTION" || -z "$CONTENT_FILE" || -z "$SOURCE_PERSONA" ]]; then
@@ -92,9 +93,14 @@ HDR_LINE="$(awk -v t="$HDR_TEXT" 'index($0,"## ")==1 && index($0,t){print NR; ex
 if [[ -z "$HDR_LINE" ]]; then
   echo "E3: section header for '$SECTION' (## ... $HDR_TEXT) not found in $TASK_PATH" >&2; emit_err E3; exit 3
 fi
-# End of section body = line before the next "## " header, or EOF.
-END_LINE="$(awk -v s="$HDR_LINE" 'NR>s && index($0,"## ")==1 {print NR-1; exit}' "$TASK_PATH")"
-[[ -z "$END_LINE" ]] && END_LINE="$(wc -l < "$TASK_PATH" | tr -d ' ')"
+# End of section body = line before the next template "## " header (lib_section.sh), or EOF.
+END_LINE="$(section_end_line "$TASK_PATH" "$HDR_LINE")"
+
+if FOREIGN_HDG="$(section_foreign_heading "$TASK_PATH" "$HDR_LINE" "$END_LINE")"; then
+  echo "E3: section contains hand-authored heading '$FOREIGN_HDG'; refusing write (move it out of the section first)" >&2
+  emit_err E3
+  exit 3
+fi
 
 # Refuse to clobber an already-authored section: it is "unauthored" only while the
 # verbatim placeholder line is still present in the body.

@@ -58,14 +58,18 @@ case "$MODE" in
     ;;
 esac
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$SCRIPT_DIR/lib_section.sh"
+
 # Section name is compared as a literal string, passed via ENVIRON: `awk -v`
 # processes backslash escapes, which silently undid regex escaping and made
 # names like "Notes (draft)" or "a+b" fail as header-not-found.
-RESULT="$(GS_SECTION="$SECTION" awk -v mode="$MODE" '
+RESULT="$(GS_SECTION="$SECTION" awk -v mode="$MODE" "$SECTION_AWK"'
   BEGIN {
     in_section = 0
     has_content = 0
     header_found = 0
+    tmpl = 0
     section = ENVIRON["GS_SECTION"]
   }
 
@@ -79,12 +83,14 @@ RESULT="$(GS_SECTION="$SECTION" awk -v mode="$MODE" '
     if (h == section || rest == section) {
       header_found = 1
       in_section = 1
+      tmpl = sec_is_template($0)
       next
     }
   }
 
-  # Any other ## line closes the current section
-  in_section && /^## / {
+  # A template target ends only at the next template header (nested agent ## lines
+  # stay inside); a non-template target keeps the any-## close.
+  in_section && /^## / && (!tmpl || sec_is_template($0)) {
     in_section = 0
   }
 

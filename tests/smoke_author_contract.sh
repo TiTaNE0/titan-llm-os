@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 SCRIPTS="$REPO_ROOT/.scripts"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/.scripts" "$TMP/04_Logs/Telemetry"
-cp "$SCRIPTS/author_contract.sh" "$SCRIPTS/task_contract_check.sh" "$SCRIPTS/persona_check.sh" "$SCRIPTS/emit_telemetry.sh" "$TMP/.scripts/"
+cp "$SCRIPTS/author_contract.sh" "$SCRIPTS/task_contract_check.sh" "$SCRIPTS/persona_check.sh" "$SCRIPTS/emit_telemetry.sh" "$SCRIPTS/lib_section.sh" "$TMP/.scripts/"
 printf '{\n  "persona": "Executioner",\n  "session_id": "smoke",\n  "started_at": "2026-06-17T00:00:00Z",\n  "agent_surface": "test"\n}\n' > "$TMP/.session_state.json"
 S="$TMP/.scripts"
 fail() { echo "FAIL: $1" >&2; exit 1; }

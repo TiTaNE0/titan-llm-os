@@ -65,6 +65,7 @@ done
 
 START_TS_MS=$(($(date +%s) * 1000))
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$SCRIPT_DIR/lib_section.sh"
 
 emit_err() {
   local end=$(($(date +%s) * 1000))
@@ -127,10 +128,13 @@ if [[ -z "$ANCHOR_LINE" ]]; then
   exit 3
 fi
 
-# Determine END_LINE: line before next `## ` header, or EOF.
-END_LINE="$(awk -v start="$ANCHOR_LINE" 'NR > start && /^## / { print NR-1; exit }' "$TASK_PATH")"
-if [[ -z "$END_LINE" ]]; then
-  END_LINE="$(wc -l < "$TASK_PATH" | tr -d ' ')"
+# Determine END_LINE: line before next template `## ` header (lib_section.sh), or EOF.
+END_LINE="$(section_end_line "$TASK_PATH" "$ANCHOR_LINE")"
+
+if FOREIGN_HDG="$(section_foreign_heading "$TASK_PATH" "$ANCHOR_LINE" "$END_LINE")"; then
+  echo "E3: section contains hand-authored heading '$FOREIGN_HDG'; refusing write (move it out of the section first)" >&2
+  emit_err E3
+  exit 3
 fi
 
 # Step 6: check empty (same semantics as grep_section.sh empty mode).

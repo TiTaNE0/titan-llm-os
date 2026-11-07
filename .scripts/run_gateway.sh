@@ -45,6 +45,7 @@ done
 
 START_TS_MS=$(($(date +%s) * 1000))
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+. "$SCRIPT_DIR/lib_section.sh"
 emit_err() {
   local e=$(($(date +%s) * 1000))
   "$SCRIPT_DIR/emit_telemetry.sh" run_gateway error $((e - START_TS_MS)) "$1" \
@@ -84,10 +85,10 @@ PROV="$(awk '
 
 # Extract the raw **Test Command:** value from the § Verification Gateway section.
 # Scoped to the section (starts at "## ... Verification Gateway", ends at the
-# next "## " header or EOF). Returns the portion of the line after the prefix.
-CMDLINE="$(awk '
+# next template "## " header or EOF). Returns the portion of the line after the prefix.
+CMDLINE="$(awk "$SECTION_AWK"'
   /^## / && /Verification Gateway/ { in_gw=1; next }
-  in_gw && /^## /                  { in_gw=0 }
+  in_gw && sec_is_template($0)     { in_gw=0 }
   in_gw && /\*\*Test Command:\*\*/ {
     sub(/.*\*\*Test Command:\*\*[[:space:]]*/, "")
     print; exit
