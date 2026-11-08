@@ -26,13 +26,14 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") --task-path <abs> --section <enum> --source-persona <name> --content-file <abs> [--overwrite]
+Usage: $(basename "$0") --task-path <abs> --section <enum> --source-persona <name> --content-file <abs>|- [--overwrite]
 
 Required:
   --task-path <abs>          Absolute path to task .md
   --section <enum>           research_notes | spec | validator_report | verification_output
   --source-persona <name>    Caller-claimed persona (must be Executioner; verified against live state)
-  --content-file <abs>       Absolute path to file containing markdown content to inject
+  --content-file <abs>|-     Absolute path to file containing markdown content to inject;
+                             '-' = read stdin (for Bash-scoped subagents via heredoc)
 
 Optional:
   --overwrite                Allow overwriting an already-populated section
@@ -67,6 +68,11 @@ START_TS_MS=$(($(date +%s) * 1000))
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$SCRIPT_DIR/lib_section.sh"
 
+STDIN_TMP=""
+TMP_FILE=""
+cleanup() { rm -f "$TMP_FILE" "$STDIN_TMP"; }
+trap cleanup EXIT
+
 emit_err() {
   local end=$(($(date +%s) * 1000))
   "$SCRIPT_DIR/emit_telemetry.sh" write_task_section error $((end - START_TS_MS)) "$1" "${SOURCE_PERSONA:-unknown}" 2>/dev/null || true
@@ -86,6 +92,15 @@ esac
 
 if [[ ! -f "$TASK_PATH" ]]; then
   echo "E1: task file not found: $TASK_PATH" >&2; emit_err E1; exit 1
+fi
+
+if [[ "$CONTENT_FILE" == "-" ]]; then
+  STDIN_TMP="$(mktemp "${TMPDIR:-/tmp}/wts_stdin.XXXXXX")"
+  cat > "$STDIN_TMP"
+  if ! grep -q '[^[:space:]]' "$STDIN_TMP"; then
+    echo "E1: content from stdin is empty" >&2; emit_err E1; exit 1
+  fi
+  CONTENT_FILE="$STDIN_TMP"
 fi
 
 if [[ ! -f "$CONTENT_FILE" ]]; then
@@ -165,7 +180,6 @@ fi
 
 # Step 7: atomic replace of body lines (ANCHOR_LINE+1 .. END_LINE) with content.
 TMP_FILE="$(mktemp "$TASK_PATH.XXXXXX")"
-trap 'rm -f "$TMP_FILE"' EXIT
 
 {
   sed -n "1,${ANCHOR_LINE}p" "$TASK_PATH"
@@ -180,7 +194,7 @@ if ! mv "$TMP_FILE" "$TASK_PATH"; then
   emit_err E1
   exit 1
 fi
-trap - EXIT
+TMP_FILE=""
 
 # Step 8: success telemetry.
 END_TS_MS=$(($(date +%s) * 1000))
