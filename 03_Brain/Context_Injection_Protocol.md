@@ -64,6 +64,7 @@ Added 2026-05-28 by [[TiTan_Kit_Integration_Phase2]].
 - **Cold start (no prior log today):** Inject the most recent log and prepend the line `> COLD START — last activity {{date}}`.
 - **Cross-project switch:** Re-run steps 5–8 with new `{{PROJECT}}`. Steps 1–4 stay loaded.
 - **Macro-only invocation (e.g., `/metrics`):** Skip steps 5–8; load only kernel + role.
+- **Build-chain invocation (`/new_task`, `/execute_task`, `/close_task`, `/orchestrator_tick`, and the commands a tick runs inline):** in step 2, load `03_Brain/System_Agents.md` only up to and including the `<!-- CONTENT PIPELINE` marker line (kernel, security, gates, model routing and the build macros), for example `sed -n '1,/<!-- CONTENT PIPELINE/p' 03_Brain/System_Agents.md`. The content and maintenance macros after the marker are read on demand when one of them is invoked. If the marker is missing, load the whole file. This slice is not a "drop" under § 2: every kernel rule a build-chain macro applies sits above the marker. (Ratified /graduate 2026-11-08, [[OpenCode_Coordinator_Efficiency]] follow-up: halves the per-step context of OpenCode/Flash coordinators.)
 
 ---
 
