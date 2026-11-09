@@ -2,7 +2,8 @@
 # smoke_spec_rubric.sh
 #
 # Verification for Orchestrator_C2 — the deterministic spec-gate rubric (PRD §4.4 layer 1).
-# Proves: PASS on a well-formed spec; FAIL on empty spec / no file-list / open questions.
+# Proves: PASS on a well-formed spec; FAIL on empty spec / no file-list / open questions;
+# marker mentions (fence/backtick/quote) PASS, bare items FAIL, span removal never joins text.
 # Temp-isolated.
 
 set -euo pipefail
@@ -83,6 +84,76 @@ $MAP### Context pack
 ### Build split
 Build split: none"
 expect_fail "Read line outside the Context pack block" "$TMP/outside.md" "no context pack"
+
+# 4d-4i. Check (c): mentions of the marker (fence, backticks, double quotes) are not items;
+# a bare marker still fails; span removal must not join the surrounding text.
+MSG="open questions remain in spec"
+mk_task "$TMP/mention.md" 'The `### Open questions` heading is mandatory in every spec.
+The gate says "RUBRIC FAIL: open questions remain in spec" when one is left.
+```
+TBD: example of a pending item inside a fence
+```
+### Risks
+- Naming the `### Open questions` heading here is only a mention.
+'"$MAP$PACK$FILES"
+rc=0; out="$("$RUBRIC" --task-path "$TMP/mention.md" 2>&1)" || rc=$?
+[[ "$rc" -eq 0 && "$out" == *"RUBRIC: PASS"* ]] || fail "4d: mentions should PASS, got rc=$rc '$out'"
+
+mk_task "$TMP/bareitem.md" '- TBD: which retry policy applies?
+'"$MAP$PACK$FILES"
+expect_fail "4e bare item" "$TMP/bareitem.md" "$MSG"
+
+mk_task "$TMP/local.md" 'See `.scripts/foo.sh` TBD before shipping.
+'"$MAP$PACK$FILES"
+expect_fail "4f span removal is local" "$TMP/local.md" "$MSG"
+
+mk_task "$TMP/oqlist.md" "$MAP$PACK$FILES
+### Open questions
+1. Which retry policy applies?"
+expect_fail "4g unresolved list" "$TMP/oqlist.md" "$MSG"
+
+mk_task "$TMP/nojoin_tok.md" 'word `x`TODO more
+'"$MAP$PACK$FILES"
+rc=0; "$RUBRIC" --task-path "$TMP/nojoin_tok.md" >/dev/null 2>&1 || rc=$?
+[[ "$rc" -eq 0 ]] || fail "4h: token right after a span should PASS, got $rc"
+
+mk_task "$TMP/nojoin_q.md" '?`x`??
+'"$MAP$PACK$FILES"
+rc=0; "$RUBRIC" --task-path "$TMP/nojoin_q.md" >/dev/null 2>&1 || rc=$?
+[[ "$rc" -eq 0 ]] || fail "4i: question marks around a span should PASS, got $rc"
+
+# 4j-4m. Hiding tricks must not let a bare item through: unclosed fence, odd backticks,
+# stray inch-mark quote, unclosed fence under the questions heading.
+mk_task "$TMP/openfence.md" "$MAP$PACK$FILES"'
+```
+- TBD: which retry policy applies?'
+expect_fail "4j unclosed fence hides item" "$TMP/openfence.md" "$MSG"
+mk_task "$TMP/oddtick.md" '- A stray ` tick then `x` and TBD: which policy?
+'"$MAP$PACK$FILES"
+expect_fail "4k odd backticks hide item" "$TMP/oddtick.md" "$MSG"
+mk_task "$TMP/inch.md" '- Use a 5" pipe, TBD: which size?
+'"$MAP$PACK$FILES"
+expect_fail "4l stray inch-mark quote hides item" "$TMP/inch.md" "$MSG"
+mk_task "$TMP/oqfence.md" "$MAP$PACK$FILES"'
+### Open questions
+```
+1. Which retry policy applies'
+expect_fail "4m unclosed fence under questions heading" "$TMP/oqfence.md" "$MSG"
+
+# RED/GREEN: mutants whose span separator is empty / a space must fail the no-join cases.
+for sub in '' ' '; do
+  R="$TMP/red${sub:+sp}"; mkdir -p "$R"
+  cp "$REPO_ROOT/.scripts/spec_rubric.sh" "$REPO_ROOT/.scripts/lib_section.sh" "$REPO_ROOT/.scripts/grep_section.sh" "$R/"
+  sed -e '\#gsub(/[`"]#s/"|", line)$/"@SEP@", line)/' "$R/spec_rubric.sh" | sed "s/@SEP@/$sub/" > "$R/m.sh"
+  [[ "$(grep -c "/, \"$sub\", line)" "$R/m.sh")" -ge 2 ]] || fail "mutant sed did not rewrite both substitutions"
+  mv "$R/m.sh" "$R/spec_rubric.sh"; chmod +x "$R/spec_rubric.sh"
+  rc=0; "$R/spec_rubric.sh" --task-path "$TMP/nojoin_tok.md" >/dev/null 2>&1 || rc=$?
+  [[ "$rc" -eq 3 ]] || fail "4h mutant '${sub}' should fail (exit 3), got $rc"
+  if [[ -z "$sub" ]]; then
+    rc=0; "$R/spec_rubric.sh" --task-path "$TMP/nojoin_q.md" >/dev/null 2>&1 || rc=$?
+    [[ "$rc" -eq 3 ]] || fail "4i empty-separator mutant should fail (exit 3), got $rc"
+  fi
+done
 
 # 4c. Large body (>=240 KB): no SIGPIPE false results (exit 141) on valid or invalid specs.
 FILLER="$(awk 'BEGIN{for(i=0;i<3000;i++) print "Filler line " i " touching .scripts/foo.sh with enough text to grow the body size."}')"

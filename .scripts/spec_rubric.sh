@@ -4,7 +4,7 @@
 # Deterministic FORM layer of the Orchestrator spec gate (C2, PRD §4.4 layer 1).
 # Checks only the scriptable form items:
 #   (a) ## Spec is populated (not just the template blockquote)
-#   (c) zero open-question markers remain
+#   (c) zero open-question markers remain (fenced, backticked and double-quoted mentions ignored)
 #   (c2) every "### Open questions" subsection holds only None / None.
 #   (d) a non-empty "### Responsibility map" block is present
 #   (e) a "### Context pack" block with at least one "- Read:" line is present
@@ -63,23 +63,50 @@ WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 printf '%s\n' "$BODY" > "$WORK/body"
 
 # (c) zero open-question markers. Heading lines are skipped: the mandatory
-# "### Open questions" heading would otherwise fail every spec. Separate greps (no
-# pipe) because SIGPIPE under pipefail can hide a match.
-grep -vE '^#+[[:space:]]' "$WORK/body" > "$WORK/text" || true
+# "### Open questions" heading would otherwise fail every spec. Fenced lines, inline code
+# spans and double-quoted spans are mentions, not unresolved items. A fence still open at EOF
+# and a line with an odd number of backticks or quotes are scanned raw (they hide nothing). Each span becomes one
+# "|" (not whitespace, not a word char, not in the regex) so adjacent text never joins
+# into a match and the match set can only shrink. Separate greps (no pipe) because
+# SIGPIPE under pipefail can hide a match.
+awk "$SECTION_AWK"'
+  function emit(line,   t, n) {
+    if (line ~ /^#+[[:space:]]/) return
+    t = line; n = gsub(/`/, "`", t)
+    if (n % 2 == 0) gsub(/`[^`]*`/, "|", line)
+    t = line; n = gsub(/"/, "\"", t)
+    if (n % 2 == 0) gsub(/"[^"]*"/, "|", line)
+    print line
+  }
+  {
+    if (sec_fence($0)) {
+      held[++nh] = $0
+      if (sec_flen == 0) nh = 0
+      next
+    }
+    emit($0)
+  }
+  END { for (i = 1; i <= nh; i++) emit(held[i]) }
+' "$WORK/body" > "$WORK/text"
 if grep -qiE 'open question|[[:space:]]TBD\b|\?\?\?|[[:space:]]TODO\b|FIXME' "$WORK/text"; then
   echo "RUBRIC FAIL: open questions remain in spec" >&2; exit 3
 fi
 
 # (c2) every "### Open questions" subsection (any suffix) may hold only None / None.
 awk "$SECTION_AWK"'
-  { fenced = sec_fence($0) }
-  !fenced && /^#+[[:space:]]/ { oq = (tolower($0) ~ /^###[[:space:]]+open[[:space:]]+questions/); next }
-  oq && !fenced {
-    t = tolower($0)
+  function chk(line,   t) {
+    t = tolower(line)
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", t)
     if (t != "" && t != "none" && t != "none.") bad = 1
   }
-  END { if (bad) print "bad" > "'"$WORK/oq"'" }
+  { fenced = sec_fence($0) }
+  fenced { if (oq) { held[++nh] = $0; if (sec_flen == 0) nh = 0 } }
+  !fenced && /^#+[[:space:]]/ { oq = (tolower($0) ~ /^###[[:space:]]+open[[:space:]]+questions/); next }
+  oq && !fenced { chk($0) }
+  END {
+    if (sec_flen > 0) for (i = 2; i <= nh; i++) chk(held[i])
+    if (bad) print "bad" > "'"$WORK/oq"'"
+  }
 ' "$WORK/body"
 if [[ -s "$WORK/oq" ]]; then
   echo "RUBRIC FAIL: open questions remain in spec (OQ subsection is not None)" >&2; exit 3
