@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs every PM_Reviewer_Single_Pass_Findings acceptance test, then proves the real task file
 # and the kit files under test were not written.
-# PMR_ACC_SKIP_GATEWAY=1 skips the full gateway run (all kit + vault suites) for local iteration; the run then fails.
+# ACC_SKIP_GATEWAY=1 (shared) or PMR_ACC_SKIP_GATEWAY=1 skips the full gateway run (all kit + vault suites); the exit code then reflects only the remaining checks. The chain aggregator sets ACC_SKIP_GATEWAY=1.
 set -uo pipefail
 unset TITAN_SESSION_ID
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -17,7 +17,7 @@ before="$(snap)"
 rc=0
 for t in "$HERE"/test_*.sh; do
   n="$(basename "$t")"
-  if [ "$n" = test_dod3_gateway_green.sh ] && [ "${PMR_ACC_SKIP_GATEWAY:-0}" = 1 ]; then echo "SKIP $n"; rc=1; continue; fi
+  if [ "$n" = test_dod3_gateway_green.sh ] && { [ "${ACC_SKIP_GATEWAY:-0}" = 1 ] || [ "${PMR_ACC_SKIP_GATEWAY:-0}" = 1 ]; }; then echo "SKIP $n"; continue; fi
   if bash "$t" >/dev/null 2>"$HERE/.last_err"; then echo "PASS $n"
   else echo "FAIL $n"; cat "$HERE/.last_err"; rc=1; fi
 done

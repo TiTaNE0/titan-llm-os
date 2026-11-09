@@ -2,7 +2,7 @@
 # Runs every Kit_Suites_Live_Telemetry_Isolation acceptance test, then proves no test wrote
 # into the real vault: no acc_kti_ sentinel in live telemetry, and the files under test are
 # byte-identical. The live log's row count is never asserted (other sessions write it).
-# KTI_ACC_SKIP_GATEWAY=1 skips the full-gateway test; the exit code then reflects only the
+# ACC_SKIP_GATEWAY=1 (shared) or KTI_ACC_SKIP_GATEWAY=1 skips the full-gateway test; the exit code then reflects only the
 # remaining checks. The chain aggregator sets it, and also runs the gateway with
 # KTI_SKIP_SUITES=1, so a chain pass runs no all-suite mirror leak check: run
 # tests/test_kit_telemetry_isolation.sh directly for that.
@@ -22,7 +22,7 @@ rc=0
 for t in "$HERE"/test_*.sh; do
   n="$(basename "$t")"
   case "$n" in test_dod3_*)
-    if [ "${KTI_ACC_SKIP_GATEWAY:-0}" = 1 ]; then echo "SKIP $n (KTI_ACC_SKIP_GATEWAY=1)"; continue; fi ;;
+    if [ "${ACC_SKIP_GATEWAY:-0}" = 1 ] || [ "${KTI_ACC_SKIP_GATEWAY:-0}" = 1 ]; then echo "SKIP $n (gateway skip env)"; continue; fi ;;
   esac
   if bash "$t" >/dev/null 2>"$HERE/.last_err"; then echo "PASS $n"
   else echo "FAIL $n"; cat "$HERE/.last_err"; rc=1; fi
