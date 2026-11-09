@@ -27,7 +27,7 @@ trap 'rm -rf "$TMP"' EXIT
 V="$TMP/vault"
 S="$V/.scripts"
 mkdir -p "$S" "$V/04_Logs/Telemetry" "$V/02_Tasks/Proj" "$TMP/outside"
-cp "$SCRIPTS/commit_task.sh" "$SCRIPTS/persona_check.sh" "$SCRIPTS/emit_telemetry.sh" "$S/"
+cp "$SCRIPTS/commit_task.sh" "$SCRIPTS/lib_section.sh" "$SCRIPTS/persona_check.sh" "$SCRIPTS/emit_telemetry.sh" "$S/"
 printf '{\n  "persona": "Executioner",\n  "session_id": "smoke",\n  "started_at": "2026-06-14T00:00:00Z",\n  "agent_surface": "test"\n}\n' > "$V/.session_state.json"
 
 fail() { echo "FAIL: $1" >&2; exit 1; }

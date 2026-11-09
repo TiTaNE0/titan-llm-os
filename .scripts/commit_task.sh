@@ -23,6 +23,7 @@
 #   2  git switch / add / commit failed (E2)
 #   3  precondition refusal or bad args (E3): no Files touched block / no entries,
 #      detached or unborn HEAD, merge/cherry-pick/revert/rebase in progress,
+#      unclosed code fence in the Spec section,
 #      default branch not found or ambiguous (main and master, no origin/HEAD),
 #      invalid branch name,
 #      staged paths outside the list, out-of-list tracked changes (Orchestrator)
@@ -76,6 +77,7 @@ done
 
 START_TS_MS=$(($(date +%s) * 1000))
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+source "$SCRIPT_DIR/lib_section.sh"
 
 TASK_NAME=""
 if [[ -n "$TASK_PATH" ]]; then
@@ -151,21 +153,38 @@ trap 'rm -rf "$WORK"' EXIT
 # "Spec:") to the next other `##` header; the spec body itself opens with
 # `## Spec: <Task>`, which must not end the section.
 # ---------------------------------------------------------------------------
-awk '
-  /^##[[:space:]]/ {
+# Fence state is scanned to the end of the Spec section (not just the block): an unclosed
+# fence closed later by an unrelated fence must not hide a real section header. A template
+# header ranked after Spec (rank 6) skipped inside a fence is refused with exit 2 unless it ranks at or after a template
+# header that ends the Spec.
+AWK_RC=0
+awk "$SECTION_AWK"'
+  { fenced = sec_fence($0) }
+  insec && fenced && (ti = sec_tpl_idx($0)) > 6 && (ms == "" || ti < ms) { ms = ti }
+  !fenced && /^##[[:space:]]/ {
     if ($0 ~ /Spec[[:space:]]*$/ || $0 ~ /^##[[:space:]]+Spec:/) { insec = 1; next }
-    if (insec) insec = 0
+    if (insec) {
+      e = sec_tpl_idx($0)
+      if (ms != "" && (e == 0 || ms < e)) exit 2
+      insec = 0; ms = ""
+    }
   }
   !insec { next }
-  /^#+[[:space:]]/ {
+  !fenced && !done && /^#+[[:space:]]/ {
     match($0, /^#+/); lvl = RLENGTH
-    if (inblk && lvl <= blvl) exit
+    if (inblk && lvl <= blvl) { inblk = 0; done = 1; next }
     if (!inblk && lvl >= 2 && lvl <= 4 && $0 ~ /^#+[[:space:]]+[Ff]iles [Tt]ouched/) {
       inblk = 1; blvl = lvl; next
     }
   }
   inblk { print }
-' "$TASK_PATH" > "$WORK/block"
+  END { if (insec && (sec_flen > 0 || ms != "")) exit 2 }
+' "$TASK_PATH" > "$WORK/block" || AWK_RC=$?
+if [[ "$AWK_RC" -eq 2 ]]; then
+  die 3 E3 "unclosed code fence in the Spec section of $TASK_PATH"
+elif [[ "$AWK_RC" -ne 0 ]]; then
+  die 3 E3 "Spec parse failed for $TASK_PATH"
+fi
 
 # extract_path <line> — path of one marked entry, empty if none found.
 extract_path() {

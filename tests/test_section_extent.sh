@@ -5,10 +5,12 @@
 # ref); R cases must pass on GREEN and FAIL on RED. Temp-isolated; never touches the
 # real vault state.
 set -euo pipefail
-unset TITAN_SESSION_ID
+unset TITAN_SESSION_ID GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 RED_REF="${SECTION_EXTENT_RED_REF:-a7e6603349692b9c71fdef4fb18732e3263e576f}"
+FENCE_RED_REF="${SECTION_EXTENT_FENCE_RED_REF:-91c1dddecf803d46e1cf1c9ddd5d89ab23a721d3}"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 TARGETS="write_task_section spec_rubric grep_section populate_summary author_contract run_gateway"
 
@@ -16,15 +18,22 @@ die() { echo "FAIL: $1" >&2; exit 1; }
 
 git -C "$REPO_ROOT" rev-parse --verify --quiet "$RED_REF^{commit}" >/dev/null \
   || die "RED_REF does not resolve: $RED_REF"
+git -C "$REPO_ROOT" rev-parse --verify --quiet "$FENCE_RED_REF^{commit}" >/dev/null \
+  || die "FENCE_RED_REF does not resolve: $FENCE_RED_REF"
 
 setup_vault() { # <dir> green|red
   local d="$1" mode="$2" s
   mkdir -p "$d/.scripts" "$d/04_Logs/Telemetry"
   printf '{\n  "persona": "Executioner",\n  "session_id": "smoke",\n  "started_at": "2026-06-17T00:00:00Z",\n  "agent_surface": "test"\n}\n' > "$d/.session_state.json"
   if [[ "$mode" == green ]]; then
-    for s in $TARGETS lib_section persona_check emit_telemetry; do
+    for s in $TARGETS commit_task lib_section persona_check emit_telemetry; do
       cp "$REPO_ROOT/.scripts/$s.sh" "$d/.scripts/"
     done
+  elif [[ "$mode" == fred ]]; then
+    for s in write_task_section commit_task lib_section persona_check emit_telemetry; do
+      git -C "$REPO_ROOT" show "$FENCE_RED_REF:.scripts/$s.sh" > "$d/.scripts/$s.sh"
+    done
+    ! grep -q sec_fence "$d"/.scripts/*.sh || die "fred copies contain sec_fence (ref $FENCE_RED_REF is not pre-fix)"
   else
     for s in $TARGETS persona_check emit_telemetry; do
       git -C "$REPO_ROOT" show "$RED_REF:.scripts/$s.sh" > "$d/.scripts/$s.sh"
@@ -332,8 +341,307 @@ TBL
   done
 }
 
+# ---- F cases (fenced code is opaque): pass on GREEN, fail on fred ----
+mk_ct_repo() { # <dir>
+  mkdir -p "$1"
+  git -C "$1" init -q -b main
+  git -C "$1" config user.name t; git -C "$1" config user.email t@t
+  echo a > "$1/a.txt"; git -C "$1" add a.txt; git -C "$1" commit -q -m init
+}
+
+run_ct() { # <vault> <repo> -> sets CT_RC, CT_OUT, CT_ERR
+  CT_RC=0
+  CT_OUT="$(cd "$2" && "$1/.scripts/commit_task.sh" --task-path "$1/T.md" --source-persona Executioner 2>"$1/ct_err")" || CT_RC=$?
+  CT_ERR="$(cat "$1/ct_err")"
+}
+
+case_ct_fence_backtick() {
+  local d="$1"
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+Usage example:
+
+```markdown
+## Usage
+### Example
+```
+
+### Files touched
+- [EDIT] `a.txt`
+
+## ✅ Validator Report
+T_EOF
+  echo b >> "$d/repo/a.txt"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 0 ]] || return 1
+  grep -qx 'COMMIT_STAGED=1' <<<"$CT_OUT"
+}
+
+case_ct_fence_tilde_long() {
+  local d="$1"
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+~~~
+## X
+~~~
+
+````
+```
+### Files touched
+- [EDIT] `decoy.txt`
+````
+
+### Files touched
+- [EDIT] `a.txt`
+
+## ✅ Validator Report
+T_EOF
+  echo b >> "$d/repo/a.txt"; echo d > "$d/repo/decoy.txt"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 0 ]] || return 1
+  grep -qx 'COMMIT_STAGED=1' <<<"$CT_OUT" || return 1
+  [[ "$(git -C "$d/repo" show --name-only --format= HEAD)" == "a.txt" ]]
+}
+
+case_wts_fence_foreign_heading() {
+  local d="$1" T="$1/T.md"
+  mk_task "$T"
+  spec_content "$d/c1" OLD_MARKER '```
+## Strategy
+```'
+  spec_content "$d/c2" NEW_MARKER
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c1" >/dev/null 2>&1 || return 1
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c2" --overwrite >/dev/null 2>&1 || return 1
+  [[ "$(count "$T" OLD_MARKER)" -eq 0 && "$(count "$T" NEW_MARKER)" -eq 1 ]]
+}
+
+case_wts_fence_template_heading() {
+  local d="$1" T="$1/T.md"
+  mk_task "$T"
+  spec_content "$d/c1" "first" '~~~
+## ✅ Validator Report
+~~~
+OLD_MARKER'
+  spec_content "$d/c2" NEW_MARKER
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c1" >/dev/null 2>&1 || return 1
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c2" --overwrite >/dev/null 2>&1 || return 1
+  [[ "$(count "$T" OLD_MARKER)" -eq 0 ]] || return 1
+  [[ "$(count "$T" '## ✅ Validator Report')" -eq 1 ]]
+}
+
+# ---- G-only fence cases ----
+case_wts_unclosed_fence_fallback() {
+  local d="$1" T="$1/T.md"
+  mk_task "$T"
+  spec_content "$d/c1" OLD_MARKER '```
+unclosed'
+  spec_content "$d/c2" NEW_MARKER
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c1" >/dev/null 2>&1 || return 1
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c2" --overwrite >/dev/null 2>&1 || return 1
+  [[ "$(count "$T" '## ✅ Validator Report')" -eq 1 ]] || return 1
+  [[ "$(count "$T" '## 📊 Verification Output')" -eq 1 ]] || return 1
+  [[ "$(count "$T" '## 🔗 Related Context')" -eq 1 ]] || return 1
+  [[ "$(count "$T" OLD_MARKER)" -eq 0 ]]
+}
+
+case_ct_unclosed_fence_refuses() {
+  local d="$1" before
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+```
+unclosed
+
+### Files touched
+- [EDIT] `a.txt`
+
+## ✅ Validator Report
+T_EOF
+  echo b >> "$d/repo/a.txt"
+  before="$(git -C "$d/repo" rev-parse HEAD)"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 3 ]] || return 1
+  grep -qF 'E3: unclosed code fence in the Spec section' <<<"$CT_ERR" || return 1
+  [[ "$(git -C "$d/repo" rev-parse HEAD)" == "$before" ]]
+}
+
+case_wts_unclosed_fence_later_fence() {
+  local d="$1" T="$1/T.md"
+  mk_task "$T"
+  awk '{ print } /^## 📊 Verification Output/ { print "```bash"; print "echo LATER_MARKER"; print "```" }' "$T" > "$d/T2" && mv "$d/T2" "$T"
+  spec_content "$d/c1" OLD_MARKER '```
+unclosed'
+  spec_content "$d/c2" NEW_MARKER
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c1" >/dev/null 2>&1 || return 1
+  "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c2" --overwrite >/dev/null 2>&1 || return 1
+  [[ "$(count "$T" '## ✅ Validator Report')" -eq 1 ]] || return 1
+  [[ "$(count "$T" '## 📊 Verification Output')" -eq 1 ]] || return 1
+  [[ "$(count "$T" '## 🏁 COMPLETION SUMMARY')" -eq 1 ]] || return 1
+  [[ "$(count "$T" LATER_MARKER)" -eq 1 ]] || return 1
+  [[ "$(count "$T" OLD_MARKER)" -eq 0 && "$(count "$T" NEW_MARKER)" -eq 1 ]]
+}
+
+case_ct_unclosed_fence_later_fence() {
+  local d="$1" before
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+```
+unclosed
+
+## ✅ Validator Report
+
+## 📊 Verification Output
+```bash
+echo hi
+```
+
+### Files touched
+- [EDIT] `decoy.txt`
+
+## 🏁 COMPLETION SUMMARY
+T_EOF
+  echo d > "$d/repo/decoy.txt"
+  before="$(git -C "$d/repo" rev-parse HEAD)"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 3 ]] || return 1
+  [[ "$(git -C "$d/repo" rev-parse HEAD)" == "$before" ]]
+}
+
+case_ct_unclosed_fence_nontemplate_end() {
+  local d="$1" before
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+```
+unclosed
+
+## ✅ Validator Report
+
+```bash
+echo hi
+```
+
+### Files touched
+- [EDIT] `decoy.txt`
+
+## Validator Report: T
+T_EOF
+  echo d > "$d/repo/decoy.txt"
+  before="$(git -C "$d/repo" rev-parse HEAD)"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 3 ]] || return 1
+  [[ "$(git -C "$d/repo" rev-parse HEAD)" == "$before" ]]
+}
+
+case_ct_closed_fence_quotes_agent_heading() {
+  local d="$1"
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+```markdown
+## Spec: Example
+## Summary: x
+## Validator Report: y
+```
+
+### Files touched
+- [EDIT] `a.txt`
+
+## ✅ Validator Report
+T_EOF
+  echo b >> "$d/repo/a.txt"; echo d > "$d/repo/decoy.txt"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 0 ]] || return 1
+  grep -qx 'COMMIT_STAGED=1' <<<"$CT_OUT" || return 1
+  [[ "$(git -C "$d/repo" show --name-only --format= HEAD)" == "a.txt" ]]
+}
+
+case_ct_closed_fence_quotes_earlier_template() {
+  local d="$1"
+  mk_ct_repo "$d/repo"
+  cat > "$d/T.md" <<'T_EOF'
+# Task
+
+## 📐 Spec
+
+## Spec: T
+
+```markdown
+## 📐 Spec
+## 🎯 Definition of Done
+```
+
+### Files touched
+- [EDIT] `a.txt`
+
+## ✅ Validator Report
+T_EOF
+  echo b >> "$d/repo/a.txt"; echo d > "$d/repo/decoy.txt"
+  run_ct "$d" "$d/repo"
+  [[ "$CT_RC" -eq 0 ]] || return 1
+  grep -qx 'COMMIT_STAGED=1' <<<"$CT_OUT" || return 1
+  [[ "$(git -C "$d/repo" show --name-only --format= HEAD)" == "a.txt" ]]
+}
+
+case_fence_rule_table() {
+  local d="$1" loc want got seq
+  for loc in C inherited; do
+  while IFS='|' read -r want seq; do
+    seq="${seq//;/$'\n'}"
+    if [[ "$loc" == C ]]; then
+      got="$(LC_ALL=C awk "$(. "$d/.scripts/lib_section.sh"; printf '%s' "$SECTION_AWK")"'{ printf "%s", sec_fence($0) } END { print "" }' <<<"$seq")"
+    else
+      got="$(awk "$(. "$d/.scripts/lib_section.sh"; printf '%s' "$SECTION_AWK")"'{ printf "%s", sec_fence($0) } END { print "" }' <<<"$seq")"
+    fi
+    [[ "$got" == "$want" ]] || { echo "  fence-rule[$loc] want=$want got=$got: $seq" >&2; return 1; }
+  done <<'TBL'
+1110|```;x;```;y
+110|```;```;x
+11110|````;```;x;````;y
+1110|~~~;```;~~~;y
+0|    ```
+111|```;``` x;y
+0|``` a`b
+TBL
+  done
+}
+
 R_CASES="wts_overwrite_replaces wts_nested_counts_populated rubric_nested_spec grep_section_nested_populated author_contract_overwrite populate_summary_overwrite run_gateway_nested_cmd"
-G_CASES="grep_section_generic_backcompat template_rule_table guard_foreign_heading_refuses guard_no_overwrite_refuses guard_agent_subheading_allowed agent_subheading_rule_table"
+F_CASES="ct_fence_backtick ct_fence_tilde_long wts_fence_foreign_heading wts_fence_template_heading"
+G_CASES="wts_unclosed_fence_fallback ct_unclosed_fence_refuses wts_unclosed_fence_later_fence ct_unclosed_fence_later_fence ct_unclosed_fence_nontemplate_end ct_closed_fence_quotes_agent_heading ct_closed_fence_quotes_earlier_template fence_rule_table grep_section_generic_backcompat template_rule_table guard_foreign_heading_refuses guard_no_overwrite_refuses guard_agent_subheading_allowed agent_subheading_rule_table"
 
 run_case() { # <name> <mode> -> 0 if case passed
   local dir="$TMP/$2-$1"
@@ -341,12 +649,16 @@ run_case() { # <name> <mode> -> 0 if case passed
   "case_$1" "$dir"
 }
 
-for c in $R_CASES $G_CASES; do
+for c in $R_CASES $F_CASES $G_CASES; do
   if run_case "$c" green; then echo "GREEN ok:   $c"; else die "GREEN case failed: $c"; fi
 done
 
 for c in $R_CASES; do
   if run_case "$c" red; then die "RED case unexpectedly passed on $RED_REF: $c"; else echo "RED fails:  $c (expected)"; fi
+done
+
+for c in $F_CASES; do
+  if run_case "$c" fred; then die "fred case unexpectedly passed on $FENCE_RED_REF: $c"; else echo "RED fails:  $c (expected)"; fi
 done
 
 echo "TEST: OK"

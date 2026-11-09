@@ -43,7 +43,7 @@ SHIM="$TMP/shim"
 GITLOG="$TMP/git_calls.log"
 : > "$GITLOG"
 mkdir -p "$S" "$V/04_Logs/Telemetry" "$V/02_Tasks/Proj" "$SHIM" "$TMP/outside"
-cp "$SCRIPTS/commit_task.sh" "$SCRIPTS/persona_check.sh" "$SCRIPTS/emit_telemetry.sh" "$S/"
+cp "$SCRIPTS/commit_task.sh" "$SCRIPTS/lib_section.sh" "$SCRIPTS/persona_check.sh" "$SCRIPTS/emit_telemetry.sh" "$S/"
 state_persona() {
   printf '{\n  "persona": "%s",\n  "session_id": "acc",\n  "started_at": "2026-06-14T00:00:00Z",\n  "agent_surface": "test"\n}\n' "$1" > "$V/.session_state.json"
 }
@@ -848,7 +848,7 @@ section "(c) bash 3.2 compatibility"
 BV="$(/bin/bash -c 'echo ${BASH_VERSINFO[0]}')"
 eq "/bin/bash is bash 3.x (test is meaningful)" "$BV" "3"
 eq "bash shim used by sub-scripts resolves to /bin/bash" "$(env PATH="$SHIM:$PATH" bash -c 'echo ${BASH_VERSINFO[0]}')" "3"
-for f in commit_task.sh persona_check.sh emit_telemetry.sh; do
+for f in commit_task.sh lib_section.sh persona_check.sh emit_telemetry.sh; do
   RC=0; /bin/bash -n "$S/$f" 2>"$TMP/syn" || RC=$?
   eq "/bin/bash -n $f" "$RC" "0"
 done
