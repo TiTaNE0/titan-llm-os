@@ -140,3 +140,9 @@ recaps/
 /Untitled Kanban.md
 /PM_Briefing_Pedagogy_Localization_May2026.md
 /\[NotebookLM_Installation.md
+
+# Local generated / cache artifacts
+out/
+__pycache__/
+05_Content/accounts/ogrizkov/channels/twitter/runs/_index/
+04_Logs/Telemetry/.write_failures.log
