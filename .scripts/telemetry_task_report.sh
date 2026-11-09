@@ -4,7 +4,7 @@
 # Usage: telemetry_task_report.sh [--task <name> [--since <ISO-UTC>]]
 # Reads ${TELEMETRY_DIR:-<vault>/04_Logs/Telemetry}/*.jsonl (malformed lines
 # skipped). Read-only; writes no files and emits no telemetry.
-# CSV: task,rows,agent_ms,wall_ms,excluded
+# CSV: task,rows,agent_ms,wall_ms,excluded (fields RFC 4180-quoted when needed)
 #   agent_ms = sum of plausible invoke_* durations
 #   wall_ms  = max(ts) - min(ts - duration) over plausible rows
 #   excluded = rows with implausible duration ([0, 86400000] required)
@@ -66,6 +66,7 @@ OUT="$(
   | jq -R -c 'fromjson?' \
   | jq -s -r --arg only "$ONLY" '
     def plausible: (.duration_ms | type) == "number" and .duration_ms >= 0 and .duration_ms <= 86400000;
+    def csvq: if test("[,\"\\n\\r]") then "\"" + gsub("\""; "\"\"") + "\"" else . end;
     def tsms: try ((.ts | fromdateiso8601) * 1000) catch null;
     [ .[] | select(type == "object" and (.task | type) == "string")
           | select($only == "" or .task == $only) ]
@@ -74,7 +75,7 @@ OUT="$(
         . as $rows
         | [ $rows[] | select(plausible) ] as $ok
         | [ $ok[] | . + {t: tsms} | select(.t != null) ] as $timed
-        | ( [ $rows[0].task,
+        | ( [ ($rows[0].task | csvq),
             ($rows | length),
             ([ $ok[] | select(.macro | startswith("invoke_")) | .duration_ms ] | add // 0),
             (if ($timed | length) == 0 then 0
