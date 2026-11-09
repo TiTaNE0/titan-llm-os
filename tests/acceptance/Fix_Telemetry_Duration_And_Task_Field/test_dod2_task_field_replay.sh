@@ -22,7 +22,7 @@ ln -s "$TMP/vault" "$WORK/.vault_link"
 extract() {
   grep -o '\.vault_link/\.scripts/\(telemetry_start\|emit_telemetry\)\.sh[^`]*' "$1" \
     | sed 's/[[:space:]]*$//' \
-    | grep -v ' error ' | grep -v 'emit_telemetry\.sh spec_gate' \
+    | grep -v ' error ' | grep -v 'emit_telemetry\.sh spec_gate' | grep -v 'telemetry_start\.sh spec_gate' \
     | grep -v '^\.vault_link/\.scripts/emit_telemetry\.sh`\?$'
 }
 extract "$KIT_CMDS/execute_task.md" > "$TMP/exec_cmds"
@@ -46,7 +46,7 @@ replay "$TMP/close_cmds"
 assert "replay produced no stderr" test ! -s "$TMP/replay_err"
 assert "replay wrote into the temp vault" test -s "$(ls "$TDIR"/*.jsonl 2>/dev/null | head -n1)"
 
-for M in invoke_researcher invoke_spec_writer invoke_builders invoke_test_verifier invoke_validator execute_task close_task; do
+for M in invoke_planner invoke_builders invoke_test_verifier invoke_validator execute_task close_task; do
   n="$(rows | jq -c --arg m "$M" 'select(.macro == $m)' | wc -l | tr -d ' ')"
   assert "$M: at least one row emitted" test "$n" -ge 1
   assert "$M: every row carries the task name" \

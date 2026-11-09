@@ -86,6 +86,10 @@ spec_content() { # <file> <marker> [prose]
 Files touched: .scripts/foo.sh
 $2
 ${3:-}
+### Responsibility map
+- foo: .scripts/foo.sh
+### Context pack
+- Read: .scripts/foo.sh:1-5 - x
 ### Open questions
 None.
 C_EOF

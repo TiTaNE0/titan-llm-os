@@ -6,6 +6,8 @@
 #   (a) ## Spec is populated (not just the template blockquote)
 #   (b) a file-change list is present in the spec
 #   (c) zero open-question markers remain
+#   (d) a non-empty "### Responsibility map" block is present
+#   (e) a "### Context pack" block with at least one "- Read:" line is present
 #
 # The semantic item — "every acceptance criterion maps to a spec section" — is NOT
 # scriptable here; it is delegated to the PM-reviewer subagent (layer 2). The gate
@@ -53,17 +55,47 @@ BODY="$(awk "$SECTION_AWK"'
   inspec { print }
 ' "$TASK_PATH")"
 
+# Large bodies: never pipe printf into an early-exiting reader (SIGPIPE -> exit 141 under
+# pipefail); every check reads a temp file instead.
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+printf '%s\n' "$BODY" > "$WORK/body"
+
 # (b) file-change list present: a path-like token or an explicit "file" mention.
-if ! printf '%s' "$BODY" | grep -qiE '\.(sh|md|ya?ml|json|py|ts|js|tsx|jsx)\b|/[A-Za-z0-9_]|file'; then
+if ! grep -qiE '\.(sh|md|ya?ml|json|py|ts|js|tsx|jsx)\b|/[A-Za-z0-9_]|file' "$WORK/body"; then
   echo "RUBRIC FAIL: no file-change list in spec" >&2; exit 3
 fi
 
 # (c) zero open-question markers. Heading lines are skipped: the mandatory
 # "### Open questions" heading would otherwise fail every spec. Separate greps (no
 # pipe) because SIGPIPE under pipefail can hide a match.
-BODY_TEXT="$(printf '%s\n' "$BODY" | grep -vE '^#+[[:space:]]' || true)"
-if printf '%s' "$BODY_TEXT" | grep -qiE 'open question|[[:space:]]TBD\b|\?\?\?|[[:space:]]TODO\b|FIXME'; then
+grep -vE '^#+[[:space:]]' "$WORK/body" > "$WORK/text" || true
+if grep -qiE 'open question|[[:space:]]TBD\b|\?\?\?|[[:space:]]TODO\b|FIXME' "$WORK/text"; then
   echo "RUBRIC FAIL: open questions remain in spec" >&2; exit 3
+fi
+
+# block_of <heading-regex>: lines after the matching ### heading up to the next heading
+# line or the end of the body. Reads to EOF (no early exit). Empty when heading absent.
+block_of() {
+  awk -v pat="$1" '
+    done_ { next }
+    on && /^#+[[:space:]]/ { done_=1; next }
+    on { print }
+    $0 ~ pat { on=1 }
+  ' "$WORK/body"
+}
+
+# (d) Responsibility map heading with a non-blank block.
+block_of '^###[[:space:]]+Responsibility map' > "$WORK/map"
+if ! grep -qE '^###[[:space:]]+Responsibility map' "$WORK/body" \
+   || ! grep -qE '[^[:space:]]' "$WORK/map"; then
+  echo "RUBRIC FAIL: no Responsibility map in spec" >&2; exit 3
+fi
+
+# (e) Context pack heading with at least one "- Read:" line inside its block.
+block_of '^###[[:space:]]+Context pack' > "$WORK/pack"
+if ! grep -qE '^###[[:space:]]+Context pack' "$WORK/body" \
+   || ! grep -qE '^[-*][[:space:]]+Read:' "$WORK/pack"; then
+  echo "RUBRIC FAIL: no context pack in spec" >&2; exit 3
 fi
 
 echo "RUBRIC: PASS"

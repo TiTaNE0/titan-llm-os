@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # DoD 2 + 3 end to end: take the persist template exactly as execute_task.md briefs it
-# (Steps 6, 7, 12), fill it the way a subagent would, pass it through the PreToolUse hook,
+# (Steps 6, 12), fill it the way a subagent would, pass it through the PreToolUse hook,
 # execute it from a mktemp vault root, and confirm the coordinator's grep_section.sh
 # presence check sees the section populated.
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -61,8 +61,7 @@ check_step() { # <step> <section> <heading> <delim>
 }
 
 # grep_section headings are the plain names used by the coordinator's presence checks.
-check_step 6  research_notes   "Research Notes"   NOTES_EOF
-check_step 7  spec             "Spec"             SPEC_EOF
+check_step 6  spec             "Spec"             SPEC_EOF
 check_step 12 validator_report "Validator Report" REPORT_EOF
 
 # Failure path: a subagent whose write is refused leaves the section empty, so the
@@ -81,9 +80,9 @@ step() { awk -v s="## Step $1 " 'index($0,s)==1{on=1;next} on&&/^## Step /{exit}
 for bad in CONTENT_FILE RESEARCH_EOF '<full subagent report content>' 'Capture spec' 'Capture report' 'cat >' 'mktemp'; do
   printf '%s' "$R" | grep -qF -- "$bad" && fail "Steps 6-12 still contain '$bad'" || pass "Steps 6-12 free of '$bad'"
 done
-step 6  | grep -qF 'grep_section.sh "$TASK_PATH" "Research Notes" empty' && step 6 | grep -qF -- '--state spec_gate' && step 6 | grep -qF 'E3: researcher did not persist' \
-  && pass "Step 6 presence check + E3 + queue_attention" || fail "Step 6 escalation"
-step 7  | grep -qF 'grep_section.sh "$TASK_PATH" "Spec" empty' && step 7 | grep -qF -- '--state spec_gate' && step 7 | grep -qF 'E3: spec-writer did not persist' \
+step 6  | grep -qF 'grep_section.sh "$TASK_PATH" "Spec" empty' && step 6 | grep -qF -- '--state spec_gate' && step 6 | grep -qF 'spec section missing' \
+  && pass "Step 6 pre-spawn Spec check + queue_attention" || fail "Step 6 escalation"
+step 7  | grep -qF 'grep_section.sh "$TASK_PATH" "Spec" empty' && step 7 | grep -qF -- '--state spec_gate' && step 7 | grep -qF 'spec not persisted' && step 7 | grep -qF 'E3: planner did not persist' \
   && pass "Step 7 presence check + E3 + queue_attention" || fail "Step 7 escalation"
 step 12 | grep -qF 'grep_section.sh "$TASK_PATH" "Validator Report" empty' && step 12 | grep -qF -- '--state close_gate' && step 12 | grep -qF 'E3: validator did not persist' \
   && pass "Step 12 presence check + E3 + queue_attention" || fail "Step 12 escalation"

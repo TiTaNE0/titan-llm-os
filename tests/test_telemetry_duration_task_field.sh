@@ -122,7 +122,7 @@ if [ -z "$KIT_DIR" ]; then
 else
   ET="$KIT_DIR/execute_task.md"; CT="$KIT_DIR/close_task.md"; OT="$KIT_DIR/orchestrator_tick.md"
   TN='"<Task_Name>"'
-  for m in invoke_researcher invoke_spec_writer invoke_builders invoke_test_verifier invoke_validator execute_task; do
+  for m in invoke_planner invoke_builders invoke_test_verifier invoke_validator execute_task; do
     grep -Eq "telemetry_start\.sh $m \"<Task_Name>\"" "$ET" && grep -Eq "emit_telemetry\.sh $m (success|error) auto .*\"<Task_Name>\"" "$ET" \
       && pass "2e $m wired" || fail "2e $m wired"
   done
