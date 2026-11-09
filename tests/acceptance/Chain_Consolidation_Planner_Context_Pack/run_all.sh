@@ -8,9 +8,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 VAULT="$(cd "$HERE/../../.." && pwd -P)"
 KIT="${KIT_ROOT:-$HOME/AI_Workflow/claude-agent-kit}"
 TASK="$VAULT/02_Tasks/TiTan_LLM_OS/Chain_Consolidation_Planner_Context_Pack.md"
-# Telemetry: task-attributed rows and timers must not change. The gateway's kit suites
-# (test_gateway_*, test_resolve_attention*, test_metrics_breakdown) append task-null rows to the live
-# telemetry through the kit's .vault_link; that pre-existing leak is reported, not hidden.
+# Telemetry: task-attributed rows and timers must not change. The kit suites (test_gateway_*,
+# test_resolve_attention*, test_metrics_breakdown) used to append task-null rows to the live telemetry
+# through the kit's .vault_link; Kit_Suites_Live_Telemetry_Isolation fixed that (they export TELEMETRY_DIR),
+# so the count below should now be 0 apart from other sessions writing concurrently.
 snap() {
   { shasum "$TASK" "$VAULT/TiTan_LLM_OS_Board.md" "$VAULT"/.session_state*.json \
       "$KIT"/global/agents/*.md "$KIT/project-template/.claude/commands/execute_task.md" "$KIT/install.sh" 2>/dev/null
@@ -29,5 +30,5 @@ for t in "$HERE"/test_*.sh; do
 done
 rm -f "$HERE/.last_err"
 [ "$(snap)" = "$before" ] && echo "PASS real task file / board / session / task telemetry / timers / kit untouched" || { echo "FAIL real vault or kit changed"; rc=1; }
-echo "NOTE live telemetry task-null rows added during run: $(( $(nulls) - null_before )) (gateway kit suites)"
+echo "NOTE live telemetry task-null rows added during run: $(( $(nulls) - null_before )) (expected 0 after the isolation fix; nonzero means another session wrote or a kit suite leaks)"
 exit $rc
