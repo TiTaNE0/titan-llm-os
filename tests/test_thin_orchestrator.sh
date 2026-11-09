@@ -56,7 +56,7 @@ for dir in global/agents docs/cld; do
     if printf '%s\n' "$F" | grep -E '^tools:' | grep -qw Bash; then pass "DoD2 $dir/$a tools has Bash"; else fail "DoD2 $dir/$a tools has Bash"; fi
     want "DoD2 $dir/$a PreToolUse" "$F" 'PreToolUse'
     want "DoD2 $dir/$a matcher" "$F" 'matcher: "Bash"'
-    want "DoD2 $dir/$a hook command" "$F" 'bash_write_task_section_only.sh" || exit 2'
+    want "DoD2 $dir/$a hook command" "$F" 'bash_write_task_section_only.sh" '"$a"' || exit 2'
   done
   F="$(fm "$KIT/$dir/validator.md")"
   if printf '%s\n' "$F" | grep -E '^tools:' | grep -qw Bash; then pass "DoD2 $dir/validator tools has Bash"; else fail "DoD2 $dir/validator tools has Bash"; fi
@@ -71,7 +71,7 @@ done
 
 # --- DoD 2: hook decision -----------------------------------------------------
 decide() { # hook cmd -> exit code of hook for a Bash tool call
-  jq -n --arg c "$2" '{tool_name:"Bash",agent_type:"researcher",tool_input:{command:$c}}' | bash "$1" >/dev/null 2>&1
+  jq -n --arg c "$2" '{tool_name:"Bash",agent_type:"planner",tool_input:{command:$c}}' | bash "$1" >/dev/null 2>&1
   echo $?
 }
 expect() { # kind label cmd
@@ -84,7 +84,7 @@ expect() { # kind label cmd
 W='.vault_link/.scripts/write_task_section.sh'
 A="--task-path .vault_link/02_Tasks/P/T.md --section spec --source-persona Executioner --content-file -"
 if [ -f "$HOOK" ] && command -v jq >/dev/null 2>&1; then
-  expect allow "single-line file mode" "$W --task-path x.md --section spec --source-persona Executioner --content-file y"
+  expect allow "single-line file mode" "$W --task-path .vault_link/02_Tasks/P/T.md --section spec --source-persona Executioner --content-file y"
   expect allow "heredoc with hostile body" "$W $A <<'SPEC_EOF'
 body; rm -rf /
 \$(id)
@@ -173,6 +173,15 @@ rm x"
   expect refuse "foreign prefix" "evil/.scripts/write_task_section.sh $A"
   expect refuse "dotdot path" ".vault_link/.scripts/../x/write_task_section.sh $A"
   expect refuse "empty command" ""
+  expect refuse "foreign task path" "$W --task-path .vault_link/03_Brain/X.md --section spec --source-persona Executioner --content-file - <<'E_EOF'
+hi
+E_EOF"
+  expect refuse "foreign section" "$W --task-path .vault_link/02_Tasks/P/T.md --section validator_report --source-persona Executioner --content-file - <<'E_EOF'
+hi
+E_EOF"
+  expect refuse "duplicate --section" "$W $A --section validator_report <<'E_EOF'
+hi
+E_EOF"
   rc="$(printf 'not json' | bash "$HOOK" >/dev/null 2>&1; echo $?)"
   [ "$rc" = 2 ] && pass "hook REFUSE malformed JSON" || fail "hook REFUSE malformed JSON (rc=$rc)"
   rc="$(jq -n '{tool_name:"Read",tool_input:{}}' | bash "$HOOK" >/dev/null 2>&1; echo $?)"

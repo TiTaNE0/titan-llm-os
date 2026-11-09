@@ -11,10 +11,12 @@ hook_cmd() { frontmatter "$1" | sed -n "s/^ *command: '\(.*\)'$/\1/p" | head -1;
 # run_declared <agent.md> <HOME> <bash command>: exit code of the frontmatter hook command.
 run_declared() { hook_json "$3" | HOME="$2" sh -c "$(hook_cmd "$1")" >/dev/null 2>&1; echo $?; }
 
-OK_CMD=".vault_link/.scripts/write_task_section.sh --task-path \".vault_link/02_Tasks/P/T.md\" --section spec --source-persona Executioner --content-file - <<'SPEC_EOF'"$'\nbody\nSPEC_EOF'
+ok_cmd() { echo ".vault_link/.scripts/write_task_section.sh --task-path \".vault_link/02_Tasks/P/T.md\" --section $1 --source-persona Executioner --content-file - <<'SPEC_EOF'"$'\nbody\nSPEC_EOF'; }
 
 for a in researcher spec-writer; do
   f="$AG/$a.md"
+  sec=spec; [ "$a" = researcher ] && sec=research_notes
+  OK_CMD="$(ok_cmd "$sec")"
   c="$(hook_cmd "$f")"
   [ -n "$c" ] || { fail "$a: no hook command in frontmatter"; continue; }
   frontmatter "$f" | grep -q '^tools:.*\bBash\b' && pass "$a tools include Bash" || fail "$a tools lack Bash"

@@ -26,22 +26,25 @@ fill() {
 REL=".vault_link/02_Tasks/P/T.md"
 V="$TMP/v"; mk_vault "$V"; unset TITAN_SESSION_ID
 
-check_step() { # <step> <section> <heading> <delim>
-  local step="$1" sec="$2" hd="$3" dl="$4" t cmd body rc
+# role_rc <command> <role>: hook exit code for that agent_type.
+role_rc() { hook_json "$1" "$2" | "$HOOK_BASH" "$HOOK" >/dev/null 2>"$TMP/hook_err"; echo $?; }
+
+check_step() { # <step> <section> <heading> <delim> <role>
+  local step="$1" sec="$2" hd="$3" dl="$4" role="$5" t cmd body rc
   t="$(template "$step" "$sec")"
   [ "$(printf '%s\n' "$t" | wc -l | tr -d ' ')" = 3 ] || { fail "Step $step: persist template not found"; return; }
   [ "$(printf '%s\n' "$t" | tail -1)" = "$dl" ] && pass "Step $step template uses delimiter $dl" || fail "Step $step delimiter"
   printf '%s' "$t" | grep -qF -- '--content-file -' && pass "Step $step uses --content-file -" || fail "Step $step no stdin mode"
 
   # The unfilled template must not be runnable (forces literal substitution).
-  [ "$(hook_rc "$t")" = 2 ] && pass "Step $step unfilled template refused" || fail "Step $step raw template allowed"
-  [ "$(hook_rc "$(fill "$t" '$TASK_PATH' 0 x)")" = 2 ] && pass "Step $step \$TASK_PATH variable refused" || fail "Step $step variable allowed"
+  [ "$(role_rc "$t" "$role")" = 2 ] && pass "Step $step unfilled template refused" || fail "Step $step raw template allowed"
+  [ "$(role_rc "$(fill "$t" '$TASK_PATH' 0 x)" "$role")" = 2 ] && pass "Step $step \$TASK_PATH variable refused" || fail "Step $step variable allowed"
 
   body="### $hd report
 - uses \$(id) and \`backticks\` and ; rm -rf / -- all inert
 | table | row |"
   cmd="$(fill "$t" "$REL" 0 "$body")"
-  rc="$(hook_rc "$cmd")"
+  rc="$(role_rc "$cmd" "$role")"
   [ "$rc" = 0 ] && pass "Step $step filled command passes hook" || { fail "Step $step hook rc=$rc: $(cat "$TMP/hook_err")"; return; }
   rc="$(cd "$V" && bash -c "$cmd" >/dev/null 2>"$TMP/run_err"; echo $?)"
   [ "$rc" = 0 ] && pass "Step $step command exits 0" || { fail "Step $step run rc=$rc: $(cat "$TMP/run_err")"; return; }
@@ -54,15 +57,15 @@ check_step() { # <step> <section> <heading> <delim>
   rc="$(cd "$V" && bash -c "$(fill "$t" "$REL" 0 again)" >/dev/null 2>&1; echo $?)"
   [ "$rc" = 3 ] && pass "Step $step repeat w/o --overwrite -> E3" || fail "Step $step repeat rc=$rc"
   cmd="$(fill "$t" "$REL" 1 "replaced $sec")"
-  [ "$(hook_rc "$cmd")" = 0 ] && pass "Step $step --overwrite variant passes hook" || fail "Step $step overwrite refused by hook"
+  [ "$(role_rc "$cmd" "$role")" = 0 ] && pass "Step $step --overwrite variant passes hook" || fail "Step $step overwrite refused by hook"
   rc="$(cd "$V" && bash -c "$cmd" >/dev/null 2>&1; echo $?)"
   [ "$rc" = 0 ] && section_body "$V/02_Tasks/P/T.md" "$sec" | grep -q "^replaced $sec$" \
     && pass "Step $step --overwrite replaced" || fail "Step $step overwrite rc=$rc"
 }
 
 # grep_section headings are the plain names used by the coordinator's presence checks.
-check_step 6  spec             "Spec"             SPEC_EOF
-check_step 12 validator_report "Validator Report" REPORT_EOF
+check_step 6  spec             "Spec"             SPEC_EOF planner
+check_step 12 validator_report "Validator Report" REPORT_EOF validator
 
 # Failure path: a subagent whose write is refused leaves the section empty, so the
 # coordinator presence check (exit 0 = empty) triggers the E3/queue_attention branch.

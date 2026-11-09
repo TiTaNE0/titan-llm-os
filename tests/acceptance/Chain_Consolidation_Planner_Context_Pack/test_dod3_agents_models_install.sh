@@ -15,8 +15,9 @@ expect "planner tools are read-only + Bash" "Read, Grep, Glob, Bash" "$(fm "$AGE
 expect "builder tools include Edit/Write" "Read, Edit, Write, Bash, Grep, Glob" "$(fm "$AGENTS/builder.md" tools)"
 
 # planner's Bash is hook-limited exactly like researcher's.
-hookline() { grep -E '^[[:space:]]+command:' "$1"; }
-expect "planner PreToolUse hook identical to researcher's" "$(hookline "$AGENTS/researcher.md")" "$(hookline "$AGENTS/planner.md")"
+hookline() { grep -E '^[[:space:]]+command:' "$1" | sed -E 's/" [a-z-]+ \|\| exit 2/" || exit 2/'; }
+expect "planner PreToolUse hook matches researcher's apart from the role argument" "$(hookline "$AGENTS/researcher.md")" "$(hookline "$AGENTS/planner.md")"
+grep -qF 'bash_write_task_section_only.sh" planner || exit 2' "$AGENTS/planner.md" && pass "planner hook carries role argument" || fail "planner hook role argument missing"
 grep -qF 'bash_write_task_section_only.sh' "$AGENTS/planner.md" && pass "planner hook script named" || fail "planner hook script missing"
 grep -q 'hooks:' "$AGENTS/builder.md" && fail "builder must not be hook-limited" || pass "builder carries no write-limiting hook"
 
