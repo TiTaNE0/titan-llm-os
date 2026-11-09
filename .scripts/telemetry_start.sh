@@ -4,14 +4,14 @@
 # Shell variables do not survive between an agent's Bash calls; a file does.
 #
 # Usage: telemetry_start.sh <macro> [task]
-# Writes <vault>/04_Logs/Telemetry/.timers/<macro_key>__<task_key>.tmp
+# Writes ${TELEMETRY_DIR:-<vault>/04_Logs/Telemetry}/.timers/<macro_key>__<task_key>.tmp
 # Exit always 0, prints nothing — telemetry must never block a macro.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VAULT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-TELEMETRY_DIR="$VAULT_DIR/04_Logs/Telemetry"
+TELEMETRY_DIR="${TELEMETRY_DIR:-$VAULT_DIR/04_Logs/Telemetry}"
 TIMER_DIR="$TELEMETRY_DIR/.timers"
 TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 

@@ -20,6 +20,7 @@
 # Write failures: recorded to 04_Logs/Telemetry/.write_failures.log (best-effort
 #   sentinel) so a dropped record is observable. Exit stays 0 — telemetry must
 #   never block a macro (some callers, e.g. metrics_aggregate.sh, invoke bare).
+# Env: TELEMETRY_DIR overrides the telemetry directory (default: <vault>/04_Logs/Telemetry); tests use it to isolate rows.
 
 set -uo pipefail
 
@@ -36,7 +37,7 @@ VAULT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 TS="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 MONTH="$(date -u +"%Y-%m")"
-TELEMETRY_DIR="$VAULT_DIR/04_Logs/Telemetry"
+TELEMETRY_DIR="${TELEMETRY_DIR:-$VAULT_DIR/04_Logs/Telemetry}"
 TELEMETRY_FILE="$TELEMETRY_DIR/${MONTH}.jsonl"
 
 mkdir -p "$TELEMETRY_DIR"

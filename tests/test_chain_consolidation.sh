@@ -220,7 +220,7 @@ else
     b="$(basename "$t")"
     [ "$b" = test_chain_consolidation.sh ] && continue
     n=$((n + 1))
-    envp=""; [ "$b" = test_thin_orchestrator.sh ] && envp="THIN_ORCH_SKIP_SUITES=1"; [ "$b" = test_pm_reviewer_single_pass.sh ] && envp="PMR_SKIP_SUITES=1"
+    envp=""; [ "$b" = test_thin_orchestrator.sh ] && envp="THIN_ORCH_SKIP_SUITES=1"; [ "$b" = test_pm_reviewer_single_pass.sh ] && envp="PMR_SKIP_SUITES=1"; [ "$b" = test_kit_telemetry_isolation.sh ] && envp="KTI_SKIP_SUITES=1"
     if ( cd "$REPO_ROOT" && env $envp bash "tests/$b" >/dev/null 2>&1 ); then pass "vault $b"; else fail "vault $b"; fi
   done
   [ "$n" -ge 1 ] || fail "vault suite glob matched nothing"
@@ -229,7 +229,8 @@ else
     d="$(basename "$(dirname "$ra")")"
     [ "$d" = Chain_Consolidation_Planner_Context_Pack ] && continue
     echo "acceptance: $d"
-    if ( cd "$REPO_ROOT" && bash "$ra" >/dev/null 2>&1 ); then pass "acceptance $d"; else fail "acceptance $d"; fi
+    aenv=""; [ "$d" = Kit_Suites_Live_Telemetry_Isolation ] && aenv="KTI_ACC_SKIP_GATEWAY=1"
+    if ( cd "$REPO_ROOT" && env $aenv bash "$ra" >/dev/null 2>&1 ); then pass "acceptance $d"; else fail "acceptance $d"; fi
   done
   echo "not in suite glob: tests/acceptance_commit_task.sh, tests/acceptance/ (task-scoped acceptance tests; every other tests/acceptance/*/run_all.sh runs above, this task's own folder excluded)"
 fi
