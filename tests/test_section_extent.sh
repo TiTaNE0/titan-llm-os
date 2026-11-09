@@ -92,7 +92,8 @@ T_EOF
 spec_content() { # <file> <marker> [prose]
   cat > "$1" <<C_EOF
 ## Spec: T
-Files touched: .scripts/foo.sh
+### Files touched
+- [EDIT] .scripts/foo.sh
 $2
 ${3:-}
 ### Responsibility map
@@ -260,7 +261,7 @@ case_guard_foreign_heading_refuses() {
   # write_task_section: populate spec, hand-insert ## Strategy into it, overwrite must refuse.
   mk_task "$T"; spec_content "$d/c1" OLD_MARKER; spec_content "$d/c2" NEW_MARKER
   "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c1" >/dev/null 2>&1 || return 1
-  awk '{print} /^Files touched/ {print "## Strategy"; print "hand written"}' "$T" > "$d/h.md" && mv "$d/h.md" "$T"
+  awk '{print} /^- \[EDIT\] .scripts\/foo.sh/ {print "## Strategy"; print "hand written"}' "$T" > "$d/h.md" && mv "$d/h.md" "$T"
   cp "$T" "$snap"; rc=0
   "$d/.scripts/write_task_section.sh" --task-path "$T" --section spec --source-persona Executioner --content-file "$d/c2" --overwrite >/dev/null 2>"$d/err" || rc=$?
   [[ "$rc" -eq 3 ]] || return 1

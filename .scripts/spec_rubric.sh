@@ -4,10 +4,12 @@
 # Deterministic FORM layer of the Orchestrator spec gate (C2, PRD §4.4 layer 1).
 # Checks only the scriptable form items:
 #   (a) ## Spec is populated (not just the template blockquote)
-#   (b) a file-change list is present in the spec
 #   (c) zero open-question markers remain
+#   (c2) every "### Open questions" subsection holds only None / None.
 #   (d) a non-empty "### Responsibility map" block is present
 #   (e) a "### Context pack" block with at least one "- Read:" line is present
+#   (b) a "Files touched" heading (level 2-4) whose block holds a [NEW]/[EDIT]/[DELETE] entry
+#       (checked last)
 #
 # The semantic item — "every acceptance criterion maps to a spec section" — is NOT
 # scriptable here; it is delegated to the PM-reviewer subagent (layer 2). The gate
@@ -60,17 +62,27 @@ BODY="$(awk "$SECTION_AWK"'
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 printf '%s\n' "$BODY" > "$WORK/body"
 
-# (b) file-change list present: a path-like token or an explicit "file" mention.
-if ! grep -qiE '\.(sh|md|ya?ml|json|py|ts|js|tsx|jsx)\b|/[A-Za-z0-9_]|file' "$WORK/body"; then
-  echo "RUBRIC FAIL: no file-change list in spec" >&2; exit 3
-fi
-
 # (c) zero open-question markers. Heading lines are skipped: the mandatory
 # "### Open questions" heading would otherwise fail every spec. Separate greps (no
 # pipe) because SIGPIPE under pipefail can hide a match.
 grep -vE '^#+[[:space:]]' "$WORK/body" > "$WORK/text" || true
 if grep -qiE 'open question|[[:space:]]TBD\b|\?\?\?|[[:space:]]TODO\b|FIXME' "$WORK/text"; then
   echo "RUBRIC FAIL: open questions remain in spec" >&2; exit 3
+fi
+
+# (c2) every "### Open questions" subsection (any suffix) may hold only None / None.
+awk "$SECTION_AWK"'
+  { fenced = sec_fence($0) }
+  !fenced && /^#+[[:space:]]/ { oq = (tolower($0) ~ /^###[[:space:]]+open[[:space:]]+questions/); next }
+  oq && !fenced {
+    t = tolower($0)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", t)
+    if (t != "" && t != "none" && t != "none.") bad = 1
+  }
+  END { if (bad) print "bad" > "'"$WORK/oq"'" }
+' "$WORK/body"
+if [[ -s "$WORK/oq" ]]; then
+  echo "RUBRIC FAIL: open questions remain in spec (OQ subsection is not None)" >&2; exit 3
 fi
 
 # block_of <heading-regex>: lines after the matching ### heading up to the next heading
@@ -96,6 +108,23 @@ block_of '^###[[:space:]]+Context pack' > "$WORK/pack"
 if ! grep -qE '^###[[:space:]]+Context pack' "$WORK/body" \
    || ! grep -qE '^[-*][[:space:]]+Read:' "$WORK/pack"; then
   echo "RUBRIC FAIL: no context pack in spec" >&2; exit 3
+fi
+
+# (b) Files touched heading (level 2-4, fence-aware, as commit_task.sh) whose block holds a
+# [NEW]/[EDIT]/[DELETE] entry. Reads to EOF (no early exit: SIGPIPE under pipefail).
+awk "$SECTION_AWK"'
+  { fenced = sec_fence($0) }
+  !fenced && /^#+[[:space:]]/ {
+    lvl = 0; l = $0
+    while (substr(l, lvl + 1, 1) == "#") lvl++
+    if (on && lvl <= lv) on = 0
+    if (!on && $0 ~ /^##(##?)?[[:space:]]+/ && $0 ~ /[Ff]iles [Tt]ouched/) { on = 1; lv = lvl }
+    next
+  }
+  on { print }
+' "$WORK/body" > "$WORK/files"
+if ! grep -qE '\[(NEW|EDIT|DELETE)\]' "$WORK/files"; then
+  echo "RUBRIC FAIL: no file-change list in spec" >&2; exit 3
 fi
 
 echo "RUBRIC: PASS"

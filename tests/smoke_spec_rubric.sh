@@ -27,10 +27,11 @@ mk_task() { # file  spec_body
 
 MAP=$'### Responsibility map\n- Rubric: `.scripts/spec_rubric.sh`\n'
 PACK=$'### Context pack\n- Read: `.scripts/spec_rubric.sh:1-20` - checks\n'
+FILES=$'### Files touched\n- [EDIT] `.scripts/foo.sh`\n'
 
 # 1. PASS — populated, file-change list, responsibility map, context pack, no open questions.
 mk_task "$TMP/pass.md" "Build \`.scripts/foo.sh\` and \`tests/smoke_foo.sh\`. Atomic write, telemetry on error.
-$MAP$PACK"
+$MAP$PACK$FILES"
 "$RUBRIC" --task-path "$TMP/pass.md" >/dev/null || fail "well-formed spec should PASS"
 
 # 2. FAIL — empty spec (only blockquote + anchor).
@@ -41,9 +42,11 @@ rc=0; "$RUBRIC" --task-path "$TMP/empty.md" 2>/dev/null || rc=$?
 [[ "$rc" -eq 3 ]] || fail "empty spec should FAIL (exit 3), got $rc"
 
 # 3. FAIL — populated but no file-change list / no path / no 'file' word.
-mk_task "$TMP/nofiles.md" "We will improve performance and tidy the logic. Make it nicer."
-rc=0; "$RUBRIC" --task-path "$TMP/nofiles.md" 2>/dev/null || rc=$?
+mk_task "$TMP/nofiles.md" "We will improve performance and tidy the logic. Make it nicer.
+$MAP$PACK"
+rc=0; err="$("$RUBRIC" --task-path "$TMP/nofiles.md" 2>&1 >/dev/null)" || rc=$?
 [[ "$rc" -eq 3 ]] || fail "spec without a file list should FAIL (exit 3), got $rc"
+[[ "$err" == *"no file-change list"* ]] || fail "nofiles: expected 'no file-change list', got '$err'"
 
 # 4. FAIL — open question marker present.
 mk_task "$TMP/openq.md" "Edit \`.scripts/foo.sh\`. TBD: should it also handle the retry path?"
@@ -85,7 +88,7 @@ expect_fail "Read line outside the Context pack block" "$TMP/outside.md" "no con
 FILLER="$(awk 'BEGIN{for(i=0;i<3000;i++) print "Filler line " i " touching .scripts/foo.sh with enough text to grow the body size."}')"
 mk_task "$TMP/bigok.md" "$BASE
 $FILLER
-$MAP$PACK"
+$MAP$PACK$FILES"
 [[ "$(wc -c < "$TMP/bigok.md")" -ge 240000 ]] || fail "large fixture smaller than 240 KB"
 rc=0; "$RUBRIC" --task-path "$TMP/bigok.md" >/dev/null 2>&1 || rc=$?
 [[ "$rc" -eq 0 ]] || fail "large valid spec should PASS (exit 0), got $rc"

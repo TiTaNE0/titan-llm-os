@@ -11,12 +11,18 @@
 # BSD-awk function definitions; callers prepend: awk "$SECTION_AWK"'<prog>'
 SECTION_AWK='
 # Template section position (1..10, file order) of a `## ` header line, 0 if not a template header.
-function sec_tpl_idx(line,   h, n, names, i, N, c) {
-  if (line !~ /^##[[:space:]]/) return 0
+# Header text after `##`, trailing-trimmed, with one optional leading token made only of
+# non-alphanumeric characters (emoji/marker) removed. Tokens with a letter or digit stay.
+function sec_heading_name(line,   h) {
   h = line
   sub(/^##[[:space:]]+/, "", h)
   sub(/[[:space:]]+$/, "", h)
   sub(/^[^A-Za-z0-9[:space:]]+[[:space:]]+/, "", h)
+  return h
+}
+function sec_tpl_idx(line,   h, n, names, i, N, c) {
+  if (line !~ /^##[[:space:]]/) return 0
+  h = sec_heading_name(line)
   n = split("Declarative Objective|Definition of Done|Verification Gateway|Agent Implementation Plan|Research Notes|Spec|Validator Report|Verification Output|COMPLETION SUMMARY|Related Context", names, "|")
   for (i = 1; i <= n; i++) {
     N = names[i]

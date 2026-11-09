@@ -27,7 +27,7 @@ Modes:
   populated   header exists AND body has non-blockquote, non-HTML-comment content
 
 Header match: "## [token ]<section_name>", section_name compared literally
-(leading emoji or marker token optional)
+(optional leading token must be non-alphanumeric: emoji or marker)
 
 Exit codes:
   0  match
@@ -73,13 +73,12 @@ RESULT="$(GS_SECTION="$SECTION" awk -v mode="$MODE" "$SECTION_AWK"'
     section = ENVIRON["GS_SECTION"]
   }
 
-  # Target section header: ## (optional non-space token + space)? <section> (optional trailing space)
+  # Target section header: ## (optional non-alphanumeric token + space)? <section> (optional trailing space)
   !header_found && /^##[[:space:]]/ {
     h = $0
     sub(/^##[[:space:]]+/, "", h)
     sub(/[[:space:]]+$/, "", h)
-    rest = h
-    sub(/^[^[:space:]]+[[:space:]]+/, "", rest)
+    rest = sec_heading_name($0)
     if (h == section || rest == section) {
       header_found = 1
       in_section = 1

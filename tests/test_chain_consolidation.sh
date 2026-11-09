@@ -99,8 +99,9 @@ rubric_rc() { # script file -> sets RC, ERR
 BASE='Edit `.scripts/foo.sh`.'
 MAP=$'### Responsibility map\n- Rubric: `.scripts/spec_rubric.sh`\n'
 PACK=$'### Context pack\n- Read: `.scripts/spec_rubric.sh:1-20` - checks\n- Do not touch: x\n'
+FILES=$'### Files touched\n- [EDIT] `.scripts/foo.sh`\n'
 mk_task "$TMP/full.md" "$BASE
-$MAP$PACK"
+$MAP$PACK$FILES"
 mk_task "$TMP/nomap.md" "$BASE
 $PACK"
 mk_task "$TMP/emptymap.md" "$BASE
@@ -221,7 +222,7 @@ else
     b="$(basename "$t")"
     [ "$b" = test_chain_consolidation.sh ] && continue
     n=$((n + 1))
-    envp=""; [ "$b" = test_thin_orchestrator.sh ] && envp="THIN_ORCH_SKIP_SUITES=1"; [ "$b" = test_pm_reviewer_single_pass.sh ] && envp="PMR_SKIP_SUITES=1"; [ "$b" = test_kit_telemetry_isolation.sh ] && envp="KTI_SKIP_SUITES=1"; [ "$b" = test_chain_targeted_tests.sh ] && envp="CTT_SKIP_SUITES=1"; [ "$b" = test_macro_start_timestamp.sh ] && envp="MST_SKIP_SUITES=1"; [ "$b" = test_hook_argument_scope.sh ] && envp="HAS_SKIP_SUITES=1"
+    envp=""; [ "$b" = test_thin_orchestrator.sh ] && envp="THIN_ORCH_SKIP_SUITES=1"; [ "$b" = test_pm_reviewer_single_pass.sh ] && envp="PMR_SKIP_SUITES=1"; [ "$b" = test_kit_telemetry_isolation.sh ] && envp="KTI_SKIP_SUITES=1"; [ "$b" = test_chain_targeted_tests.sh ] && envp="CTT_SKIP_SUITES=1"; [ "$b" = test_macro_start_timestamp.sh ] && envp="MST_SKIP_SUITES=1"; [ "$b" = test_hook_argument_scope.sh ] && envp="HAS_SKIP_SUITES=1"; [ "$b" = test_spec_gate_hardening.sh ] && envp="SGH_SKIP_SUITES=1"
     if ( cd "$REPO_ROOT" && env $envp bash "tests/$b" >/dev/null 2>&1 ); then pass "vault $b"; else fail "vault $b"; fi
   done
   [ "$n" -ge 1 ] || fail "vault suite glob matched nothing"
