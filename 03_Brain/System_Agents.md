@@ -23,9 +23,9 @@ Every macro execution MUST follow this lifecycle:
 2. **Execute the macro steps.** On any failure, classify per [[Error_Recovery]] (E1–E5) and HALT.
 3. **Emit telemetry** AS THE FINAL STEP, regardless of outcome:
    ```bash
-   ./.vault_link/.scripts/emit_telemetry.sh <macro_name> <success|error> <duration_ms> <error_class|null> <persona>
+   ./.vault_link/.scripts/emit_telemetry.sh <macro_name> <success|error> <duration_ms|auto> <error_class|null> <persona> [task]
    ```
-   The helper script is best-effort — it never blocks or fails the macro.
+   The helper script is best-effort — it never blocks or fails the macro. `auto` reads the start instant that `telemetry_start.sh <macro> [task]` wrote to a timer file at step 1, so the duration survives separate shell calls; `[task]` attributes the row to a task. *(Amended via /graduate 2026-11-09 by [[Kernel_Graduate_Chain_Consolidation]].)*
 
 4. **Telemetry is mandatory.** A macro that completes without emitting telemetry violates the kernel contract. Treat omission as E2 Tool Failure.
 
@@ -140,22 +140,18 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 4. **Status guard:** Task YAML `status:` must be `todo` or `in_progress` (resuming). Any other value → E3.
 5. **In-Progress lock:** Scan `./.vault_link/02_Tasks/<Project>/*.md` YAML `status:` fields. If any OTHER **non-epic** task in the project has `status: in_progress` → E3: *"Project <Project> already has [[OtherTask]] In Progress. Complete or pause it before starting [[Task_Name]]."* Lock is per-project, enforced cooperatively via YAML. **Epics (`type: epic`) are exempt** — an umbrella epic legitimately stays `in_progress` across many child tasks, so it neither counts toward nor trips the single-in-progress limit. Two concurrent *non-epic* `in_progress` tasks still trip the lock.
 5.5. **Contract guard:** `Invoke: task_contract_check(task_path)`. If it exits 3 — `§ Declarative Objective`, `§ Definition of Done`, or `§ Verification Gateway` is still a `Task_Template` placeholder — HALT with E3 (under an Orchestrator run, `queue_attention` `spec_gate` reason "contract unfilled" and skip instead). The header is the subagents' brief and the gateway command; this stops the researcher/spec-writer, the validator (audits the DoD), and the Verification Gateway (step 12) from running against a hollow contract. *(Added /graduate 2026-06-17 by [[Task_Contract_Population_And_Guard]].)*
-6. **Research phase:** Read task .md. If `## Research Notes` is empty OR `--refresh` was passed:
-   - `Invoke: invoke_researcher(task_path, refresh=<flag>)`
-   - `Invoke: write_task_section(task_path, section=research_notes, content=<report>, source_persona=Executioner, overwrite=<flag>)`
-   Else skip (use cached notes; surface "Using cached research notes — pass --refresh to re-run.").
-7. **Spec phase:**
-   - `Invoke: invoke_spec_writer(task_path)`
-   - `Invoke: write_task_section(task_path, section=spec, content=<spec>, source_persona=Executioner)`
+6. **Planner phase (research + spec + context pack):** `Invoke: invoke_planner(task_path, refresh=<flag>)`. One planner pass reads the task, the project passport and cached `## Research Notes` (unless `--refresh`), and persists `## Spec` itself via `write_task_section --content-file -`; the spec carries a Responsibility map, a Context pack (CODEMAP.md first when it exists), a Files touched list and a `Build split` line. The coordinator only checks presence with `grep_section`.
+7. **Board + status:**
    - `Invoke: update_kanban(board=<Project>_Board.md, task_link=[[Task_Name]], from_column=Todo, to_column="In Progress")` (idempotent if already there)
    - Update task YAML `status: in_progress` (must match column per § 4)
-8. **HALT for spec gate.** Surface the spec to user. Wait for "approved" keyword OR spec corrections. On corrections: re-run step 7 with the user's notes appended to the spec-writer brief. Loop until approved.
+8. **HALT for spec gate.** Surface the spec to user. Wait for "approved" keyword OR spec corrections. On corrections: re-run step 6 with the user's notes appended to the planner brief (resume the same planner when possible). Loop until approved.
 9. **Build phase:**
-   - `Invoke: invoke_builders(task_path, spec=<approved_spec>)`
+   - `Invoke: invoke_builders(task_path, spec=<approved_spec>)` — one `builder` for the whole slice by default; `backend-builder` then `frontend-builder` only when the spec says `Build split: backend-frontend`.
    - (Builders modify repo source code. Source-code gate must be UNLOCKED, else E4.)
+   - Under `/execute_task`, builder, test-verifier and validator run only targeted tests (tests for the files changed plus the task gateway in its skip mode); the full kit and vault suites run once, at the Verification Gateway (step 12).
 10. **Test phase (loop):**
     - `Invoke: invoke_test_verifier(task_path, story=<acceptance_criteria_from_task>)`
-    - If `run_result == FAIL` and `bugs[] != []`: route bugs back to the appropriate builder (backend or frontend). Re-run step 9 partial (specific builder only), then step 10. Max 3 iterations; on 4th failure → E5: *"Test-loop convergence failure. Halt for manual review."*
+    - If `run_result == FAIL` and `bugs[] != []`: route bugs back to the builder (under a split, the builder owning the failing files). Re-run step 9 partial, then step 10. Max 3 iterations; on 4th failure → E5: *"Test-loop convergence failure. Halt for manual review."*
     - If `run_result == PASS`: continue.
 11. **Validation phase:**
     - `Invoke: invoke_validator(task_path)`
@@ -173,7 +169,7 @@ Constantly monitor the user's prompt for the following `/` commands. If triggere
 - E5 if test loop fails to converge after 3 iterations
 
 **Hard constraints:**
-- Vault writes happen ONLY through `write_task_section` and `update_kanban`. Researcher/planner, spec-writer, test-verifier and validator subagents persist their own task section by calling `write_task_section` directly (Bash scoped to that atom) and return a ≤3-line status; the coordinator verifies it with `grep_section`. Builders never write the vault. No subagent writes the vault by any other path. *(Amended via /graduate 2026-11-08 by [[Thin_Orchestrator_Subagent_Self_Write]].)*
+- Vault writes happen ONLY through `write_task_section` and `update_kanban`. Planner, researcher, spec-writer and validator subagents persist their own task section by calling `write_task_section` directly (Bash scoped by hook to that atom, the briefed task file and the role's own section) and return a ≤3-line status; the coordinator verifies it with `grep_section`. Test-verifier and builders never write the vault; test-verifier returns only its `run_result` status. No subagent writes the vault by any other path. *(Amended via /graduate 2026-11-08 by [[Thin_Orchestrator_Subagent_Self_Write]]; test-verifier and hook scope corrected 2026-11-09 by [[Kernel_Graduate_Chain_Consolidation]].)*
 - One `status: in_progress` task per project. The lock is the only thing preventing two parallel `/execute_task` runs from racing on the board.
 - Researcher cache is the task .md itself, not an out-of-band cache. Single source of truth.
 
@@ -185,7 +181,7 @@ Registered via /graduate 2026-06-15 Phase C ([[Orchestrator_PRD_v2]] §4; built 
 3. **STOP (§3):** MAX_TASKS / budget / no-progress → `run_digest` a stop line + exit.
 4. **Fetch (§4.1):** `fetch_next_task` for the host repo's own project only (`AGENTS.md` Identity, the same resolution `/execute_task` Step 3 uses), and only if that project is in SCOPE; none eligible → idle + exit. *(Amended /graduate 2026-10-30: a tick dispatches into the repo it runs in, so fetching another scope project's task builds in the wrong repo — the 2026-06-26 no_progress incident.)*
 5. **Stamp** ownership (`task_owner`), then **dispatch** `/execute_task`.
-6. **Spec gate (§1.4):** `spec_rubric` + `pm-reviewer` (flag-only). APPROVE → build → **close gate** (validator SHIP + Gateway PASS → auto-`/close_task`). Rubric fail / reviewer flag / close fail → `queue_attention` + skip. The close commits the spec file list onto `orch/<run-id>` (`commit_task`); a commit refusal → `queue_attention` (`close_gate`).
+6. **Spec gate (§1.4):** `spec_rubric` + `pm-reviewer` (flag-only). APPROVE → build → **close gate** (validator SHIP + Gateway PASS → auto-`/close_task`). A reviewer FLAG lists every defect in one pass; the planner revises and the reviewer re-checks only those findings, up to 3 reviewer rounds in total. Rubric fail / reviewer flag still open after 3 rounds / close fail → `queue_attention` + skip. *(Revision loop added via /graduate 2026-11-09 by [[Kernel_Graduate_Chain_Consolidation]], from [[PM_Reviewer_Single_Pass_Findings]].)* The close commits the spec file list onto `orch/<run-id>` (`commit_task`); a commit refusal → `queue_attention` (`close_gate`).
 7. **Failure panel (§4.3):** on a build/test FAIL the inner loop can't resolve, `panel_guard` → `failure-panel` → RETRY_BUILD(hints) | RESPEC | ESCALATE.
 8. **REPORT** (`run_digest` + `append_log` + `emit_telemetry`) and **exit** — one task per tick, never block on a human.
 

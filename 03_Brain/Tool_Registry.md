@@ -170,7 +170,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Called by:** `/execute_task` slash command (steps 6 and 12); promoted as canonical emoji-tolerant section matcher in `Task_Template.md` Verification Gateway prose (per Phase 1 OQ#5 amendment)
 - **Dependencies:** None (uses `awk`)
 - **Mode semantics:** `present` = header exists, body irrelevant. `empty` = header exists AND body is only blockquote, blank, **or HTML-comment** lines (`<!-- ... -->`; anchor markers are infrastructure, not content). `populated` = header exists AND body has non-blockquote, non-HTML-comment content. *(Amended 2026-05-28 from "blockquote/blank lines only" — anchor comments like `<!-- write_task_section section=X -->` would otherwise mark fresh-templated sections as populated and break the `/execute_task` step 6 cache check; user-authorized one-line correction during Phase 2 build, no Architect round-trip; deviation logged in [[TiTan_Kit_Integration_Phase2]] § Deviations during execution.)*
-- **Header regex:** `^##\s+(\S+\s+)?<section name>\s*$` — leading emoji or marker token optional, supports both `## 🔬 Research Notes` and `## Research Notes`
+- **Header match:** via `lib_section.sh` `sec_heading_name` (the template rule) — one leading emoji token is optional, so `## 🔬 Research Notes` and `## Research Notes` both match, but agent sub-headings such as `## Spec: Validator Report` are never taken as the `Validator Report` header. *(Amended via /graduate 2026-11-09 by [[Kernel_Graduate_Chain_Consolidation]], from [[Spec_Gate_And_Test_Isolation_Hardening]]; previously the regex `^##\s+(\S+\s+)?<section name>\s*$`.)*
 - **Script:** `.vault_link/.scripts/grep_section.sh`
 
 ---
@@ -277,6 +277,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Idempotent:** ❌ (always writes; `overwrite=true` replaces existing content)
 - **Persona Gate:** Executioner (enforced via persona-origin guard at runtime, not by declaration alone)
 - **Telemetry:** MANDATORY; `args_hash = sha1(task_path + section + sha1(content) + source_persona + overwrite)` — section identifier is hashed with the rest to avoid leaking content position
+- **Content input:** `--content-file <path>`, or `--content-file -` to read the content from stdin (a single-quoted heredoc). Subagents (planner, researcher, spec-writer, validator) persist their own section this way; the PreToolUse hook `bash_write_task_section_only.sh` limits them to this one command, a `--task-path` under `.vault_link/02_Tasks/<Project>/<Name>.md`, and the section their role owns (planner/spec-writer: `spec`; researcher: `research_notes`; validator: `validator_report`). *(Added via /graduate 2026-11-09 by [[Kernel_Graduate_Chain_Consolidation]], from [[Thin_Orchestrator_Subagent_Self_Write]] and [[Write_Task_Section_Hook_Argument_Scope]].)*
 
 ---
 
@@ -427,6 +428,28 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Telemetry:** MANDATORY (`commit_task` record)
 - **Script:** `.vault_link/.scripts/commit_task.sh`
 - *(Implemented by [[Close_Task_Commit_Step]]; registered via /graduate 2026-11-07. Called by `/close_task` before Populate.)*
+
+---
+
+### `invoke_planner`
+- **Inputs:** `task_path`, `refresh: bool`
+- **Outputs:** `## 📐 Spec` persisted by the planner subagent itself (`write_task_section --section spec --content-file -`), with Responsibility map, Context pack, Files touched and `Build split` line; ≤2-line status (`WROTE spec`, `open_questions: N`).
+- **Errors:** E3 if the spec is not persisted (coordinator checks with `grep_section`).
+- **Persona Gate:** Executioner (coordinator)
+- **Telemetry:** MANDATORY (`invoke_planner`, `auto`, task-attributed)
+- *(Default first agent of `/execute_task` since [[Chain_Consolidation_Planner_Context_Pack]]; registered via /graduate 2026-11-09 by [[Kernel_Graduate_Chain_Consolidation]]. `invoke_researcher` / `invoke_spec_writer` remain for /feature, /feature-prd, /bugfix.)*
+
+---
+
+### `codemap_refresh`
+- **Inputs:** `[--sha <commit>]` (cwd = project repo)
+- **Outputs:** Writes only `<repo>/CODEMAP.md` (structure map, ≤50 files per directory, stable output); prints `CODEMAP: refreshed|unchanged|skipped (...)`. With `--sha`, refreshes only when that commit added, deleted or renamed files.
+- **Errors:** none fatal — best-effort, always exit 0 (non-git dir, bad sha, non-regular target → `skipped`).
+- **Idempotent:** ✅
+- **Persona Gate:** Any
+- **Telemetry:** None (best-effort helper of `/close_task`)
+- **Script:** `.vault_link/.scripts/codemap_refresh.sh`
+- *(Implemented by [[CODEMAP_Per_Project_Refresh_At_Close]]; registered via /graduate 2026-11-09. Called by `/close_task` Step 4.6; the planner reads CODEMAP.md first.)*
 
 ---
 
