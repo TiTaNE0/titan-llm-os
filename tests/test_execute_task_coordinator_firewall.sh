@@ -55,6 +55,10 @@ require_all "DoD2 Step 11" "$TMP/s11" '§ Builder failure'
 
 # --- DoD2: Step 10 behavioural ---
 awk '/^## Step 10 /{f=1} /^## Step 11 /{f=0} f' "$ET" | awk '/^BUILD_CHANGED=/{on=1} on{ if ($0 ~ /^```/) exit; print }' > "$TMP/bc.sh"
+awk '/^## Step 10 /{f=1} /^## Step 11 /{f=0} f' "$ET" | awk '/^BUILD_BASES=/{on=1} on{ if ($0 ~ /^```/) exit; print }' > "$TMP/bb.sh"
+nonempty "DoD2 base-record block extracted" "$(cat "$TMP/bb.sh")"
+sed 's#git -C "$t" diff --name-only "$BUILD_BASE" -- "$a" 2>/dev/null;##' "$TMP/bc.sh" > "$TMP/bc_nobase.sh"
+grep -qF 'diff --name-only' "$TMP/bc_nobase.sh" && fail "DoD2 RED no-base block still has the diff" || pass "DoD2 RED no-base block built"
 nonempty "DoD2 builder-check block extracted" "$(cat "$TMP/bc.sh")"
 sed 's#on && /^\#/{on=0}##' "$TMP/bc.sh" > "$TMP/bc_red.sh"
 grep -qF 'on=0' "$TMP/bc_red.sh" && fail "DoD2 RED block still contains the stop rule" || pass "DoD2 RED block built (stop rule removed)"
@@ -74,7 +78,7 @@ cat > "$TMP/task.md" <<EOF
 - [EDIT] \`b.txt\`
 EOF
 runbc() { # script ; prints result
-  (cd "$R" && TASK_PATH="$TMP/task.md" bash -c "$(cat "$1"); printf %s \"\$BUILD_CHANGED\"" 2>/dev/null)
+  (cd "$R" && TASK_PATH="${TASKF:-$TMP/task.md}" bash -c "$(cat "$TMP/bb.sh")"$'\n'"${2:-:}"$'\n'"$(cat "$1"); printf %s \"\$BUILD_CHANGED\"" 2>/dev/null)
 }
 reset() { git -C "$R" checkout -q -- . ; git -C "$R" clean -fdq; git -C "$R2" checkout -q -- .; }
 empty "DoD2 clean tree -> empty" "$(runbc "$TMP/bc.sh")"
@@ -85,6 +89,13 @@ echo 2 >> "$R/a.txt"; nonempty "DoD2 a.txt modified -> non-empty" "$(runbc "$TMP
 echo 2 > "$R/sub/new.txt"; nonempty "DoD2 sub/new.txt created -> non-empty" "$(runbc "$TMP/bc.sh")"; reset
 echo 2 >> "$R/dir with space/f.txt"; nonempty "DoD2 spaced-dir file modified -> non-empty" "$(runbc "$TMP/bc.sh")"; reset
 echo 2 >> "$R2/x.txt"; nonempty "DoD2 second-repo file modified -> non-empty" "$(runbc "$TMP/bc.sh")"; reset
+CM='echo 2 >> a.txt; git commit -qam builder_commit'
+nonempty "DoD2 listed file changed then committed -> non-empty" "$(runbc "$TMP/bc.sh" "$CM")"; git -C "$R" reset -q --hard HEAD~1
+empty "DoD2 RED: committed change is invisible without the BUILD_BASE diff" "$(runbc "$TMP/bc_nobase.sh" "$CM")"; git -C "$R" reset -q --hard HEAD~1
+mkdir -p "$R/gone"; echo 1 > "$R/gone/f.txt"; git -C "$R" add -A; git -C "$R" commit -qm gone
+printf '### Files touched\n- [DELETE] `gone/f.txt`\n' > "$TMP/task_del.md"
+nonempty "DoD2 [DELETE] whole dir removed (uncommitted) -> non-empty" "$(TASKF="$TMP/task_del.md" runbc "$TMP/bc.sh" 'rm -rf gone')"; reset
+nonempty "DoD2 [DELETE] whole dir removed and committed -> non-empty" "$(TASKF="$TMP/task_del.md" runbc "$TMP/bc.sh" 'git rm -rqf gone; git commit -qm rmdir')"; git -C "$R" reset -q --hard HEAD~1
 
 # --- DoD3: Builder failure section ---
 c="$(grep -cxF '## Builder failure' "$ET")"; eq "DoD3 exactly one '## Builder failure' heading" "$c" 1
