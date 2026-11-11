@@ -54,8 +54,8 @@ n="$(grep -o 'builder check' "$TMP/s10" | wc -l | tr -d ' ')"
 require_all "DoD2 Step 11" "$TMP/s11" '§ Builder failure'
 
 # --- DoD2: Step 10 behavioural ---
-awk '/^## Step 10 /{f=1} /^## Step 11 /{f=0} f' "$ET" | awk '/^BUILD_CHANGED=/{on=1} on{ if ($0 ~ /^```/) exit; print }' > "$TMP/bc.sh"
-awk '/^## Step 10 /{f=1} /^## Step 11 /{f=0} f' "$ET" | awk '/^BUILD_BASES=/{on=1} on{ if ($0 ~ /^```/) exit; print }' > "$TMP/bb.sh"
+awk '/^## Step 10 /{f=1} /^## Step 11 /{f=0} f' "$ET" | awk '/^```/{if(b~/BUILD_CHANGED=/)printf "%s",b; b=""; next} {b=b $0 "\n"}' > "$TMP/bc.sh"
+awk '/^## Step 10 /{f=1} /^## Step 11 /{f=0} f' "$ET" | awk '/^```/{if(b~/BB_FILE=/&&b!~/BUILD_CHANGED=/)printf "%s",b; b=""; next} {b=b $0 "\n"}' > "$TMP/bb.sh"
 nonempty "DoD2 base-record block extracted" "$(cat "$TMP/bb.sh")"
 sed 's#git -C "$t" diff --name-only "$BUILD_BASE" -- "$a" 2>/dev/null;##' "$TMP/bc.sh" > "$TMP/bc_nobase.sh"
 grep -qF 'diff --name-only' "$TMP/bc_nobase.sh" && fail "DoD2 RED no-base block still has the diff" || pass "DoD2 RED no-base block built"
@@ -77,8 +77,12 @@ cat > "$TMP/task.md" <<EOF
 ### Risks
 - [EDIT] \`b.txt\`
 EOF
-runbc() { # script ; prints result
-  (cd "$R" && TASK_PATH="${TASKF:-$TMP/task.md}" bash -c "$(cat "$TMP/bb.sh")"$'\n'"${2:-:}"$'\n'"$(cat "$1"); printf %s \"\$BUILD_CHANGED\"" 2>/dev/null)
+runbc() { # script [builder-cmd] ; record, builder, check each in its own bash -c (agent Bash calls share no shell state)
+  local tmpd; tmpd="$(mktemp -d "$TMP/tmpd.XXXXXX")"
+  (cd "$R" && export TMPDIR="$tmpd" TASK_PATH="${TASKF:-$TMP/task.md}"
+    [ -n "${NOREC:-}" ] || bash -c "$(cat "$TMP/bb.sh")" 2>/dev/null
+    bash -c "${2:-:}" >/dev/null 2>&1
+    bash -c "$(cat "$1"); printf %s \"\$BUILD_CHANGED\"" 2>"$tmpd/err"; cp "$tmpd/err" "$TMP/last_err")
 }
 reset() { git -C "$R" checkout -q -- . ; git -C "$R" clean -fdq; git -C "$R2" checkout -q -- .; }
 empty "DoD2 clean tree -> empty" "$(runbc "$TMP/bc.sh")"
@@ -96,6 +100,9 @@ mkdir -p "$R/gone"; echo 1 > "$R/gone/f.txt"; git -C "$R" add -A; git -C "$R" co
 printf '### Files touched\n- [DELETE] `gone/f.txt`\n' > "$TMP/task_del.md"
 nonempty "DoD2 [DELETE] whole dir removed (uncommitted) -> non-empty" "$(TASKF="$TMP/task_del.md" runbc "$TMP/bc.sh" 'rm -rf gone')"; reset
 nonempty "DoD2 [DELETE] whole dir removed and committed -> non-empty" "$(TASKF="$TMP/task_del.md" runbc "$TMP/bc.sh" 'git rm -rqf gone; git commit -qm rmdir')"; git -C "$R" reset -q --hard HEAD~1
+
+empty "DoD2 RED: record file absent -> committed change not seen" "$(NOREC=1 runbc "$TMP/bc.sh" "$CM")"; git -C "$R" reset -q --hard HEAD~1
+grep -q 'build bases file missing' "$TMP/last_err" && pass "DoD2 missing record file is reported explicitly" || fail "DoD2 missing record file not reported"
 
 # --- DoD3: Builder failure section ---
 c="$(grep -cxF '## Builder failure' "$ET")"; eq "DoD3 exactly one '## Builder failure' heading" "$c" 1

@@ -25,6 +25,9 @@ cat > "$T" <<'EOF'
 - touching `docs/notes.md` is out of scope
 - [EDIT] `README.md`
 EOF
+BB="$(fenced "$TMP/s10" '^BB_FILE=')"
+export TMPDIR="$TMP"
+run_block "$BB" TASK_PATH="$T"
 check() { run_block "$BC"'
 printf %s "$BUILD_CHANGED"' TASK_PATH="$T"; }
 reset() { git -C "$P" checkout -q -- .; git -C "$P" clean -fdq -e .vault_link; }
