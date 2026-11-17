@@ -14,10 +14,10 @@ active_modules:
   - twitter
   - linkedin   # Phase E (2026-05-07) — vault-driven posting via anchor_workflow
   - tiktok     # activated 2026-05-17; /new_tiktok macro implemented
+  - article    # activated 2026-11-11; SEO articles for titan_proxy & long-form
 
 inactive_modules:
   - video
-  - article
   - landing   # stub registered 2026-05-17; activate via /enable_module landing
 
 accounts:

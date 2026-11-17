@@ -144,7 +144,7 @@ fi
 # 5. Allowlist: command must start with a recognized safe leading binary, bounded
 # by whitespace or end-of-string so prefix matches are impossible (e.g. 'shutdown'
 # must not pass via '^sh', 'dockerd' via '^docker', 'gitleaks' via '^git').
-ALLOWLIST='^((bash|sh|npm|pnpm|npx|uv|make|go|grep|git|curl|docker|python3?|pytest|xcodebuild|sqlite3|test|cd)([[:space:]]|$)|\./|\.vault_link/)'
+ALLOWLIST='^((bash|sh|node|npm|pnpm|npx|uv|make|go|grep|git|curl|docker|python3?|pytest|xcodebuild|sqlite3|test|cd)([[:space:]]|$)|\./|\.vault_link/)'
 if ! [[ "$TEST_CMD" =~ $ALLOWLIST ]]; then
   echo "E3: gateway command does not match allowlist; refused: $TEST_CMD" >&2
   emit_err E3; exit 3

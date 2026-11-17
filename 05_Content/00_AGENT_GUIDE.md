@@ -83,7 +83,7 @@ If all three checks pass: proceed to § 3.
 | LinkedIn | `linkedin` | `linkedin_` | active |
 | TikTok | `tiktok` | `tiktok_` | active |
 | Landing page | `landing` | `landing_` | inactive |
-| Article | `article` | `article_` | inactive |
+| Article | `article` | `article_` | active |
 
 **Indexing rule:** `type:` is the absolute source of truth for channel routing. The file prefix is a human visual fallback only. Never derive the channel from the filename. Always read frontmatter.
 
@@ -192,8 +192,12 @@ To activate a module:
 - One CTA. Hero block must work standalone without scrolling.
 - Guard fires if `landing` not in `active_modules`
 
-### article (inactive)
-- No template yet. Guard fires unconditionally until template and macro exist.
+### article (active)
+- Template: `modules/article/templates/Article_Template.md`
+- Channel tactics & gates: `accounts/<account>/channels/articles/strategy.md` and `drafting_contract.md`
+- Deterministic gate: `accounts/<account>/channels/articles/bin/gate_article.sh`
+- Frontmatter: `type: article`, `persona:`, `section:`, `slug:`, `publishAt:`
+- Guard fires if `article` not in `active_modules`
 
 ---
 
