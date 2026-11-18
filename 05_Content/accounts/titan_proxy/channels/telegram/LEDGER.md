@@ -28,3 +28,7 @@ Single source of truth for all posts registered in `/Users/titane0/Programming/t
 | `ch_13` | rotational | trial_to_paid | false | `ch_13` | - | 2026-11-18 | ready |
 | `art_public_vs_private` | rotational | article_bridge | true | `article_public-vs-private-proxy` | `public-vs-private-proxy` | 2026-11-18 | ready |
 | `art_stars_guide` | rotational | article_bridge | false | `article_telegram-stars-payment-guide` | `telegram-stars-payment-guide` | 2026-11-18 | ready |
+| `ch_14` | rotational | retention | true | `ch_14` | - | 2026-11-18 | ready |
+| `art_basic_family_premium` | rotational | article_bridge | true | `article_basic-family-premium-difference` | `basic-family-premium-difference` | 2026-11-18 | ready |
+| `art_iphone_setup` | rotational | article_bridge | true | `article_how-to-setup-proxy-iphone` | `how-to-setup-proxy-iphone` | 2026-11-18 | ready |
+| `news_20261118` | rotational | news_brief | true | `ch_news_20261118` | - | 2026-11-18 | ready |
