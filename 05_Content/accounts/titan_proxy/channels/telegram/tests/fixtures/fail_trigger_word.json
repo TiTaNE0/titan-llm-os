@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "posts": [
+    {
+      "key": "ch_test",
+      "role": "rotational",
+      "rubric": "utility",
+      "silent": true,
+      "enabled": true,
+      "cta_text": "Открыть бота",
+      "start_param": "ch_test",
+      "html": "<b>Telegram без лишних программ на телефоне.</b>\n\nВнешние утилиты для обхода ограничений сажают батарею. Titan работает внутри самого мессенджера напрямую."
+    }
+  ]
+}

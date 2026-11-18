@@ -80,6 +80,14 @@ channels:
     status: active
     file_pattern: "[[channels/landing/<persona>]]"
     code_repo: ~/Programming/titan-proxy-landings
+  articles:
+    status: active
+    file_pattern: "[[channels/articles/strategy]]"
+    code_repo: ~/Programming/titan-proxy-landings
+  telegram:
+    status: active
+    file_pattern: "[[channels/telegram/strategy]]"
+    code_repo: ~/Programming/titan-proxy-bot
   video:
     status: stub
     file_pattern: "[[channels/video/<persona>]]"

@@ -29,7 +29,7 @@ created: 2026-11-11
 4. `telegram-stars-payment-guide` — Как оплатить подписку Telegram Stars: пошаговая инструкция
 5. `proxy-service-checklist` — Чек-лист: 7 вопросов к любому прокси-сервису перед оплатой
 6. `proxy-battery-drain-comparison` — Прокси и заряд батареи смартфона: влияние фоновых процессов
-7. `device-limit-guide` — Сколько устройств покрывает один доступ и как выбрать тариф
+7. `device-limit-guide` — На сколько личных устройств можно добавить ссылку и как выбрать плотность сервера (`Basic` / `Family` / `Premium`)
 8. `media-buffering-telegram-fix` — Почему в Telegram не загружаются видео и как это исправить
 
 *(Legacy: `vpn-vs-proxy` — Выделенный прокси или VPN для Telegram: сравнение)*

@@ -51,10 +51,10 @@ Telegram-native network optimization billed in XTR, no third-party app, calls ex
 
 ## Tariff data (canonical reference)
 
-All copy that mentions tier capacity must match `src/data/tariffs.ts` exactly:
+All copy that mentions tier capacity must match `src/data/tariffs.ts` exactly (server seat density, NOT a per-user device limit — one personal link works on all of a single subscriber's own devices without sharing it externally):
 
-- Basic — До 50 устройств — Идеально для чтения новостных лент. Совместный, но стабильно быстрый мост связи.
-- Family — До 7 устройств — Личный канал для вас и ваших близких. Никто посторонний не замедлит вашу связь. (recommended)
+- Basic — До 50 мест на сервере (`До 50 мест`) — Идеально для чтения новостных лент. Совместный, но стабильно быстрый мост связи.
+- Family — До 7 мест на сервере (`До 7 мест`) — Быстрый сервер с минимумом соседей: высокий запас скорости для видео и тяжёлых файлов. (recommended)
 - Premium — Личный выделенный сервер — Вся пропускная способность сервера принадлежит только вам. Абсолютный комфорт без компромиссов.
 
 ## Hard limitation (canonical reference)

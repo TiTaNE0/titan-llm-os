@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "posts": [
+    {
+      "key": "ch_offer",
+      "role": "rotational",
+      "rubric": "offer",
+      "silent": true,
+      "enabled": true,
+      "cta_text": "Открыть бота",
+      "start_param": "ch_offer",
+      "html": "<b>Три уровня доступа Titan на 30 дней.</b>\n\nBasic (До 50 мест), Family (До 7 мест) и личный сервер Premium — актуальные условия в @TitanTGProxy_bot.\n\nВажно: аудио- и видеозвонки не поддерживаются."
+    }
+  ]
+}

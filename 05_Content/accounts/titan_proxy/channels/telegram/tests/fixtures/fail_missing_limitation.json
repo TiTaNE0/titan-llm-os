@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "posts": [
+    {
+      "key": "ch_test",
+      "role": "rotational",
+      "rubric": "offer",
+      "silent": true,
+      "enabled": true,
+      "cta_text": "Открыть бота",
+      "start_param": "ch_test",
+      "html": "<b>Тарифы Titan на 30 дней под ваши задачи.</b>\n\nBasic, Family и личный сервер Premium уже доступны внутри @TitanTGProxy_bot."
+    }
+  ]
+}
