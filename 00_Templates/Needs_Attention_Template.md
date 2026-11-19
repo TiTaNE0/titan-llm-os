@@ -2,8 +2,8 @@
 
 > Async escalation queue (Orchestrator A3). The autonomous Orchestrator loop, the
 > spec-gate PM reviewer, and the Phase C failure panel append here instead of
-> blocking the whole run — humans are **on**-the-loop, not **in**-the-loop. Only the
-> escalated task waits; the loop moves on to the next one.
+> blocking the whole run — humans are **on**-the-loop, not **in**-the-loop. An
+> escalation on the host project's in_progress task holds its lock and ends the run (stop line); recovery is a new run after the human resolves all open non-orphaned_lock entries for that task. A todo-task escalation does not hold the lock.
 >
 > **Do not hand-add entry lines.** Append via `.vault_link/.scripts/queue_attention.sh`
 > so format and dedup stay consistent. You MAY resolve entries by hand (see below).
