@@ -141,10 +141,27 @@ if [[ "$FIRST_TOKEN" =~ ^(rm|dd|mkfs|shred|truncate|kill)$ ]]; then
   emit_err E3; exit 3
 fi
 
+# 4b. Repo-relative leading tokens (./, .venv/bin/, .vault_link/) must be plain
+# literal paths: any character outside [A-Za-z0-9._/+-] (quotes, backslash, $, etc.)
+# is refused so bash cannot expand it into something else, and a literal '..' path
+# segment is refused so the path cannot climb out of the repo. Bare-binary leading
+# tokens are unaffected. This does not constrain what the later words of the command do.
+if [[ "$FIRST_TOKEN" == ./* || "$FIRST_TOKEN" == .venv/bin/* || "$FIRST_TOKEN" == .vault_link/* ]]; then
+  if [[ "$FIRST_TOKEN" =~ [^A-Za-z0-9._/+-] ]]; then
+    echo "E3: unsafe character in repo-relative leading token '$FIRST_TOKEN': $TEST_CMD" >&2
+    emit_err E3; exit 3
+  fi
+fi
+if [[ "/$FIRST_TOKEN/" == */../* ]]; then
+  echo "E3: '..' path segment denied in leading token '$FIRST_TOKEN': $TEST_CMD" >&2
+  emit_err E3; exit 3
+fi
+
 # 5. Allowlist: command must start with a recognized safe leading binary, bounded
 # by whitespace or end-of-string so prefix matches are impossible (e.g. 'shutdown'
-# must not pass via '^sh', 'dockerd' via '^docker', 'gitleaks' via '^git').
-ALLOWLIST='^((bash|sh|node|npm|pnpm|npx|uv|make|go|grep|git|curl|docker|python3?|pytest|xcodebuild|sqlite3|test|cd)([[:space:]]|$)|\./|\.vault_link/)'
+# must not pass via '^sh', 'dockerd' via '^docker', 'gitleaks' via '^git'), OR a
+# repo-relative prefix: ./, .venv/bin/, .vault_link/ (4b already refused '..' segments).
+ALLOWLIST='^((bash|sh|node|npm|pnpm|npx|uv|make|go|grep|git|curl|docker|python3?|pytest|xcodebuild|sqlite3|test|cd)([[:space:]]|$)|\./|\.venv/bin/|\.vault_link/)'
 if ! [[ "$TEST_CMD" =~ $ALLOWLIST ]]; then
   echo "E3: gateway command does not match allowlist; refused: $TEST_CMD" >&2
   emit_err E3; exit 3

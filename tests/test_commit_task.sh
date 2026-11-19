@@ -6,7 +6,7 @@
 # feature branch) and drives .scripts/commit_task.sh against a task file whose
 # Spec lists the files touched. Asserts: only listed files are committed, a
 # task/<slug> branch is created on the default branch, nothing is pushed, the
-# Orchestrator refuses out-of-list tracked changes, and the refusal paths.
+# Orchestrator reports (not commits) out-of-list tracked changes, and the refusal paths.
 #
 # Runs against TEMP COPIES of the atom in an isolated temp vault; every git
 # repo lives under mktemp. Never touches the live vault or kit repos.
@@ -160,21 +160,87 @@ eq "$(git -C "$R3" branch --list 'task/*' | wc -l | tr -d ' ')" 0 "case3 no task
 eq "$(git -C "$R3" rev-parse 'HEAD~1')" "$HEAD3" "case3 one new commit on feature/x"
 eq "$(committed_files "$R3")" "a.txt,b.txt,c.txt" "case3 committed files"
 
-# --- 4. Orchestrator + out-of-list TRACKED change: refused, nothing changed
+# --- 4. Orchestrator + out-of-list TRACKED change: not refused, left dirty, reported
 R4="$TMP/r4"
 mk_repo "$R4" main
 dirty_listed "$R4"
 printf 'd1\n' > "$R4/d.txt"
-HEAD4="$(git -C "$R4" rev-parse HEAD)"
-BR4="$(git -C "$R4" branch --list | sort | paste -sd, -)"
 run_ct "$R4" "${CT[@]}" --run-id run-123
-eq "$RC" 3 "case4 exit code"
-eq "$(wc -l < "$TMP/err" | tr -d ' ')" 1 "case4 stderr is exactly one line"
-grep -q '^E3: out-of-list tracked changes: .*d.txt' "$TMP/err" || fail "case4 stderr message ($(cat "$TMP/err"))"
-eq "$(git -C "$R4" rev-parse HEAD)" "$HEAD4" "case4 HEAD unchanged"
-eq "$(git -C "$R4" branch --list | sort | paste -sd, -)" "$BR4" "case4 branches unchanged"
-git -C "$R4" diff --cached --quiet || fail "case4 index touched"
-git -C "$R4" show-ref --verify --quiet refs/heads/orch/run-123 && fail "case4 orch branch created"
+eq "$RC" 0 "case4 exit code (stderr: $(cat "$TMP/err"))"
+eq "$(git -C "$R4" symbolic-ref --short HEAD)" "orch/run-123" "case4 orch branch created with d.txt dirty"
+eq "$(committed_files "$R4")" "a.txt,b.txt,c.txt" "case4 only the list committed"
+eq "$(git -C "$R4" diff --name-only)" "d.txt" "case4 d.txt still modified and unstaged"
+git -C "$R4" diff --cached --quiet || fail "case4 index not clean"
+grep -qx 'IGNORED: d.txt (out-of-list, not committed)' "$TMP/out" || fail "case4 IGNORED line ($(cat "$TMP/out"))"
+grep -qx 'COMMIT_BRANCH=orch/run-123' "$TMP/out" || fail "case4 COMMIT_BRANCH marker"
+grep -qx 'COMMIT_STAGED=3' "$TMP/out" || fail "case4 COMMIT_STAGED marker"
+eq "$(git -C "$R4" rev-parse 'HEAD~1')" "$(git -C "$R4" rev-parse main)" "case4 orch branch cut from main"
+
+# --- 4b. Orchestrator: existing orch branch with a different tree; switch succeeds with others' edits dirty
+R4B="$TMP/r4b"
+mk_repo "$R4B" main
+printf 'x\n' > "$R4B/other file.txt"; git -C "$R4B" add -A; git -C "$R4B" commit -q -m other
+git -C "$R4B" switch -q -c orch/run-9
+printf 'c-orch\n' > "$R4B/c.txt"; git -C "$R4B" commit -q -am orch-work
+git -C "$R4B" switch -q main
+printf 'x1\n' > "$R4B/other file.txt"; printf 'd1\n' > "$R4B/d.txt"
+printf 'a1\n' > "$R4B/a.txt"
+run_ct "$R4B" "${CT[@]}" --run-id run-9
+eq "$RC" 0 "case4b exit code (stderr: $(cat "$TMP/err"))"
+eq "$(git -C "$R4B" symbolic-ref --short HEAD)" "orch/run-9" "case4b switched to existing orch branch"
+eq "$(committed_files "$R4B")" "a.txt" "case4b listed dirty file committed alone"
+eq "$(cat "$R4B/c.txt")" "c-orch" "case4b worktree now holds the orch branch tree"
+grep -qx 'IGNORED: other file.txt (out-of-list, not committed)' "$TMP/out" || fail "case4b IGNORED path with spaces"
+grep -qx 'IGNORED: d.txt (out-of-list, not committed)' "$TMP/out" || fail "case4b IGNORED d.txt"
+eq "$(git -C "$R4B" diff --name-only | paste -sd, -)" "d.txt,other file.txt" "case4b others still dirty"
+
+# --- 4c. Existing orch branch whose switch would overwrite others' edits: commit without switching
+R4C="$TMP/r4c"
+mk_repo "$R4C" main
+git -C "$R4C" switch -q -c orch/run-9
+printf 'd-orch\n' > "$R4C/d.txt"; printf 'e-orch\n' > "$R4C/e.txt"; git -C "$R4C" add -A; git -C "$R4C" commit -q -m orch-work
+git -C "$R4C" switch -q main
+printf 'd-human\n' > "$R4C/d.txt"; printf 'e-human\n' > "$R4C/e.txt"
+printf 'a1\n' > "$R4C/a.txt"
+ORCH_BEFORE="$(git -C "$R4C" rev-parse orch/run-9)"
+run_ct "$R4C" "${CT[@]}" --run-id run-9
+eq "$RC" 0 "case4c exit code (stderr: $(cat "$TMP/err"))"
+eq "$(git -C "$R4C" symbolic-ref --short HEAD)" "main" "case4c HEAD stays on main"
+eq "$(git -C "$R4C" rev-parse 'orch/run-9~1')" "$ORCH_BEFORE" "case4c orch branch advanced by one commit"
+eq "$(git -C "$R4C" show --name-only --format= orch/run-9 | paste -sd, -)" "a.txt" "case4c commit holds only the list"
+eq "$(git -C "$R4C" show orch/run-9:d.txt)" "d-orch" "case4c others' edits not committed"
+eq "$(cat "$R4C/d.txt")" "d-human" "case4c worktree edit intact"
+eq "$(cat "$R4C/a.txt")" "a1" "case4c listed file intact in worktree"
+grep -qx 'NOTE: committed onto orch/run-9 without switching (worktree has overlapping edits)' "$TMP/out" || fail "case4c NOTE ($(cat "$TMP/out"))"
+grep -qx 'COMMIT_BRANCH=orch/run-9' "$TMP/out" || fail "case4c COMMIT_BRANCH"
+grep -qx 'COMMIT_STAGED=1' "$TMP/out" || fail "case4c COMMIT_STAGED"
+grep -qx 'IGNORED: d.txt (out-of-list, not committed)' "$TMP/out" || fail "case4c IGNORED d.txt"
+git -C "$R4C" log -1 --format=%b orch/run-9 | grep -qF 'Orchestrator run: run-9' || fail "case4c commit body"
+
+# --- 4d. Same fallback when an untracked file would be overwritten by the switch
+R4D="$TMP/r4d"
+mk_repo "$R4D" main
+git -C "$R4D" switch -q -c orch/run-9
+printf 'e-orch\n' > "$R4D/e.txt"; git -C "$R4D" add -A; git -C "$R4D" commit -q -m orch-work
+git -C "$R4D" switch -q main
+printf 'e-human\n' > "$R4D/e.txt"; printf 'a1\n' > "$R4D/a.txt"
+run_ct "$R4D" "${CT[@]}" --run-id run-9
+eq "$RC" 0 "case4d exit code (stderr: $(cat "$TMP/err"))"
+eq "$(git -C "$R4D" symbolic-ref --short HEAD)" "main" "case4d HEAD stays on main"
+eq "$(git -C "$R4D" show --name-only --format= orch/run-9 | paste -sd, -)" "a.txt" "case4d commit holds only the list"
+eq "$(cat "$R4D/e.txt")" "e-human" "case4d untracked file intact"
+
+# --- 4e. A hook that sweeps others' edits into the commit: reported, not hidden as IGNORED
+R4E="$TMP/r4e"
+mk_repo "$R4E" main
+printf '#!/bin/sh\ngit add -u\n' > "$R4E/.git/hooks/pre-commit"; chmod +x "$R4E/.git/hooks/pre-commit"
+printf 'a1\n' > "$R4E/a.txt"; printf 'd1\n' > "$R4E/d.txt"
+run_ct "$R4E" "${CT[@]}" --run-id run-5
+eq "$RC" 0 "case4e exit code (stderr: $(cat "$TMP/err"))"
+eq "$(committed_files "$R4E")" "a.txt,d.txt" "case4e hook swept d.txt"
+grep -qx 'WARN: swept into commit: d.txt' "$TMP/out" || fail "case4e swept warning ($(cat "$TMP/out"))"
+if grep -q '^IGNORED: d.txt' "$TMP/out"; then fail "case4e swept file wrongly reported IGNORED"; fi
+grep -qx 'COMMIT_STAGED=2' "$TMP/out" || fail "case4e COMMIT_STAGED counts the real commit"
 
 # --- 5. Orchestrator + only UNTRACKED out-of-list: commits on orch/<run-id>
 R5="$TMP/r5"

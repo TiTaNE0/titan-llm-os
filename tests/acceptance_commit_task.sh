@@ -266,7 +266,7 @@ eq "only the destination is committed" "$(committed)" "renamed.txt"
 eq "old.txt deletion left unstaged" "$(g status --porcelain=v1 old.txt)" " D old.txt"
 has "old.txt reported as out-of-list" "$OUT" "WARN_OUT_OF_LIST: old.txt"
 
-# R4: Orchestrator, unstaged rename, only destination listed -> tracked delete out-of-list
+# R4: Orchestrator, unstaged rename, only destination listed -> tracked delete is ignored, not refused
 mk_repo main
 mk_task Ren_Four <<'EOF'
 - [NEW] `renamed.txt`
@@ -274,8 +274,10 @@ EOF
 mv "$REPO/old.txt" "$REPO/renamed.txt"
 settle; S0="$(snap)"
 irun Ren_Four --run-id r4
-rc_is "Orchestrator, rename with origin unlisted" 3
-eq "refusal changed nothing" "$(snap)" "$S0"
+rc_is "Orchestrator, rename with origin unlisted" 0
+eq "only the destination is committed" "$(committed)" "renamed.txt"
+eq "old.txt deletion left unstaged" "$(g status --porcelain=v1 old.txt)" " D old.txt"
+has "old.txt reported IGNORED" "$OUT" "IGNORED: old.txt (out-of-list, not committed)"
 
 # R5: Orchestrator, staged rename, both ends listed
 mk_repo main
@@ -619,7 +621,7 @@ eq "no forbidden git subcommand or flag in the call log" "$FORBID" "0"
 [ -s "$GITLOG" ] && pass "git shim actually observed the atom's calls ($(wc -l < "$GITLOG" | tr -d ' ') calls)" || fail "git shim saw no calls (harness broken)"
 
 # ===========================================================================
-section "(d) Orchestrator refusals leave HEAD / branches / index / worktree byte-identical"
+section "(d) Orchestrator refusals and no-ops leave HEAD / branches / index / worktree byte-identical"
 # ===========================================================================
 refusal() { # refusal <desc> <expected-rc>  (call after settle+snap into S0)
   rc_is "$1" "$2"
@@ -632,12 +634,13 @@ mk_task Orch_Tracked <<'EOF'
 - [EDIT] `a.txt`
 EOF
 echo x >> "$REPO/a.txt"; echo x >> "$REPO/d.txt"
-settle; S0="$(snap)"
 irun Orch_Tracked --run-id run-1
-refusal "tracked out-of-list change" 3
-eq "E3 on one stderr line" "$(errlines)" "1"
-has "message starts E3 and names d.txt" "$ERR" "E3: out-of-list tracked changes: d.txt"
-eq "stdout empty on refusal" "$OUT" ""
+rc_is "tracked out-of-list change does not block" 0
+eq "on orch branch" "$(cur_branch)" "orch/run-1"
+eq "only the listed file is committed" "$(committed)" "a.txt"
+eq "d.txt still dirty and unstaged" "$(g status --porcelain=v1 d.txt)" " M d.txt"
+has "d.txt reported IGNORED" "$OUT" "IGNORED: d.txt (out-of-list, not committed)"
+has "COMMIT_BRANCH marker kept" "$OUT" "COMMIT_BRANCH=orch/run-1"
 
 mk_repo main
 mk_task Orch_Tracked_Clean <<'EOF'
@@ -646,7 +649,11 @@ EOF
 echo x >> "$REPO/d.txt"
 settle; S0="$(snap)"
 irun Orch_Tracked_Clean --run-id run-1
-refusal "tracked out-of-list change while nothing listed is dirty (no no-op loophole)" 3
+rc_is "tracked out-of-list change while nothing listed is dirty" 0
+has "no-op reported" "$OUT" "COMMIT_SHA=none"
+eq "no-op: snapshot identical" "$(snap)" "$S0"
+eq "no orch branch created" "$(g branch --list 'orch/*')" ""
+has "d.txt reported IGNORED" "$OUT" "IGNORED: d.txt (out-of-list, not committed)"
 
 mk_repo main
 mk_task Orch_Staged <<'EOF'

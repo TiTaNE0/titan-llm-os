@@ -362,7 +362,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ### `panel_guard`
 - **Inputs:** `--task <name>` `--run-id <id>` `[--state-file <path>]`
-- **Outputs:** Enforces the failure panel convenes at most once per task per run (§4.3). First convene exit 0; repeat exit 3 (escalate, do not re-panel).
+- **Outputs:** Enforces the failure panel convenes at most once per task per run (§4.3). First convene exit 0; repeat exit 3 (escalate, do not re-panel). Also used by `/orchestrator_tick` Step 4 as the once-per-run dispatch guard (`--state-file 04_Logs/Orchestrator/.dispatched.<run_id>`).
 - **Errors:** E2 bad args.
 - **Idempotent:** ❌ (records convene state). **Persona Gate:** any. **Telemetry:** none.
 - **Script:** `.vault_link/.scripts/panel_guard.sh`
@@ -375,8 +375,8 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Script:** `.vault_link/.scripts/task_owner.sh`
 
 ### `stale_lock_scan`
-- **Inputs:** `--project <name>` `--live-run-id <id>` `[--tasks-dir <path>]`
-- **Outputs:** Prints in_progress, non-epic task basenames carrying a DEAD (≠ live) `orchestrator_run_id` — orphans to queue (§6). Unstamped / live-owned / todo / epic are skipped.
+- **Inputs:** `--project <name>` `--live-run-id <id>` `[--tasks-dir <path>]` `[--route]` `[--queue-file <path>]`
+- **Outputs:** Prints in_progress, non-epic task basenames carrying a DEAD (≠ live) `orchestrator_run_id` — orphans to queue (§6). Unstamped / live-owned / todo / epic are skipped. With `--route`, prints one TAB-separated verdict line for the project's lock holder: `free` | `human<TAB>H` (any holder unstamped) | `escalated<TAB>H<TAB>state` (open non-orphaned_lock entry under `## Open` in the queue file) | `resume<TAB>H<TAB>owner_run_id`.
 - **Errors:** E2 bad args / dir missing.
 - **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
 - **Script:** `.vault_link/.scripts/stale_lock_scan.sh`
@@ -407,7 +407,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 ### `run_gateway`
 - **Inputs:** `--task-path <abs>` `--source-persona <name>` `[--orchestrator-mode]`
 - **Outputs:** Self-extracts the `**Test Command:**` from the task file's `§ 🧪 Verification Gateway` (NEVER accepts the command as an argument — single source of truth is the file), validates it, executes it via `bash -c`, and prints the pinned stdout contract: `GATEWAY_CMD=<cmd>` / `GATEWAY_EXIT=<inner exit>` / `--- GATEWAY OUTPUT ---` / combined output. Atom exit 0 means "gateway ran"; the inner result is `GATEWAY_EXIT`.
-- **Validation chain (all E3):** command substitution (`$(` or backtick) denied anywhere; absolute-path leading token denied; destructive leading tokens (`rm dd mkfs shred truncate kill`) denied; first-token-bounded allowlist (`bash sh npm pnpm npx uv make go grep git curl docker python(3) pytest xcodebuild sqlite3 test cd` + `./` and `.vault_link/` path prefixes). Under `--orchestrator-mode`, `gateway_provenance != human` in task frontmatter (absent = `human`) → E3 refuse.
+- **Validation chain (all E3):** command substitution (`$(` or backtick) denied anywhere; absolute-path leading token denied; destructive leading tokens (`rm dd mkfs shred truncate kill`) denied; first-token-bounded allowlist (`bash sh node npm pnpm npx uv make go grep git curl docker python(3) pytest xcodebuild sqlite3 test cd` + `./`, `.venv/bin/` and `.vault_link/` path prefixes); a path-prefixed leading token containing a `..` segment or any character outside `[A-Za-z0-9._/+-]` is denied (later words are not constrained). Under `--orchestrator-mode`, `gateway_provenance != human` in task frontmatter (absent = `human`) → E3 refuse.
 - **Errors:** E1 task file / section / Test Command missing; E3 allowlist or provenance refusal (distinct stderr reasons); E4 persona.
 - **Idempotent:** depends on the gateway command itself (the atom adds no state).
 - **Persona Gate:** Executioner (source-persona arg + `persona_check.sh`)
@@ -419,10 +419,10 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ### `commit_task`
 - **Inputs:** `--task-path <path>` `--source-persona <name>` `[--run-id <id>]`
-- **Outputs:** Reads the task's `## Spec` → `### Files touched` block itself, keeps entries inside the cwd's git repo, stages exactly those dirty paths, commits `task(<Project>): <Task_Name>`. Branch: `task/<slug>` when HEAD is on the default branch, the current branch otherwise, `orch/<run-id>` with `--run-id`. Stdout: `COMMIT_BRANCH=` / `COMMIT_SHA=` / `COMMIT_STAGED=` plus `SKIPPED:` and `WARN_OUT_OF_LIST:` lines. Nothing to commit = exit 0, `COMMIT_SHA=none`.
-- **Pre-conditions (all E3, before any git change):** Files touched block with marked entries; HEAD attached and born; no merge / cherry-pick / revert / rebase / sequencer in progress; default branch resolvable (`origin/HEAD`, else exactly one of `main`/`master`); valid branch name; nothing staged outside the list; under `--run-id`, no out-of-list tracked changes.
+- **Outputs:** Reads the task's `## Spec` → `### Files touched` block itself, keeps entries inside the cwd's git repo, stages exactly those dirty paths, commits `task(<Project>): <Task_Name>`. Branch: `task/<slug>` when HEAD is on the default branch, the current branch otherwise, `orch/<run-id>` with `--run-id`. Stdout: `COMMIT_BRANCH=` / `COMMIT_SHA=` / `COMMIT_STAGED=` plus `SKIPPED:` and `WARN_OUT_OF_LIST:` lines (interactive) or `IGNORED: <path> (out-of-list, not committed)` lines (`--run-id`: out-of-list tracked changes are left dirty and never block). Nothing to commit = exit 0, `COMMIT_SHA=none`.
+- **Pre-conditions (all E3, before any git change):** Files touched block with marked entries; HEAD attached and born; no merge / cherry-pick / revert / rebase / sequencer in progress; default branch resolvable (`origin/HEAD`, else exactly one of `main`/`master`); valid branch name; nothing staged outside the list.
 - **Errors:** E1 task file missing or cwd not a work tree; E2 git switch/add/commit failed (incl. hooks); E3 precondition refusal; E4 persona.
-- **Side effects:** Switches to the commit branch and stays there; never switches back, pushes, merges, stashes or resets.
+- **Side effects:** Switches to the commit branch and stays there (others' out-of-list dirty files go along onto `orch/<run-id>`, uncommitted). Under `--run-id`, if switching onto an existing `orch/<run-id>` would overwrite others' edits (not on a listed path; that stays E2 naming the paths), the commit is built from a temporary index and the branch ref moved without touching HEAD or the worktree (`NOTE: committed onto ... without switching`). `WARN: swept into commit: <path>` names out-of-list paths a hook or concurrent `git add` put into the commit. Never switches back, pushes, merges, stashes or resets.
 - **Idempotent:** ✅ (re-run with nothing dirty → no-op)
 - **Persona Gate:** Executioner (source-persona arg + `persona_check.sh`)
 - **Telemetry:** MANDATORY (`commit_task` record)

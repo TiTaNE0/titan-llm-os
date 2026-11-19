@@ -7,7 +7,8 @@
 # project's code repo (git toplevel of the CWD), never on the vault dir.
 # Never pushes, never integrates branches, never touches the vault bookkeeping.
 #
-# Branch: orch/<run-id> when --run-id is given (Orchestrator mode); otherwise
+# Branch: orch/<run-id> when --run-id is given (Orchestrator mode; out-of-list
+# tracked changes are left dirty and reported, never refused); otherwise
 # task/<slug> when HEAD is on the default branch, else the current branch.
 #
 # Contract: Tool_Registry.md § commit_task (registration is Architect-only,
@@ -26,7 +27,7 @@
 #      unclosed code fence in the Spec section,
 #      default branch not found or ambiguous (main and master, no origin/HEAD),
 #      invalid branch name,
-#      staged paths outside the list, out-of-list tracked changes (Orchestrator)
+#      staged paths outside the list
 #   4  source_persona != Executioner or live persona != Executioner (E4)
 #
 # stdout contract (exit 0 only, pinned — callers parse these markers):
@@ -35,6 +36,15 @@
 #   COMMIT_STAGED=<n>
 #   SKIPPED: <path> (<outside-repo|not-found|ignored|directory|clean>)   (0..n)
 #   WARN_OUT_OF_LIST: <path>                                             (0..n)
+#   IGNORED: <path> (out-of-list, not committed)                         (0..n)
+#   WARN: swept into commit: <path>                                      (0..n)
+#   NOTE: committed onto orch/<id> without switching (...)               (0..1)
+# Interactive runs print WARN_OUT_OF_LIST for dirty out-of-list paths; --run-id runs
+# print IGNORED for out-of-list TRACKED paths instead (others' edits never block).
+# WARN: swept into commit names a path outside the list that a hook or a concurrent
+# `git add` put into the commit (no reset: the atom never rewrites history).
+# When `git switch` onto an existing orch/<id> would overwrite others' edits, the
+# commit is built from a temporary index and the branch ref moved; HEAD stays put.
 
 set -euo pipefail
 
@@ -50,8 +60,8 @@ Required:
   --source-persona <name>   Caller-claimed persona (must be Executioner)
 
 Optional:
-  --run-id <id>             Orchestrator mode: commit onto orch/<id>, refuse
-                            out-of-list tracked changes
+  --run-id <id>             Orchestrator mode: commit onto orch/<id>; out-of-list
+                            tracked changes are left dirty and reported (IGNORED)
 
 Run from inside the project's code repo.
 
@@ -311,9 +321,6 @@ if [[ -n "$STAGED_OUT" ]]; then
 fi
 
 TRACKED_OUT="$(sort -u "$WORK/tracked" | { grep -Fxv -f "$WORK/list_all" || true; })"
-if [[ -n "$RUN_ID" && -n "$TRACKED_OUT" ]]; then
-  die 3 E3 "out-of-list tracked changes: $(printf '%s\n' "$TRACKED_OUT" | join_csv)"
-fi
 
 # Candidates that are actually dirty form the in-list set; the rest are clean.
 : > "$WORK/in_dirty"
@@ -326,14 +333,25 @@ while IFS= read -r rel; do
   fi
 done < "$WORK/cand"
 
+: > "$WORK/committed"
+NOTE=""
+
 emit_result() { # emit_result <branch> <sha> <staged-count>
   printf 'COMMIT_BRANCH=%s\nCOMMIT_SHA=%s\nCOMMIT_STAGED=%s\n' "$1" "$2" "$3"
+  if [[ -n "$NOTE" ]]; then printf 'NOTE: %s\n' "$NOTE"; fi
   cat "$WORK/skipped"
+  { grep -Fxv -f "$WORK/list_all" "$WORK/committed" || true; } | while IFS= read -r w; do
+    printf 'WARN: swept into commit: %s\n' "$w"
+  done
   if [[ -z "$RUN_ID" ]]; then
     { printf '%s\n' "$TRACKED_OUT"; out_of_list "$WORK/untracked"; } \
       | sort -u | while IFS= read -r w; do
           if [[ -n "$w" ]]; then printf 'WARN_OUT_OF_LIST: %s\n' "$w"; fi
         done
+  else
+    printf '%s\n' "$TRACKED_OUT" | { grep -Fxv -f "$WORK/committed" || true; } | while IFS= read -r w; do
+      if [[ -n "$w" ]]; then printf 'IGNORED: %s (out-of-list, not committed)\n' "$w"; fi
+    done
   fi
   local end=$(($(date +%s) * 1000))
   "$SCRIPT_DIR/emit_telemetry.sh" commit_task success $((end - START_TS_MS)) null \
@@ -380,13 +398,78 @@ else
 fi
 git check-ref-format --branch "$TARGET" >/dev/null 2>&1 || die 3 E3 "invalid branch name: $TARGET"
 
+NO_SWITCH=0
 if [[ "$TARGET" != "$CUR_BRANCH" ]]; then
   if git show-ref --verify --quiet "refs/heads/$TARGET"; then
-    SW_OUT="$(git switch -q "$TARGET" 2>&1)" || die 2 E2 "git switch failed: $(printf '%s' "$SW_OUT" | head -n 1)"
+    # Others' edits overlapping the target branch make the switch refuse; under
+    # --run-id the commit is then built without touching HEAD or the worktree.
+    if ! SW_OUT="$(git switch -q "$TARGET" 2>&1)"; then
+      # Overlap on a listed path would make the fallback commit overwrite the branch's
+      # version of it, so that stays a refusal naming every path git reported.
+      SW_PATHS="$(printf '%s\n' "$SW_OUT" | sed -n 's/^[[:space:]][[:space:]]*//p')"
+      if [[ -z "$RUN_ID" ]] || { [[ -n "$SW_PATHS" ]] && printf '%s\n' "$SW_PATHS" | grep -Fxq -f "$WORK/list_all"; } \
+         || [[ -z "$SW_PATHS" ]]; then
+        die 2 E2 "git switch failed: $(printf '%s' "${SW_PATHS:-$SW_OUT}" | tr '\n' ' ')"
+      fi
+      NO_SWITCH=1
+    fi
   else
     SW_OUT="$(git switch -q -c "$TARGET" 2>&1)" || die 2 E2 "git switch -c failed: $(printf '%s' "$SW_OUT" | head -n 1)"
   fi
 fi
+
+# build_message — commit message file for the task.
+build_message() {
+  local project
+  project="$(awk '
+    /^---$/ { c++; if (c == 2) exit }
+    c == 1 && /^project:/ { sub(/^project:[[:space:]]*/, ""); print; exit }
+  ' "$TASK_PATH" | tr -d '[]\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [[ -n "$project" ]] || project="$(basename "$(dirname "$TASK_PATH")")"
+  {
+    printf 'task(%s): %s\n\n' "$project" "$TASK_NAME"
+    printf 'Closes [[%s]] via /close_task.\n' "$TASK_NAME"
+    if [[ -n "$RUN_ID" ]]; then printf '\nOrchestrator run: %s\n' "$RUN_ID"; fi
+  } > "$WORK/msg"
+}
+
+# finish <branch> <sha> — record what the commit really contains, then report.
+finish() {
+  git diff-tree --no-commit-id --name-only -r --no-renames -z "$2" > "$WORK/committed.z" \
+    || die 2 E2 "git diff-tree failed"
+  : > "$WORK/committed"
+  while IFS= read -r -d '' ent; do printf '%s\n' "$ent" >> "$WORK/committed"; done < "$WORK/committed.z"
+  emit_result "$1" "$(git rev-parse --short "$2")" "$(wc -l < "$WORK/committed" | tr -d ' ')"
+  exit 0
+}
+
+# commit_without_switch — commit the in-list paths onto the existing $TARGET via a
+# temporary index; HEAD, the real index and the worktree stay untouched.
+commit_without_switch() {
+  local idx="$WORK/idx" parent sha rel
+  parent="$(git rev-parse "refs/heads/$TARGET")"
+  GIT_INDEX_FILE="$idx" git read-tree "$parent" || die 2 E2 "git read-tree failed"
+  while IFS= read -r rel; do
+    if [[ -e "$TOP/$rel" || -L "$TOP/$rel" ]]; then
+      GIT_INDEX_FILE="$idx" git update-index --add --replace -- "$rel" || die 2 E2 "git update-index failed for $rel"
+    else
+      GIT_INDEX_FILE="$idx" git update-index --force-remove -- "$rel" || die 2 E2 "git update-index failed for $rel"
+    fi
+  done < "$WORK/in_dirty"
+  local tree
+  tree="$(GIT_INDEX_FILE="$idx" git write-tree)" || die 2 E2 "git write-tree failed"
+  if [[ "$tree" == "$(git rev-parse "$parent^{tree}")" ]]; then
+    emit_result "$TARGET" none 0
+    exit 0
+  fi
+  build_message
+  sha="$(git commit-tree "$tree" -p "$parent" -F "$WORK/msg")" || die 2 E2 "git commit-tree failed"
+  git update-ref "refs/heads/$TARGET" "$sha" "$parent" || die 2 E2 "git update-ref failed"
+  NOTE="committed onto $TARGET without switching (worktree has overlapping edits)"
+  finish "$TARGET" "$sha"
+}
+
+if [[ "$NO_SWITCH" -eq 1 ]]; then commit_without_switch; fi
 
 # ---------------------------------------------------------------------------
 # 7. Stage exactly the in-list dirty paths, commit.
@@ -403,22 +486,9 @@ if git diff --cached --quiet; then
   emit_result "$TARGET" none 0
   exit 0
 fi
-N_STAGED="$(git diff --cached --name-only --no-renames | wc -l | tr -d ' ')"
 
-PROJECT="$(awk '
-  /^---$/ { c++; if (c == 2) exit }
-  c == 1 && /^project:/ { sub(/^project:[[:space:]]*/, ""); print; exit }
-' "$TASK_PATH" | tr -d '[]\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-[[ -n "$PROJECT" ]] || PROJECT="$(basename "$(dirname "$TASK_PATH")")"
-
-{
-  printf 'task(%s): %s\n\n' "$PROJECT" "$TASK_NAME"
-  printf 'Closes [[%s]] via /close_task.\n' "$TASK_NAME"
-  if [[ -n "$RUN_ID" ]]; then printf '\nOrchestrator run: %s\n' "$RUN_ID"; fi
-} > "$WORK/msg"
+build_message
 
 CM_OUT="$(git commit -q -F "$WORK/msg" 2>&1)" || die 2 E2 "git commit failed: $(printf '%s' "$CM_OUT" | grep -v '^[[:space:]]*$' | head -n 1)"
 
-SHA="$(git rev-parse --short HEAD)"
-emit_result "$TARGET" "$SHA" "$N_STAGED"
-exit 0
+finish "$TARGET" HEAD
