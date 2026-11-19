@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "channel": "@TitanMTProxyNews",
+  "register": "business_ru",
+  "posts": [
+    {
+      "key": "bad_image",
+      "role": "rotational",
+      "rubric": "utility",
+      "silent": true,
+      "enabled": true,
+      "cta_text": "Открыть @TitanTGProxy_bot",
+      "start_param": "ch_bad_image",
+      "image": "media/does_not_exist.png",
+      "html": "<b>Стабильная работа внутри Telegram</b>\n\nНадёжные серверы в Европе и аккуратная работа без лишних программ для телефона."
+    }
+  ]
+}

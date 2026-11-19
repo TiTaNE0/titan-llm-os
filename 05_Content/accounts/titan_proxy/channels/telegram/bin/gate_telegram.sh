@@ -18,6 +18,7 @@ fi
 
 python3 - "$@" <<'PY'
 import json
+import os
 import re
 import sys
 from html.parser import HTMLParser
@@ -41,7 +42,8 @@ LIMITATION_TRIGGER = re.compile(
 )
 KEY_RE = re.compile(r"^[a-z0-9_]{3,32}$")
 START_PARAM_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
-ALLOWED_TAGS = {"b", "i", "code", "a"}
+ALLOWED_TAGS = {"b", "i", "code", "a", "blockquote"}
+ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 class TelegramHTMLValidator(HTMLParser):
@@ -141,6 +143,28 @@ def validate_file(path: str) -> bool:
 
         plain_text = "".join(parser.text_parts).strip()
         plain_len = len(plain_text)
+
+        image_val = post.get("image")
+        if image_val is not None:
+            if not isinstance(image_val, str) or not image_val.strip():
+                fail(f"{key}: image must be a non-empty relative path string")
+            else:
+                img_rel = image_val.strip()
+                norm_parts = os.path.normpath(img_rel).split(os.sep)
+                _, ext = os.path.splitext(img_rel.lower())
+                if os.path.isabs(img_rel) or ".." in norm_parts:
+                    fail(f"{key}: image path must be relative without '..': {img_rel!r}")
+                elif ext not in ALLOWED_IMAGE_EXTS:
+                    fail(f"{key}: image extension {ext!r} not in {sorted(ALLOWED_IMAGE_EXTS)}")
+                else:
+                    base_dir = os.path.dirname(os.path.abspath(path))
+                    candidate = os.path.realpath(os.path.join(base_dir, img_rel))
+                    if os.path.commonpath([os.path.realpath(base_dir), candidate]) != os.path.realpath(base_dir):
+                        fail(f"{key}: image path escapes feed directory: {img_rel!r}")
+                    elif not os.path.isfile(candidate):
+                        fail(f"{key}: image file not found: {img_rel!r}")
+                if plain_len > 1024:
+                    fail(f"{key}: image caption plain-text length ({plain_len}) exceeds 1024")
         needs_limitation = (
             post["role"] == "pin"
             or post["rubric"]

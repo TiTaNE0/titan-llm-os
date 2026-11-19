@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "channel": "@TitanMTProxyNews",
+  "register": "business_ru",
+  "posts": [
+    {
+      "key": "valid_quote",
+      "role": "rotational",
+      "rubric": "utility",
+      "silent": true,
+      "enabled": true,
+      "cta_text": "Открыть @TitanTGProxy_bot",
+      "start_param": "ch_valid_quote",
+      "html": "⚡ <b>Telegram работает по одной ссылке</b>\n\nДоступ настраивается внутри самого приложения и не расходует заряд батареи в фоне.\n\n<blockquote>Команды в боте: <code>/start</code> · <code>/myproxy</code></blockquote>"
+    }
+  ]
+}
