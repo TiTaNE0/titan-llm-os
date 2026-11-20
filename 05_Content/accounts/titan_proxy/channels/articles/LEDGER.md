@@ -3,7 +3,7 @@ type: channel_ledger
 channel: articles
 account: titan_proxy
 status: active
-updated: 2026-11-17
+updated: 2026-11-19
 ---
 
 # Titan Proxy — Articles Publication Ledger
@@ -24,3 +24,6 @@ Single source of truth for all published articles across the three apex domains.
 | `mtproto-vs-socks5` | a | titanproxy.tech | docs | MTProto или SOCKS5 для Telegram: сравнение транспортных протоколов | 2026-11-17 | - | - | live |
 | `telegram-stars-payment-guide` | b | bestproxy.deals | compare | Как оплатить подписку через Telegram Stars: пошаговая инструкция | 2026-11-17 | - | - | live |
 | `how-to-setup-proxy-iphone` | c | mtproxy.guru | help | Как подключить прокси в Telegram на iPhone: пошаговая инструкция | 2026-11-17 | - | - | live |
+| `measure-proxy-latency` | a | titanproxy.tech | docs | Как измерить задержку до прокси из терминала: ping, mtr и curl | 2026-11-19 | - | - | live |
+| `proxy-service-checklist` | b | bestproxy.deals | compare | Чек-лист перед оплатой прокси: 7 вопросов к инфраструктуре связи | 2026-11-19 | - | - | live |
+| `how-to-setup-proxy-android` | c | mtproxy.guru | help | Как подключить прокси в Telegram на Android: пошаговая инструкция | 2026-11-19 | - | - | live |

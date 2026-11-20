@@ -33,3 +33,8 @@ Single source of truth for all posts registered in `/Users/titane0/Programming/t
 | `art_iphone_setup` | rotational | article_bridge | true | `article_how-to-setup-proxy-iphone` | `how-to-setup-proxy-iphone` | 2026-11-18 | ready |
 | `news_20261118` | rotational | news_brief | true | `ch_news_20261118` | - | 2026-11-18 | disabled |
 | `news_20261120` | rotational | news_brief | true | `ch_news_20261120` | - | 2026-11-20 | ready |
+| `art_proxy_checklist` | rotational | article_bridge | true | `article_proxy-service-checklist` | `proxy-service-checklist` | 2026-11-20 | ready |
+| `art_android_setup` | rotational | article_bridge | true | `article_how-to-setup-proxy-android` | `how-to-setup-proxy-android` | 2026-11-20 | ready |
+| `ch_15` | rotational | scenario | true | `ch_15` | - | 2026-11-20 | ready |
+| `ch_16` | rotational | utility | true | `ch_16` | - | 2026-11-20 | ready |
+| `ch_17` | rotational | offer | false | `ch_17` | - | 2026-11-20 | ready |
