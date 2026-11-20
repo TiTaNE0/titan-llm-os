@@ -3,7 +3,7 @@ type: channel_ledger
 channel: telegram
 account: titan_proxy
 status: active
-updated: 2026-11-18
+updated: 2026-11-20
 ---
 
 # Titan Proxy — Telegram Channel Posts Ledger
@@ -31,4 +31,5 @@ Single source of truth for all posts registered in `/Users/titane0/Programming/t
 | `ch_14` | rotational | retention | true | `ch_14` | - | 2026-11-18 | ready |
 | `art_basic_family_premium` | rotational | article_bridge | true | `article_basic-family-premium-difference` | `basic-family-premium-difference` | 2026-11-18 | ready |
 | `art_iphone_setup` | rotational | article_bridge | true | `article_how-to-setup-proxy-iphone` | `how-to-setup-proxy-iphone` | 2026-11-18 | ready |
-| `news_20261118` | rotational | news_brief | true | `ch_news_20261118` | - | 2026-11-18 | ready |
+| `news_20261118` | rotational | news_brief | true | `ch_news_20261118` | - | 2026-11-18 | disabled |
+| `news_20261120` | rotational | news_brief | true | `ch_news_20261120` | - | 2026-11-20 | ready |
