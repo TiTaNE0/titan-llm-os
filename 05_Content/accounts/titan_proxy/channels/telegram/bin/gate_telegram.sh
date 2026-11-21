@@ -214,7 +214,10 @@ def validate_file(path: str) -> bool:
         if dt_from is not None and dt_until is not None and dt_from > dt_until:
             fail(f"{key}: publish_from ({raw_from}) must be <= publish_until ({raw_until})")
 
-        if post["rubric"] in ("promo", "holiday") and (raw_from is None or raw_until is None):
+        if (
+            post["rubric"] in ("promo", "holiday")
+            or (post["rubric"] == "news_brief" and post["enabled"])
+        ) and (raw_from is None or raw_until is None):
             fail(f"{key}: rubric {post['rubric']!r} requires both publish_from and publish_until")
 
         if "priority" in post and (not isinstance(post["priority"], int) or isinstance(post["priority"], bool)):
