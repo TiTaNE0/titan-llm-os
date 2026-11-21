@@ -60,4 +60,14 @@ All copy that mentions tier capacity must match `src/data/tariffs.ts` exactly (s
 ## Hard limitation (canonical reference)
 
 - Short: `Важно: аудио- и видеозвонки не поддерживаются.`
-- Long: `Мы направили всю мощность серверов на мгновенную загрузку фото, видео и кружочков. Из-за особенностей глубокой маскировки связи, звонки внутри мессенджера недоступны.`
+
+## Technical Truth Translation Table (Plain Language, Zero BS)
+
+Never explain technical boundaries with invented causality ("мощность серверов отдана", "ресурс узлов направлен", "глубокая маскировка"). When avoiding DevOps acronyms (`MTProto`, `TCP`, `UDP`, `RTT`, `XTR`), translate the **actual mechanism** into plain Russian:
+
+| Engineering fact | Plain-language `business_ru` phrasing | Banned BS / invented causality |
+|---|---|---|
+| Telegram built-in proxy uses TCP-only messaging/media transport; calls use separate UDP/WebRTC streaming channel | «Встроенное подключение работает по протоколу передачи текста, фото и файлов. Аудио- и видеозвонки используют отдельный потоковый канал, поэтому через прокси не передаются и идут в Telegram напрямую.» | «Мы направили всю мощность серверов на чаты», «ресурс узлов отдан», «из-за глубокой маскировки связи», «голос не маршрутизируется» |
+| Server seat density (`До 50 мест` / `До 7 мест` / `Личный выделенный сервер`) + edge congestion control | «Фиксированное число мест на сервере: меньше соседей на канале — ровная скорость загрузки документов и видео в часы пик.» | «Безлимитная полоса», «<20 мс», «99.9% SLA», «До 50 устройств» |
+| Traffic isolation & end-to-end / client-server encryption | «Подключение работает строго внутри Telegram, не затрагивая почту и банковские приложения. Прокси передаёт уже зашифрованные данные и не видит содержимое переписки.» | «Анонимный VPN-туннель», «шифрует весь телефон» |
+| Gift voucher (`/gift`) | «Отдельный подарочный доступ на 30 дней с собственной персональной ссылкой для получателя — передавать свой личный ключ не нужно.» | «Раздача одной ссылки друзьям» |

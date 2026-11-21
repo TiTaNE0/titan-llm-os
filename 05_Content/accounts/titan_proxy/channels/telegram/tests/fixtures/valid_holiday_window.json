@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "posts": [
+    {
+      "key": "holiday_ny",
+      "role": "rotational",
+      "rubric": "holiday",
+      "silent": false,
+      "enabled": true,
+      "publish_from": "2026-12-31",
+      "publish_until": "2027-01-01",
+      "priority": 20,
+      "max_sends": 1,
+      "cta_text": "Открыть @TitanTGProxy_bot",
+      "start_param": "ch_holiday_ny",
+      "html": "<b>С наступающим Новым годом и стабильной связи</b>\n\nПусть рабочие переписки, важные файлы и тёплые поздравления доходят без пауз на всём протяжении праздников."
+    }
+  ]
+}

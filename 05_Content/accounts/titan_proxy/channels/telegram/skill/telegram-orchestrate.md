@@ -15,11 +15,11 @@ Repeatable workflow for researching, drafting, verifying, and shipping new posts
 - Gemini access via `agy -p` for independent Critic veto.
 - Optional: `grok -p` only when researching a brand-new external topic or payment shift.
 
-## Phase 1: Topic Selection (Strategist)
-1. Read `05_Content/accounts/titan_proxy/channels/telegram/backlog.md` and `05_Content/accounts/titan_proxy/channels/telegram/LEDGER.md`.
-2. Read `05_Content/accounts/titan_proxy/channels/articles/LEDGER.md` to find newly published `live` articles not yet promoted in `channels/telegram/LEDGER.md`.
-3. Check recent `/support` questions or `funnel_events` drop-offs (if available).
-4. Select 1–2 evergreen topics and/or 1–2 article-bridge topics for the current batch. Never duplicate keys or `source_article` entries already in `channels/telegram/LEDGER.md`.
+## Phase 1: Calendar & Topic Selection (Strategist — Autonomous)
+1. Read `05_Content/accounts/titan_proxy/channels/telegram/calendar.yaml`, `backlog.md`, and `LEDGER.md`.
+2. Any `planned` calendar event within its `lead_days` window is autonomously promoted to `active` (no human approval required) inside `promo_guardrails` (`5..14` bonus days, fixed `139/329/699` Star prices): register/update the campaign in `content/promos.json` and schedule time-windowed posts (`publish_from`, `publish_until`, `priority`, `max_sends`, `promo_slug`), generating photorealistic seasonal Russian winter/landscape visuals when appropriate.
+3. Read `05_Content/accounts/titan_proxy/channels/articles/LEDGER.md` to find newly published `live` articles not yet promoted in `channels/telegram/LEDGER.md`.
+4. Select 1–2 evergreen selling topics and/or 1–2 article-bridge topics for the current batch. Never duplicate keys or `source_article` entries already in `channels/telegram/LEDGER.md`.
 
 ## Phase 2: Live Research (Scout — Optional)
 - **Skip on routine batches** when objections are already known from `/support`, `backlog.md`, or an article from `channels/articles/LEDGER.md`.

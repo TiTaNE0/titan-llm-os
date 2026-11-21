@@ -3,7 +3,7 @@ type: channel_ledger
 channel: telegram
 account: titan_proxy
 status: active
-updated: 2026-11-20
+updated: 2026-11-21
 ---
 
 # Titan Proxy — Telegram Channel Posts Ledger
@@ -17,7 +17,7 @@ Single source of truth for all posts registered in `/Users/titane0/Programming/t
 | `ch_02` | rotational | architecture | true | `ch_02` | - | 2026-11-18 | ready |
 | `ch_03` | rotational | offer_reference | false | `ch_03` | - | 2026-11-18 | ready |
 | `ch_04` | rotational | stars_guide | false | `ch_04` | - | 2026-11-18 | ready |
-| `ch_05` | rotational | transparency | false | `ch_05` | - | 2026-11-18 | ready |
+| `ch_05` | rotational | transparency | false | `ch_05` | - | 2026-11-18 | disabled |
 | `ch_06` | rotational | retention | true | `ch_06` | - | 2026-11-18 | ready |
 | `ch_07` | rotational | scenario | false | `ch_07` | - | 2026-11-18 | ready |
 | `ch_08` | rotational | scenario | true | `ch_08` | - | 2026-11-18 | ready |
@@ -38,3 +38,10 @@ Single source of truth for all posts registered in `/Users/titane0/Programming/t
 | `ch_15` | rotational | scenario | true | `ch_15` | - | 2026-11-20 | ready |
 | `ch_16` | rotational | utility | true | `ch_16` | - | 2026-11-20 | ready |
 | `ch_17` | rotational | offer | false | `ch_17` | - | 2026-11-20 | ready |
+| `ch_18` | rotational | transparency | false | `ch_18` | - | 2026-11-21 | ready |
+| `ch_19` | rotational | trial_to_paid | false | `ch_19` | - | 2026-11-21 | ready |
+| `promo_bf26_launch` | rotational | promo | false | `ch_promo_bf26_launch` | - | 2026-11-21 | ready |
+| `promo_bf26_lastday` | rotational | promo | false | `ch_promo_bf26_lastday` | - | 2026-11-21 | ready |
+| `promo_ny27_gift` | rotational | promo | false | `ch_gift_ny27` | - | 2026-11-21 | ready |
+| `holiday_ny27_greeting` | rotational | holiday | false | `ch_holiday_ny27_greeting` | - | 2026-11-21 | ready |
+| `promo_ny27_holidays` | rotational | promo | true | `ch_promo_ny27_holidays` | - | 2026-11-21 | ready |

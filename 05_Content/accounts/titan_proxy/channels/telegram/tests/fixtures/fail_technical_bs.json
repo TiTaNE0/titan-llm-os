@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "posts": [
+    {
+      "key": "ch_bs",
+      "role": "rotational",
+      "rubric": "transparency",
+      "silent": false,
+      "enabled": true,
+      "cta_text": "Выбрать доступ",
+      "start_param": "ch_bs",
+      "html": "<b>Почему звонки не работают</b>\n\nВся мощность серверов отдана загрузке чатов и видео, поэтому звонки не идут.\n\n<blockquote>Важно: аудио- и видеозвонки не поддерживаются.</blockquote>"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+# Titan Proxy — Autonomous Annual Content & Promo Calendar (`@TitanMTProxyNews`)
+#
+# Agents evaluate this calendar on every batch run (zero human approval required).
+# Within `promo_guardrails`, the Agent Council (`approval_council`) autonomously
+# moves upcoming events within `lead_days` from `planned` -> `active`, generates
+# `content/promos.json` + time-windowed posts + seasonal media, and enforces all gates.
+
+timezone: Europe/Moscow
+
+autonomous_policy:
+  human_approval_required: false
+  approval_council:
+    - strategist
+    - tech_fact_critic
+    - growth_calendar_critic
+    - deterministic_gate
+  promo_guardrails:
+    min_bonus_days: 5
+    max_bonus_days: 14
+    price_changes_allowed: false
+    max_window_days: 20
+    one_redemption_per_user: true
+
+events:
+  - slug: bf26
+    name: "Чёрная пятница и Киберпонедельник"
+    event_type: promo
+    window_start: "2026-11-27"
+    window_end: "2026-11-30"
+    lead_days: 7
+    promo_slug: bf26
+    bonus_days:
+      basic: 7
+      family: 14
+      premium: 14
+    visual_theme: "sapphire_winter_dusk_desk"
+    status: active
+
+  - slug: ny27_warmup
+    name: "Новогодний запас и подарочный доступ"
+    event_type: promo
+    window_start: "2026-12-22"
+    window_end: "2026-12-29"
+    lead_days: 10
+    promo_slug: ny27
+    bonus_days:
+      basic: 10
+      family: 10
+      premium: 10
+    visual_theme: "russian_snowy_pine_birch_dusk_house"
+    status: active
+
+  - slug: ny27_greeting
+    name: "Поздравление с Новым годом"
+    event_type: holiday
+    window_start: "2026-12-31"
+    window_end: "2027-01-01"
+    lead_days: 10
+    promo_slug: null
+    bonus_days: null
+    visual_theme: "russian_snowy_winter_twilight_forest"
+    status: active
+
+  - slug: ny27_holidays
+    name: "Январские праздники и поездки"
+    event_type: promo
+    window_start: "2027-01-04"
+    window_end: "2027-01-08"
+    lead_days: 10
+    promo_slug: ny27
+    bonus_days:
+      basic: 10
+      family: 10
+      premium: 10
+    visual_theme: null
+    status: active
+
+  - slug: feb23_27
+    name: "23 февраля — День защитника Отечества"
+    event_type: holiday
+    window_start: "2027-02-21"
+    window_end: "2027-02-23"
+    lead_days: 7
+    promo_slug: feb23_27
+    bonus_days:
+      basic: 7
+      family: 7
+      premium: 7
+    visual_theme: "russian_snowy_winter_landscape"
+    status: planned
+
+  - slug: mar8_27
+    name: "8 марта — Международный женский день"
+    event_type: holiday
+    window_start: "2027-03-06"
+    window_end: "2027-03-08"
+    lead_days: 7
+    promo_slug: mar8_27
+    bonus_days:
+      basic: 7
+      family: 7
+      premium: 7
+    visual_theme: "russian_early_spring_snow_birch"
+    status: planned
+
+  - slug: may_27
+    name: "Майские праздники и поездки"
+    event_type: promo
+    window_start: "2027-04-29"
+    window_end: "2027-05-09"
+    lead_days: 7
+    promo_slug: may27
+    bonus_days:
+      basic: 7
+      family: 7
+      premium: 7
+    visual_theme: "sapphire_travel_dusk"
+    status: planned
+
+  - slug: summer_27
+    name: "Летний сезон: удалённая работа и поездки"
+    event_type: seasonal
+    window_start: "2027-06-15"
+    window_end: "2027-07-15"
+    lead_days: 7
+    promo_slug: null
+    bonus_days: null
+    visual_theme: "sapphire_evening_workspace"
+    status: planned
+
+  - slug: sep_27
+    name: "Сентябрь: деловой сезон"
+    event_type: promo
+    window_start: "2027-09-01"
+    window_end: "2027-09-10"
+    lead_days: 7
+    promo_slug: sep27
+    bonus_days:
+      basic: 7
+      family: 7
+      premium: 7
+    visual_theme: "sapphire_office_dusk"
+    status: planned
+
+  - slug: nov11_27
+    name: "Ноябрьская акция 11.11"
+    event_type: promo
+    window_start: "2027-11-10"
+    window_end: "2027-11-12"
+    lead_days: 7
+    promo_slug: nov11_27
+    bonus_days:
+      basic: 7
+      family: 7
+      premium: 7
+    visual_theme: "russian_late_autumn_frost_dusk"
+    status: planned
+
+  - slug: bf27
+    name: "Чёрная пятница 2027"
+    event_type: promo
+    window_start: "2027-11-26"
+    window_end: "2027-11-29"
+    lead_days: 7
+    promo_slug: bf27
+    bonus_days:
+      basic: 7
+      family: 14
+      premium: 14
+    visual_theme: "russian_snowy_dusk_desk"
+    status: planned

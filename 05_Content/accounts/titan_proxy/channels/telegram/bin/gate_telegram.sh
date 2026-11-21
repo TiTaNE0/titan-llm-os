@@ -17,11 +17,13 @@ if [ $# -lt 1 ]; then
 fi
 
 python3 - "$@" <<'PY'
+from datetime import datetime, time
 import json
 import os
 import re
 import sys
 from html.parser import HTMLParser
+from zoneinfo import ZoneInfo
 
 REGULATORY_TRIGGERS = re.compile(
     r"(faketls|dpi|тспу|обход|блокировк|цензур|разблокировк|анонимайзер|ркн)",
@@ -35,6 +37,10 @@ BANNED_VOICE = re.compile(
     r"(\bvpn\b|туннель|mtproto|tcp\s*bbr|\brtt\b|\bxtr\b|\bhttps\b|кружоч|пользовател|чел\.|до\s+\d+\s+устройств|\b(?:50|7)\s+устройств|\bsplit\b|\[todo|\btodo\b|\bbest\b|\bfastest\b|world-class|unbreakable|guaranteed)",
     re.I,
 )
+TECHNICAL_BS = re.compile(
+    r"(мощность\s+серверов|ресурс\w*\s+узлов|глубокой\s+маскировк|маршрутизируется)",
+    re.I,
+)
 HARDCODED_PRICES = re.compile(r"(?<!\d)(139|329|699)(?!\d)")
 LIMITATION_TRIGGER = re.compile(
     r"(звонк|аудио|тариф|\bbasic\b|\bfamily\b|\bpremium\b)",
@@ -42,8 +48,69 @@ LIMITATION_TRIGGER = re.compile(
 )
 KEY_RE = re.compile(r"^[a-z0-9_]{3,32}$")
 START_PARAM_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+PROMO_SLUG_RE = re.compile(r"^[a-z0-9_-]{2,32}$")
+DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ALLOWED_TAGS = {"b", "i", "code", "a", "blockquote"}
 ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+MSK = ZoneInfo("Europe/Moscow")
+
+
+def _parse_bound(raw: object, *, is_end: bool, tz: ZoneInfo) -> datetime | None:
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    s = raw.strip()
+    try:
+        if DATE_ONLY_RE.match(s):
+            d = datetime.strptime(s, "%Y-%m-%d").date()
+            return datetime.combine(d, time(23, 59, 59) if is_end else time(0, 0, 0), tzinfo=tz)
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz)
+        return dt
+    except ValueError:
+        return None
+
+
+def _load_sibling_promos(feed_path: str, tz: ZoneInfo, fail) -> dict[str, dict] | None:
+    promos_path = os.path.join(os.path.dirname(os.path.abspath(feed_path)), "promos.json")
+    if not os.path.isfile(promos_path):
+        return None
+    try:
+        with open(promos_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except Exception as exc:
+        fail(f"promos.json malformed: {exc}")
+        return {}
+    campaigns = raw.get("campaigns") if isinstance(raw, dict) else None
+    if not isinstance(campaigns, list):
+        fail("promos.json must define a 'campaigns' list")
+        return {}
+    by_slug: dict[str, dict] = {}
+    for c in campaigns:
+        if not isinstance(c, dict) or not isinstance(c.get("slug"), str):
+            fail("promos.json campaign missing string 'slug'")
+            continue
+        slug = c["slug"]
+        if not PROMO_SLUG_RE.match(slug):
+            fail(f"promos.json invalid slug {slug!r}")
+        s_dt = _parse_bound(c.get("starts_at"), is_end=False, tz=tz)
+        e_dt = _parse_bound(c.get("ends_at"), is_end=True, tz=tz)
+        if s_dt is None or e_dt is None or s_dt > e_dt:
+            fail(f"promos.json {slug}: invalid starts_at/ends_at window")
+        bonus = c.get("bonus_days")
+        if not isinstance(bonus, dict) or not all(k in bonus for k in ("basic", "family", "premium")):
+            fail(f"promos.json {slug}: bonus_days must define basic, family, premium")
+        else:
+            for tier in ("basic", "family", "premium"):
+                val = bonus[tier]
+                if not isinstance(val, int) or isinstance(val, bool) or not (1 <= val <= 14):
+                    fail(f"promos.json {slug}: bonus_days[{tier}] must be int in [1, 14]")
+        by_slug[slug] = {
+            "enabled": bool(c.get("enabled")),
+            "starts_at": s_dt,
+            "ends_at": e_dt,
+        }
+    return by_slug
 
 
 class TelegramHTMLValidator(HTMLParser):
@@ -90,6 +157,16 @@ def validate_file(path: str) -> bool:
         fail("Top-level JSON must be an object with non-empty 'posts' list")
         return False
 
+    tz = MSK
+    sched = data.get("schedule")
+    if isinstance(sched, dict) and isinstance(sched.get("timezone"), str) and sched["timezone"].strip():
+        try:
+            tz = ZoneInfo(sched["timezone"].strip())
+        except Exception:
+            tz = MSK
+
+    promos_by_slug = _load_sibling_promos(path, tz, fail)
+
     seen_keys: set[str] = set()
     required_fields = ("key", "role", "rubric", "silent", "enabled", "cta_text", "start_param", "html")
 
@@ -124,6 +201,45 @@ def validate_file(path: str) -> bool:
         sp = post["start_param"]
         if not isinstance(sp, str) or not START_PARAM_RE.match(sp):
             fail(f"{key}: invalid start_param {sp!r}")
+
+        # Optional time-window, priority, max_sends, promo_slug
+        raw_from = post.get("publish_from")
+        raw_until = post.get("publish_until")
+        dt_from = _parse_bound(raw_from, is_end=False, tz=tz) if raw_from is not None else None
+        dt_until = _parse_bound(raw_until, is_end=True, tz=tz) if raw_until is not None else None
+        if raw_from is not None and dt_from is None:
+            fail(f"{key}: invalid publish_from {raw_from!r}")
+        if raw_until is not None and dt_until is None:
+            fail(f"{key}: invalid publish_until {raw_until!r}")
+        if dt_from is not None and dt_until is not None and dt_from > dt_until:
+            fail(f"{key}: publish_from ({raw_from}) must be <= publish_until ({raw_until})")
+
+        if post["rubric"] in ("promo", "holiday") and (raw_from is None or raw_until is None):
+            fail(f"{key}: rubric {post['rubric']!r} requires both publish_from and publish_until")
+
+        if "priority" in post and (not isinstance(post["priority"], int) or isinstance(post["priority"], bool)):
+            fail(f"{key}: priority must be an integer")
+        if "max_sends" in post and (
+            not isinstance(post["max_sends"], int)
+            or isinstance(post["max_sends"], bool)
+            or post["max_sends"] < 1
+        ):
+            fail(f"{key}: max_sends must be an integer >= 1")
+
+        promo_slug = post.get("promo_slug")
+        if promo_slug is not None:
+            if not isinstance(promo_slug, str) or not PROMO_SLUG_RE.match(promo_slug):
+                fail(f"{key}: invalid promo_slug {promo_slug!r}")
+            elif promos_by_slug is not None:
+                camp = promos_by_slug.get(promo_slug)
+                if camp is None:
+                    fail(f"{key}: promo_slug {promo_slug!r} not found in promos.json")
+                elif not camp["enabled"]:
+                    fail(f"{key}: promo_slug {promo_slug!r} is not enabled in promos.json")
+                elif dt_from is not None and dt_until is not None:
+                    c_start, c_end = camp["starts_at"], camp["ends_at"]
+                    if c_start is not None and c_end is not None and (dt_until < c_start or dt_from > c_end):
+                        fail(f"{key}: post window does not overlap promo {promo_slug!r} window")
 
         html = post["html"]
         if not isinstance(html, str) or not html.strip():
@@ -165,10 +281,11 @@ def validate_file(path: str) -> bool:
                         fail(f"{key}: image file not found: {img_rel!r}")
                 if plain_len > 1024:
                     fail(f"{key}: image caption plain-text length ({plain_len}) exceeds 1024")
+
         needs_limitation = (
             post["role"] == "pin"
             or post["rubric"]
-            in ("onboarding", "offer_reference", "offer", "transparency", "trial_to_paid")
+            in ("onboarding", "offer_reference", "offer", "promo", "transparency", "trial_to_paid")
             or bool(LIMITATION_TRIGGER.search(plain_text))
         )
         is_reference = post["role"] == "pin" or post["rubric"] in (
@@ -194,6 +311,9 @@ def validate_file(path: str) -> bool:
             fail(f"{key}: contains prohibited infrastructure geo/provider name {m.group(0)!r}")
         if m := BANNED_VOICE.search(plain_text):
             fail(f"{key}: contains banned business_ru/brand term {m.group(0)!r}")
+        if post["enabled"]:
+            if m := TECHNICAL_BS.search(plain_text):
+                fail(f"{key}: contains banned technical-BS / invented causality {m.group(0)!r}")
         if m := HARDCODED_PRICES.search(plain_text):
             fail(f"{key}: contains hardcoded Star price {m.group(0)!r} (pricing lives in @TitanTGProxy_bot)")
 

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "posts": [
+    {
+      "key": "holiday_nowin",
+      "role": "rotational",
+      "rubric": "holiday",
+      "silent": false,
+      "enabled": true,
+      "cta_text": "Открыть бота",
+      "start_param": "ch_holiday_nowin",
+      "html": "<b>Спокойных праздников и стабильной связи в новом году</b>\n\nГде бы вы ни находились на каникулах, рабочие чаты и фото с близкими открываются без пауз внутри мессенджера."
+    }
+  ]
+}
