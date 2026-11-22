@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""Render a batch's replies_to_post.md (or HALT.json) as a mobile-friendly HTML email.
+"""Render a batch's replies_to_post.md as a mobile-friendly HTML email of ready-to-post replies.
 
-Usage: email_replies.py <runs/<batch>/replies_to_post.md | runs/<batch>/HALT.json>
-Writes runs/<batch>/email.html and prints the subject line. Sending is done by the
-Gmail connector in the scheduled task, so no credentials live in the vault.
+Usage: email_replies.py <runs/<batch>/replies_to_post.md>
+Writes runs/<batch>/email.html and prints the subject line (exit 0).
+Exit 3 = nothing sendable (no drafts, or batch held): the caller must NOT send an email.
+The operator only wants mail that contains real replies; failures are handled locally.
+Sending is done by the Gmail connector in the scheduled task, so no credentials live in the vault.
 """
 import html
-import json
 import re
 import sys
 from pathlib import Path
 
+NOTHING_TO_SEND = 3
+
 
 def parse(md: str):
-    header = md.split("\n---", 1)[0]
-    summary = [l for l in header.splitlines()[1:] if l.strip()]
     items = []
     for block in re.split(r"^### ", md, flags=re.M)[1:]:
         lines = block.splitlines()
-        m = re.match(r"(\d+)\.\s+(\S+)", lines[0])
+        m = re.match(r"(\d+)\.\s+(https://\S+)", lines[0])
         if not m:
             continue
         item = {"n": m.group(1), "url": m.group(2)}
@@ -26,11 +27,9 @@ def parse(md: str):
             fm = re.match(r"-\s+(author|views|DRAFT|content_pillar):\s*(.*)", l)
             if fm:
                 item[fm.group(1)] = fm.group(2).strip()
-        if "DRAFT" in item:
+        if item.get("DRAFT"):
             items.append(item)
-    tail = md.split("## Skipped", 1)
-    extra = "## Skipped" + tail[1] if len(tail) > 1 else ""
-    return summary, items, extra
+    return items
 
 
 def card(it):
@@ -51,42 +50,15 @@ def card(it):
 </td></tr></table>"""
 
 
-def halt_card(h):
-    e = html.escape
-    spent = h.get("budget_spent") or {}
-    spent_txt = ", ".join(f"{k}: {v}" for k, v in spent.items()) if isinstance(spent, dict) else str(spent)
-    rows = [
-        ("Stopped at", h.get("halted_at_stage", "")),
-        ("Why", h.get("reason", "")),
-        ("What to do", h.get("resume_instruction", "")),
-        ("Spent", spent_txt),
-    ]
-    body = "".join(
-        f"<div style='font-size:13px;color:#7a6248;margin:12px 0 4px 0;'>{e(k)}</div>"
-        f"<div style='font-size:16px;line-height:1.45;color:#3b2a1a;'>{e(str(v))}</div>"
-        for k, v in rows if v
-    )
-    return f"""
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3e7d1" style="background-color:#f3e7d1;border:1px solid #c9b18a;border-radius:14px;"><tr><td bgcolor="#f3e7d1" style="background-color:#f3e7d1;padding:16px;border-radius:14px;">
-  <div style="font-size:19px;font-weight:bold;color:#8a2a12;">Run stopped, no drafts this time</div>
-  <div style="font-size:13px;color:#7a6248;margin-top:4px;">{e(h.get('batch_id', ''))} &middot; nothing to post</div>
-  {body}
-</td></tr></table>"""
-
-
 def build(md_path: Path):
-    batch = md_path.parent.name
-    if md_path.name == "HALT.json":
-        halt = json.loads(md_path.read_text())
-        return f"Twitter run stopped, no drafts: {batch}", wrap(halt_card(halt))
     md = md_path.read_text()
-    summary, items, extra = parse(md)
-    head = "".join(f"<p style='font-size:14px;color:#5a4630;margin:0 0 6px 0'>{html.escape(s)}</p>" for s in summary)
     if re.search(r"HELD|DO NOT POST", md):
-        head = "<p style='font-size:16px;color:#b00020;font-weight:bold'>BATCH HELD - DO NOT POST</p>" + head
-    cards = "".join(card(i) for i in items) or "<p>No drafts this run.</p>"
-    foot = f"<pre style='white-space:pre-wrap;font-size:12px;color:#7a6248'>{html.escape(extra.strip())}</pre>" if extra.strip() else ""
-    return f"{len(items)} Twitter replies ready: {batch}", wrap(head + "<div style='height:12px'></div>" + cards + foot)
+        return None
+    items = parse(md)
+    if not items:
+        return None
+    head = f"<p style='font-size:15px;color:#5a4630;margin:0 0 12px 0'>{len(items)} replies ready to post, best first.</p>"
+    return f"{len(items)} Twitter replies ready", wrap(head + "".join(card(i) for i in items))
 
 
 def wrap(inner):
@@ -100,6 +72,13 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     src = Path(sys.argv[1])
-    subject, body = build(src)
+    if src.name != "replies_to_post.md" or not src.exists():
+        print("nothing to send: not a replies_to_post.md", file=sys.stderr)
+        sys.exit(NOTHING_TO_SEND)
+    built = build(src)
+    if built is None:
+        print("nothing to send: no drafts or batch held", file=sys.stderr)
+        sys.exit(NOTHING_TO_SEND)
+    subject, body = built
     (src.parent / "email.html").write_text(body)
     print(subject)
