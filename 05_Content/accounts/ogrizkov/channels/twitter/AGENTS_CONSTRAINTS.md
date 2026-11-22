@@ -63,8 +63,8 @@ One line per agent's hard edges: model · what it reads · what it must never se
 - **Known gap (proposed v3.2):** no rule yet against reader-illegible *internal* jargon (e.g. `E1-E5`, "loader directive", persona names) — the inverse-noun problem
 
 ## 4 · Critic
-- **Model:** Gemini 3.1 Pro (High) via `agy -p` — non-Claude (cross-family veto)
-- **Invocation:** `agy -p "<prompt>" --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions`
+- **Model:** Gemini 4 Neon (High) via `agy -p` — non-Claude (cross-family veto)
+- **Invocation:** `agy -p "<prompt>" --model "Gemini 4 Neon (High)" --print-timeout 10m`
 - **Reads:** the draft, the persisted `00b_threads` snapshot `{opening_post, top_replies, thread_gist, engagement, captured_at}`, bound entry claim, `content_pillar`, Rubric v1.3
 - **Never sees:** full voice/register, other drafts, gate internals, **live X / any URL to open** (snapshot-read only)
 - **Enforces:**

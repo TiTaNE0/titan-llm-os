@@ -14,7 +14,7 @@ locked: 2026-06-16
 | 1 | Scout | Grok (X access) | `grok -p` (fenced-JSON capture) | `role_specs/scout.md` |
 | 2 | Matcher | `claude-opus-4-8` | Claude sub-agent | `role_specs/matcher.md` |
 | 3 | Drafter | `claude-sonnet-4-6` | Claude sub-agent | `role_specs/drafter.md` |
-| 4 | Critic | non-Claude: Gemini 3.1 Pro (High) via `agy -p` | `agy -p "<prompt>" --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions` (cross-family veto, snapshot-read) | `role_specs/critic.md` |
+| 4 | Critic | non-Claude: Gemini 4 Neon (High) via `agy -p` | `agy -p "<prompt>" --model "Gemini 4 Neon (High)" --print-timeout 10m` (cross-family veto, snapshot-read) | `role_specs/critic.md` |
 | 5 | Gatekeeper | — (shell) | `bin/gate.sh` via bash≥4 | (frozen; rules live in `bin/gate.sh`) |
 | 6 | Asset | `claude-haiku-4-5` | sub-agent + `bin/render_asset.sh` | `role_specs/asset.md` |
 | 7 | Producer | `claude-haiku-4-5` | sub-agent | `role_specs/producer.md` |

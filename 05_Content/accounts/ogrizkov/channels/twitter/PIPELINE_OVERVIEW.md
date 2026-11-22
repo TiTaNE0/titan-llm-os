@@ -72,7 +72,7 @@ the thing we search by.
 | 1 | **Scout** | **grok** (`grok -p`) | Live X retrieval per vector + thread-context fetch. Only model with live X access. |
 | 2 | **Matcher** | Opus 4.8 | Liveness + replyability + contributability gates (incl. domain/mechanism transfer drop — same-theme-but-mechanism-foreign binds are dropped); binds each thread 1:1 to a distinct vault entry; tags pillars. |
 | 3 | **Drafter** | Sonnet 4.6 | Writes one reply per target, in voice, grounded in the bound entry. Fresh instance per retry. |
-| 4 | **Critic** | **Gemini 3.1 Pro (High)** via `agy -p` (cross-family) | Judges against Rubric v1.3 from the persisted `00b_threads` snapshot, SHIP/FIX. The independent veto. Never opens the URL. |
+| 4 | **Critic** | **Gemini 4 Neon (High)** via `agy -p` (cross-family) | Judges against Rubric v1.3 from the persisted `00b_threads` snapshot, SHIP/FIX. The independent veto. Never opens the URL. |
 | 5 | **Gatekeeper** | — (shell) | `bin/gate.sh` — deterministic word-range/`!`/batch-variety checks (single-draft specificity is a non-fatal WARN, not a block — owned by the Critic). No model. |
 | 6 | **Asset** | Haiku 4.5 | Fills the aurora-frost card for the top 1–2 (optional). |
 | 7 | **Producer** | Haiku 4.5 | Assembles `replies_to_post.md` (the human gate). Never posts. |
@@ -155,7 +155,7 @@ overuse, length uniformity). Exit 0 = pass (word-range/`!`/batch ok), 1 = rewrit
 batch check), 2 = config error (abort; needs bash ≥4).
 
 ### Critic — Rubric v1.3 (fair-judge, recalibrated 2026-06-16; snapshot-read as of 2026-06-24)
-Gemini 3.1 Pro (High) via `agy -p`. Judges from the persisted `00b_threads` snapshot (opening post + replies + engagement at `captured_at`) — never opens the URL. **Mandate: be a fair judge — SHIP
+Gemini 4 Neon (High) via `agy -p`. Judges from the persisted `00b_threads` snapshot (opening post + replies + engagement at `captured_at`) — never opens the URL. **Mandate: be a fair judge — SHIP
 what a sharp builder would post; fail a criterion only on a MATERIAL problem, not a stylistic nitpick.**
 Two tiers, confidence-gated:
 

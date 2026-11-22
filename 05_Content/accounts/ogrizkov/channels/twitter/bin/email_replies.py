@@ -51,12 +51,34 @@ def card(it):
 </td></tr></table>"""
 
 
+def halt_card(h):
+    e = html.escape
+    spent = h.get("budget_spent") or {}
+    spent_txt = ", ".join(f"{k}: {v}" for k, v in spent.items()) if isinstance(spent, dict) else str(spent)
+    rows = [
+        ("Stopped at", h.get("halted_at_stage", "")),
+        ("Why", h.get("reason", "")),
+        ("What to do", h.get("resume_instruction", "")),
+        ("Spent", spent_txt),
+    ]
+    body = "".join(
+        f"<div style='font-size:13px;color:#7a6248;margin:12px 0 4px 0;'>{e(k)}</div>"
+        f"<div style='font-size:16px;line-height:1.45;color:#3b2a1a;'>{e(str(v))}</div>"
+        for k, v in rows if v
+    )
+    return f"""
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3e7d1" style="background-color:#f3e7d1;border:1px solid #c9b18a;border-radius:14px;"><tr><td bgcolor="#f3e7d1" style="background-color:#f3e7d1;padding:16px;border-radius:14px;">
+  <div style="font-size:19px;font-weight:bold;color:#8a2a12;">Run stopped, no drafts this time</div>
+  <div style="font-size:13px;color:#7a6248;margin-top:4px;">{e(h.get('batch_id', ''))} &middot; nothing to post</div>
+  {body}
+</td></tr></table>"""
+
+
 def build(md_path: Path):
     batch = md_path.parent.name
     if md_path.name == "HALT.json":
         halt = json.loads(md_path.read_text())
-        body = f"<p style='font-size:16px'>Batch <b>{html.escape(batch)}</b> halted.</p><pre style='white-space:pre-wrap;font-size:13px'>{html.escape(json.dumps(halt, indent=2))}</pre>"
-        return f"Twitter replies HALTED: {batch}", wrap(body)
+        return f"Twitter run stopped, no drafts: {batch}", wrap(halt_card(halt))
     md = md_path.read_text()
     summary, items, extra = parse(md)
     head = "".join(f"<p style='font-size:14px;color:#5a4630;margin:0 0 6px 0'>{html.escape(s)}</p>" for s in summary)

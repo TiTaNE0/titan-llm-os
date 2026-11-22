@@ -2,7 +2,7 @@
 type: pipeline-artifact
 artifact: reply-role-critic
 tier: 2
-model: "non-Claude — Gemini 3.1 Pro (High) via agy -p; --print-timeout 10m --dangerously-skip-permissions (waits for response, no external kill)"
+model: "non-Claude — Gemini 4 Neon (High) via agy -p; --print-timeout 10m (waits for response, no external kill)"
 prd_ref: "§4.4, §v3.1.4"
 locked: 2026-06-16
 ---
@@ -28,7 +28,7 @@ Snapshot-read, not live-read: the judging basis is the persisted `00b_threads` s
 
 ## Contract
 
-Model/invocation: non-Claude `agy -p "<prompt>" --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions`. One call per draft or one batched call over the surviving set. The call WAITS (up to 10m) for agy's own response — no external kill/watchdog. If agy genuinely exceeds 10m it self-aborts → CRITIC-UNAVAILABLE → SAVE-AND-HALT.
+Model/invocation: non-Claude `agy -p "<prompt>" --model "Gemini 4 Neon (High)" --print-timeout 10m`. One call per draft or one batched call over the surviving set. The call WAITS (up to 10m) for agy's own response — no external kill/watchdog. If agy genuinely exceeds 10m it self-aborts → CRITIC-UNAVAILABLE → SAVE-AND-HALT.
 
 Reads (isolated per draft):
 - The draft
@@ -124,5 +124,5 @@ If the Phase-2 agy/Gemini critic cannot be invoked mid-run (unreachable / no fen
 One line per draft via `bin/run_traced.sh`:
 
 ```
-bin/run_traced.sh --role critic --model gemini-3.1-pro --provider google -- agy -p "<prompt>" --model "Gemini 3.1 Pro (High)" --print-timeout 10m --dangerously-skip-permissions
+bin/run_traced.sh --role critic --model gemini-4-neon-high --provider google -- agy -p "<prompt>" --model "Gemini 4 Neon (High)" --print-timeout 10m
 ```

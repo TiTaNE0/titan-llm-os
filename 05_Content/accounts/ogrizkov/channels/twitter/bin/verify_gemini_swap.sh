@@ -20,14 +20,14 @@ echo "=== DoD: roster.md ==="
 chk "roster Critic row names agy -p invocation" \
   'grep -q "agy -p" "$C/agents/roster.md"'
 
-chk "roster Critic row names Gemini 3.1 Pro (High)" \
-  'grep -q "Gemini 3.1 Pro (High)" "$C/agents/roster.md"'
+chk "roster Critic row names Gemini 4 Neon (High)" \
+  'grep -q "Gemini 4 Neon (High)" "$C/agents/roster.md"'
 
 chk "roster Critic row has --print-timeout 10m" \
   'grep -q "print-timeout 10m" "$C/agents/roster.md"'
 
-chk "roster Critic row has --dangerously-skip-permissions" \
-  'grep -q "dangerously-skip-permissions" "$C/agents/roster.md"'
+chk "roster Critic row has NO --dangerously-skip-permissions (classifier blocks it)" \
+  '! grep -q "dangerously-skip-permissions" "$C/agents/roster.md"'
 
 chk "roster Critic row provider is google (non-grok)" \
   'grep -i "google\|gemini" "$C/agents/roster.md" | grep -qi "critic\|4.*Critic\|cross-family"'
@@ -44,8 +44,8 @@ chk "roster grok-budget note: MAX_GROK_CALLS bounds Scout + Wins only" \
 
 echo "=== DoD: critic.md model/invocation ==="
 
-chk "critic.md model line names Gemini 3.1 Pro (High)" \
-  'grep "^model:" "$C/agents/role_specs/critic.md" | grep -q "Gemini 3.1 Pro (High)"'
+chk "critic.md model line names Gemini 4 Neon (High)" \
+  'grep "^model:" "$C/agents/role_specs/critic.md" | grep -q "Gemini 4 Neon (High)"'
 
 chk "critic.md model line names agy -p" \
   'grep "^model:" "$C/agents/role_specs/critic.md" | grep -q "agy -p"'
@@ -53,8 +53,8 @@ chk "critic.md model line names agy -p" \
 chk "critic.md model line has --print-timeout 10m" \
   'grep "^model:" "$C/agents/role_specs/critic.md" | grep -q "print-timeout 10m"'
 
-chk "critic.md model line has --dangerously-skip-permissions" \
-  'grep "^model:" "$C/agents/role_specs/critic.md" | grep -q "dangerously-skip-permissions"'
+chk "critic.md model line has NO --dangerously-skip-permissions" \
+  '! grep "^model:" "$C/agents/role_specs/critic.md" | grep -q "dangerously-skip-permissions"'
 
 chk "critic.md title says snapshot-read (not live-read)" \
   'grep "^# Critic" "$C/agents/role_specs/critic.md" | grep -q "snapshot-read"'
@@ -89,8 +89,8 @@ echo "=== DoD: critic.md output and telemetry ==="
 chk "critic.md output JSON has \"critic\": \"gemini\"" \
   'grep -q "\"critic\": \"gemini\"" "$C/agents/role_specs/critic.md"'
 
-chk "critic.md telemetry uses model gemini-3.1-pro" \
-  'grep "run_traced.sh" "$C/agents/role_specs/critic.md" | grep -q "gemini-3.1-pro"'
+chk "critic.md telemetry uses model gemini-4-neon-high" \
+  'grep "run_traced.sh" "$C/agents/role_specs/critic.md" | grep -q "gemini-4-neon-high"'
 
 chk "critic.md telemetry uses provider google" \
   'grep "run_traced.sh" "$C/agents/role_specs/critic.md" | grep -q "google"'
@@ -245,8 +245,8 @@ chk "orchestrate PROBE step liveness-checks agy" \
 chk "orchestrate agy probe has --print-timeout 10m" \
   'grep -i "agy.*probe\|probe.*agy" "$C/skill/twitter-reply-orchestrate.md" | grep -q "print-timeout 10m"'
 
-chk "orchestrate agy probe has --dangerously-skip-permissions" \
-  'grep -i "agy.*probe\|probe.*agy" "$C/skill/twitter-reply-orchestrate.md" | grep -q "dangerously-skip-permissions"'
+chk "orchestrate agy probe has NO --dangerously-skip-permissions" \
+  '! grep -i "agy.*probe\|probe.*agy" "$C/skill/twitter-reply-orchestrate.md" | grep -q "dangerously-skip-permissions"'
 
 chk "orchestrate PROBE step still checks grok (Scout+Wins not removed)" \
   'grep -i "probe" "$C/skill/twitter-reply-orchestrate.md" | grep -qi "grok"'
@@ -254,14 +254,14 @@ chk "orchestrate PROBE step still checks grok (Scout+Wins not removed)" \
 chk "orchestrate 4c builds snapshot payload from 00b_threads" \
   'grep -i "snapshot" "$C/skill/twitter-reply-orchestrate.md" | grep -qi "00b_threads"'
 
-chk "orchestrate 4c invokes agy (model gemini-3.1-pro, provider google)" \
-  'grep "gemini-3.1-pro" "$C/skill/twitter-reply-orchestrate.md" | grep -q "google"'
+chk "orchestrate 4c invokes agy (model gemini-4-neon-high, provider google)" \
+  'grep "gemini-4-neon-high" "$C/skill/twitter-reply-orchestrate.md" | grep -q "google"'
 
 chk "orchestrate 4c has --print-timeout 10m in agy critic call" \
   'grep -i "agy.*gemini\|gemini.*agy\|agy -p" "$C/skill/twitter-reply-orchestrate.md" | grep -q "print-timeout 10m"'
 
-chk "orchestrate 4c has --dangerously-skip-permissions in agy critic call" \
-  'grep -i "agy -p" "$C/skill/twitter-reply-orchestrate.md" | grep -q "dangerously-skip-permissions"'
+chk "orchestrate 4c agy critic call has NO --dangerously-skip-permissions" \
+  '! grep -i "agy -p" "$C/skill/twitter-reply-orchestrate.md" | grep -q "dangerously-skip-permissions"'
 
 chk "orchestrate 4c: critic call does NOT increment grok_calls" \
   'grep -i "grok_calls.*increment\|increment.*grok_calls\|No.*grok_calls\|not a grok call" "$C/skill/twitter-reply-orchestrate.md" | grep -qi "critic\|not a grok"'
@@ -299,7 +299,7 @@ chk "verify_v3_scaffold.sh no-claude-* primary check still present" \
 
 echo "=== DoD: PIPELINE_OVERVIEW.md ==="
 
-chk "PIPELINE_OVERVIEW Critic row: Gemini 3.1 Pro (High) via agy -p" \
+chk "PIPELINE_OVERVIEW Critic row: Gemini 4 Neon (High) via agy -p" \
   'grep -i "Critic" "$C/PIPELINE_OVERVIEW.md" | grep -qi "Gemini\|agy"'
 
 chk "PIPELINE_OVERVIEW cross-family veto preserved: Gemini ≠ Claude" \
