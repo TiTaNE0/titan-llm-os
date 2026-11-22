@@ -1,18 +1,38 @@
 #!/usr/bin/env python3
 """Render a batch's replies_to_post.md as a mobile-friendly HTML email of ready-to-post replies.
 
-Usage: email_replies.py <runs/<batch>/replies_to_post.md>
+Usage: email_replies.py <runs/<batch>/replies_to_post.md> [--send]
 Writes runs/<batch>/email.html and prints the subject line (exit 0).
-Exit 3 = nothing sendable (no drafts, or batch held): the caller must NOT send an email.
+--send also sends it iCloud -> iCloud through Mail.app on this Mac. Gmail is not used:
+it rewrites every link through google.com/url, which stops a tap from opening the X app.
+Exit 3 = nothing sendable (no drafts, or batch held): nothing is sent.
+Exit 4 = Mail.app send failed.
 The operator only wants mail that contains real replies; failures are handled locally.
-Sending is done by the Gmail connector in the scheduled task, so no credentials live in the vault.
 """
 import html
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 NOTHING_TO_SEND = 3
+SEND_FAILED = 4
+ICLOUD = "evgeniy.ogrizkov@icloud.com"
+
+SEND_SCRIPT = """
+on run argv
+  set theSubject to item 1 of argv
+  set theBody to item 2 of argv
+  set theAddr to item 3 of argv
+  tell application "Mail"
+    set msg to make new outgoing message with properties {subject:theSubject, visible:false, sender:theAddr}
+    tell msg
+      make new to recipient at end of to recipients with properties {address:theAddr}
+      set html content to theBody
+    end tell
+    send msg
+  end tell
+end run"""
 
 
 def parse(md: str):
@@ -82,3 +102,10 @@ if __name__ == "__main__":
     subject, body = built
     (src.parent / "email.html").write_text(body)
     print(subject)
+    if "--send" in sys.argv:
+        r = subprocess.run(["osascript", "-e", SEND_SCRIPT, subject, body, ICLOUD],
+                           capture_output=True, text=True, timeout=120)
+        if r.returncode != 0:
+            print(f"send failed: {r.stderr.strip()}", file=sys.stderr)
+            sys.exit(SEND_FAILED)
+        print(f"sent to {ICLOUD}")
