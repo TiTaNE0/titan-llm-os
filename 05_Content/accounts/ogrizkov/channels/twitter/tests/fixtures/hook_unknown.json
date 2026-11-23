@@ -1,0 +1,6 @@
+{"url": "https://x.com/nateherk/status/2124541215333044480", "reply_type": "clean", "ground_with": null,
+ "answers": "set auto-compact to 400k",
+ "point": "Which survives a compaction: the plan or the reasons",
+ "hook": {"id": "H9", "name": "Not on the sheet", "instruction": "Ask one question about the 400k setting itself."},
+ "draft": "Does the 400k compaction keep the reasons behind a rejected step, or only the plan?",
+ "verify_flags": []}

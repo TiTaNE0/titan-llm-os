@@ -1,0 +1,1 @@
+Batching the tool calls keeps raw JSON out of the context window #agents

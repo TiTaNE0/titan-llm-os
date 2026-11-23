@@ -1,0 +1,418 @@
+{
+  "note": "Offline fixture for bin/qualify_critic.sh --evaluate: a calibrated critic (every must-fail probe fails its criterion, the must-ship probe ships).",
+  "results": [
+    {
+      "url": "https://x.com/Sumanth_077/status/2124128730218176985",
+      "draft": "Our session start does this from the other side. Injection has a token-budget cap with explicit drop priority, then a verification check before any work starts, instead of loading everything available",
+      "critic_verdict": "FIX",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "fail",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "",
+      "tells": [],
+      "learns": "nothing"
+    },
+    {
+      "url": "https://x.com/nateherk/status/2124541215333044480",
+      "draft": "The reasons behind a killed branch are what compaction loses. I keep decisions in vault files, not chat, so compacting earlier costs me little - do you write the reasons down anywhere outside the session?",
+      "critic_verdict": "FIX",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "fail",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "",
+      "tells": [],
+      "learns": "nothing"
+    },
+    {
+      "url": "https://x.com/sristhi_saha/status/2124017472831389724",
+      "draft": "I keep decisions in files, not in chat, my agent reads 8 boot steps before any work. Subtle bugs got rarer",
+      "critic_verdict": "FIX",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "fail",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "",
+      "tells": [],
+      "learns": "nothing"
+    },
+    {
+      "url": "https://x.com/DanielSmidstrup/status/2124088043275473217",
+      "draft": "Same here, tests pass and it is still broken. I run the suite and then check by hand before merge",
+      "critic_verdict": "FIX",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "fail",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "",
+      "tells": [],
+      "learns": "nothing"
+    },
+    {
+      "url": "https://x.com/sristhi_saha/status/2124017472831389724",
+      "draft": "Mine was lat/lng rounded to 3 decimals. It missed the nearest address 30-50% of the time, for weeks",
+      "critic_verdict": "SHIP",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "fixture",
+      "tells": [],
+      "learns": "fixture"
+    },
+    {
+      "url": "https://x.com/yeemio/status/2124507138009809263",
+      "draft": "Same here, moving the final gate to a hash cut our false passes from 14% to 2% and review time by 62%",
+      "critic_verdict": "FIX",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "fail",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "",
+      "tells": [],
+      "learns": "nothing"
+    },
+    {
+      "url": "https://x.com/martynov014/status/2124424561278247060",
+      "draft": "Totally. We cut our iOS build time way down by switching xcodebuild to incremental compilation with a warm DerivedData cache and parallel -destination fan-out across simulators — derived-data hashing is the real unlock. Build speed is everything.",
+      "critic_verdict": "FIX",
+      "criteria": [
+        {
+          "criterion": "no_fabrication",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "thread_fit",
+          "verdict": "fail",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "op_relevance",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "forced_anchor",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "stranger_interest",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "ai_tells",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "no_hype",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        },
+        {
+          "criterion": "length_register_sane",
+          "verdict": "pass",
+          "confidence": 0.85,
+          "reason": "fixture"
+        }
+      ],
+      "op_point": "fixture",
+      "takeaway": "",
+      "tells": [],
+      "learns": "nothing"
+    }
+  ]
+}

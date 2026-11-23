@@ -60,6 +60,7 @@ n_pass = status_ct.get("passed", 0)
 n_skip = status_ct.get("skipped", 0)
 n_quar = status_ct.get("quarantined", 0)
 n_held = status_ct.get("held", 0)
+n_drop = status_ct.get("dropped", 0)
 
 # ---- Per-role execution (timing + token proxy) ----
 role_dur = defaultdict(int); role_tin = defaultdict(int); role_tout = defaultdict(int)
@@ -100,7 +101,7 @@ for t in anch.get("targets", []) or []:
     if v and url_status.get(t.get("url")) == "passed": vec_ship[v] += 1
 
 # ---- Quarantine / skip detail ----
-parked = [r for r in results if r.get("status") in ("quarantined", "skipped", "held")]
+parked = [r for r in results if r.get("status") in ("quarantined", "skipped", "held", "dropped")]
 
 out = []
 out.append(f"# Batch report — {batch}\n")
@@ -116,6 +117,7 @@ out.append(f"| passed | {n_pass} |")
 out.append(f"| skipped | {n_skip} |")
 out.append(f"| quarantined | {n_quar} |")
 out.append(f"| held | {n_held} |")
+out.append(f"| dropped | {n_drop} |")
 if n_cand: out.append(f"\nEnd-to-end yield: **{n_pass}/{n_cand} = {100*n_pass/n_cand:.1f}%**\n")
 
 out.append("## Cost & latency (per role)\n")
@@ -147,9 +149,9 @@ if vec_bound or vec_seen:
     out.append("")
 
 if parked:
-    out.append("## Quarantined / skipped / held\n")
+    out.append("## Quarantined / skipped / held / dropped\n")
     for r in parked:
-        out.append(f"- `{r.get('status')}` — {r.get('url','?')} — {r.get('skip_reason') or r.get('critic_verdict') or ''}")
+        out.append(f"- `{r.get('status')}` — {r.get('url','?')} — {r.get('drop_reason') or r.get('skip_reason') or r.get('critic_verdict') or ''}")
     out.append("")
 
 with open(os.path.join(rd, "batch_report.md"), "w") as f:

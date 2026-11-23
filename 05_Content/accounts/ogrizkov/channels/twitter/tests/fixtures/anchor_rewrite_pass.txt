@@ -1,0 +1,1 @@
+I cap how much the agent loads at session start and keep a written order of what to drop when it doesn't fit. I'd check what their compaction drops first.

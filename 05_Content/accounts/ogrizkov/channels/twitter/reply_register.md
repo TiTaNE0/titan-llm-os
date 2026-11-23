@@ -18,41 +18,23 @@ replies — every single one — are a generation tell. This adds back the small
 clean). NOT `voice.md` (it stays general; it gets reused for emails / other channels where this
 sloppiness would be wrong). If you're not drafting a Twitter reply, ignore this file.
 
-## The texture (grounded in his real typing)
+## The texture
 
-His actual typing — visible in the prompts he writes — is uneven: lowercase sentence/message
-openers ("so", "ok,", "i mean", "btw"), occasional real typos left in (`reples`, `promt`,
-`assesment`, `comrehend`, `al` for "all"), comma-splices and run-ons, dropped apostrophes, mixed
-capitalisation within the same message. The key is it's **inconsistent** — some lines clean, some
-not. Pick from these, lightly:
+Texture comes from him, not from you. If the entry has a `his_words` line, keep his word order and his mistakes; fix only what breaks meaning. If it has none, write plain: short sentences, common words, no connector phrases ('instead of', 'from the other side'). Planted tics per batch: `;` apostrophe at most 1, ` - ` at most 1, lowercase opener at most 1, invented misspellings 0, and never the same tic in two batches in a row. A dropped final period on a one-sentence reply is normal and not counted; with two or more sentences keep the periods.
 
-- Lowercase ONE sentence or opener — **not the whole reply, not every draft** (see guardrails).
-- Drop a terminal period, especially on the last line.
-- Leave one small real typo that does NOT change the meaning (missing/transposed letter).
-- `;` in place of the apostrophe in a contraction — his real typo: `don;t`, `isn;t`, `it;s`. Occasionally.
-- A `-` (dash) where a `.` or `,` would normally go, now and then.
-- A comma-splice or run-on instead of two tidy sentences.
-- lowercase "i" once in a while.
+(v3.2: the reply is a starter he rewrites in his own words on his phone, so plain is the default; `bin/gate.sh --batch` caps each tic at 1 draft.)
 
 ## Hard guardrails (this is where it goes wrong if ignored)
 
-- **NOT all-lowercase, and the lowercase opener is NOT the default.** Do not lowercase every sentence
-  or every opener — **uniform all-lowercase is itself a 2026 AI tell now**, and the lowercase opener is
-  the single most overused move. Across a batch a lowercase opener must be the **minority** (the gate
-  rejects >half lowercase openers); reach for the OTHER signatures — `;` typo, `-`, dropped final
-  period — more often than the lowercase opener. Lowercase ONE sentence sometimes, never the whole
-  reply, not in every draft.
-- **A different imperfection per draft.** Never the same tic across the batch (e.g. not a lowercase
-  opener on all of them). Rotate: one draft drops a period, another has a `;` typo, another a `-`,
-  several are fully clean. Sameness — even sloppy sameness — is the tell.
 - **Occasional and inconsistent.** At most ~1–2 imperfections per reply, and not in every reply.
   A reply that's sloppy in every dimension reads as a costume / low-effort — worse than clean. When
   in doubt, fewer. Variety across the batch matters more than any single reply being rough.
 - **Never break meaning.** A typo or dropped word that makes the claim ambiguous or wrong is a
   defect, not texture — fix it. (Same rule as `voice.md`.)
 - **Never touch the signal.** Do NOT lowercase or typo a tool/product name and do NOT drop or fuzz
-  a number that carries the concrete signal. `xcodebuild` stays `xcodebuild`, `E1-E5` stays,
-  `2,253` stays. Those are credibility AND what the specificity gate checks — keep them intact.
+  a number that carries the concrete signal. `xcodebuild` stays `xcodebuild`, `2,253` stays.
+  Those are credibility AND what the specificity gate checks — keep them intact.
+  `E1-E5` is an internal label, not signal: write 'five classes of errors'.
 - **Not a substitute for substance.** Sloppiness on top of a generic reply is still generic. Get
   the bound-entry specifics right first; texture is the last 5%, not the point.
 - **Keep the never-list.** No `!`, no hype, no engagement-bait, no emoji beyond the voice.md set —

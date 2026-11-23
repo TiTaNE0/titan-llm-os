@@ -3,40 +3,42 @@ type: pipeline-artifact
 artifact: reply-role-scout
 tier: 2
 model: "Grok (X access) — grok -p"
-prd_ref: "§4.1"
-locked: 2026-06-10
+prd_ref: "§4.1, v3.2 (PENDING_SPEC_REVISION section B: grok only when necessary)"
+locked: 2026-11-23
 ---
 
-# Scout — raw X retrieval
+# Scout — discovery search only
 
-Live X search → `00_candidates.json`. Raw retrieval only; no drafting, no ranking prose.
+Live X search → `00_candidates.json`. The Scout does the discovery search only, in at most two grok calls per run (call A: authors; call B: vectors), plus the reserve call for the single widen pass. Every read of a known post (thread snapshots, readings, reply counts) goes through `bin/fetch_posts.py`, not the Scout. Raw retrieval only; no drafting, no ranking prose.
 
-Behavior source: `../../skill/twitter-reply-scout.md` (3 moves, liveness gate, source honesty, widen loop).
+Behavior source: `../../skill/twitter-reply-scout.md` (moves, source honesty), as amended here.
 
 ## Contract
 
 Reads:
-- Search topics: broad hot AI + the 3-pillar domain vocab from `../../project_authority.md` (vocab only — NOT the grounding entries themselves, not voice/register).
-- 24–48h window, English-only.
-- `../../runs/_analytics/wins.md` — LEARN signal (what converted).
-- Prior `../../runs/*/replies_to_post.md` — dedup (what we already targeted).
+- Call A: the `authors` list of `../watchlist.json` (small answering authors), and as a second list in the same prompt the `large` list (labs and builders first) for posts under `tiers.large.max_age_min` minutes old.
+- Call B: the `scout_vectors_per_run` vector queries from `../../runs/_index/search_vectors.json` in one prompt, topic vectors before project vectors (vectors carry the authority zones from `runs/_index/authority_zones.json`).
+- The exclude list from `bin/slot_state.py history --urls` (already delivered).
+- English-only.
 
-Writes: `runs/<batch>/00_candidates.json` — array of `{url, author, age, views, likes, replies, lang, hot|domain, text_snippet, source_tag, post_type}`. Schema: `../schemas.md`.
+Writes: `runs/<batch>/00_candidates.json` — array of `{url, author, author_followers, posted_at, views, likes, replies, lang, text_snippet, matched_quote, source, source_tag, post_type}`. Schema: `../schemas.md`. `source` is `watchlist`, `large` or the vector id. `views` on every candidate feeds the momentum signal; `posted_at` (ISO-8601 UTC) and `author_followers` are required: `target_filter.py prefilter` cuts a candidate without them.
 
-Invocation: orchestrator calls `grok -p` with a brief demanding a SINGLE fenced ` ```json ` block. Widen-loop cap = 3 passes, then proceed with however many survived; emit loud "widened N times, only M live this window".
+Invocation: the orchestrator calls `grok -p` with a brief demanding a SINGLE fenced ` ```json ` block, through `bin/run_traced.sh --timeout`. Every prompt asks for posts no older than its age limit, newest first, with their view counts. The grok budget is `cost.max_grok_calls` in `../params.json` (3 per run).
 
-## Thread-context fetch (batched, post-shortlist)
+## Target limits (rule 10)
 
-When the orchestrator passes the Matcher's liveness-survivor URL list, fetch thread context for ALL
-survivors in ONE `grok -p` call → a SINGLE fenced ` ```json ` block → `runs/<batch>/00b_threads.json`.
-Read the opening post in full (not the 280-char snippet) plus the highest-signal replies (the
-reveal / answer / punchline). Also capture per-thread `engagement` `{views, likes, replies, quotes,
-reposts, bookmarks}` (each nullable — X often hides bookmarks) and set `captured_at` (ISO-8601 fetch
-time). Raw retrieval only — no drafting, no match judgment. Set `replyable: false` for
-polls/memes/promos with no substantive discussion to join.
+Applied deterministically by `bin/target_filter.py prefilter` after the Scout returns; the Scout asks for posts inside them so the calls are not wasted:
+- Age: under `capture.fresh_min` (90) minutes preferred; 91 to `capture.max_age_min` (210) minutes only when the fresh band yields no passing item; nothing older, and the limit is never widened inside a run.
+- Replies: up to `capture.max_replies` (40).
+- Tiers: tier 1 authors of 1,000 to 20,000 followers first, tier 2 of 20,000 to 125,000. Under `capture.min_followers` is cut.
+- Large-account lane: accounts above 125,000 followers, only posts under `tiers.large.max_age_min` (60) minutes old at capture, no reply-count limit, up to `tiers.large.per_run` delivered items per run.
+- Discussion only. Tag promo, listicle, giveaway, "let's connect" (`connect`) and growth-tool sellers (`growth_tool`) honestly in `post_type`; they are cut.
 
-This artifact (`00b_threads.json`) IS the Critic's judging snapshot — capture the opening post text
-and stats completely. The Critic never opens a URL; it judges from this snapshot at `captured_at`.
+## Thread-context fetch
+
+`bin/fetch_posts.py thread --url U` reads each thread through the public endpoint, in parallel, for the top `cost.thread_fetch_max` survivors, and writes the `00b_threads.json` entries (`opening_post`, `top_replies` with URLs, `engagement`, `captured_at`, `op_replies_in_thread`, `author_followers`, `posted_at`). Only when the endpoint fails and the reserve call is unused does the Scout fetch them: ONE `grok -p` call over all unread URLs → a SINGLE fenced ` ```json ` block in the same shape. Otherwise unread survivors are cut `thread_unreadable`.
+
+This artifact (`00b_threads.json`) IS the Critic's judging snapshot. The Critic never opens a URL; it judges from this snapshot at `captured_at`.
 
 ## Must-not-see
 
@@ -46,7 +48,7 @@ and stats completely. The Critic never opens a URL; it judges from this snapshot
 
 - Raw retrieval + source honesty only (`[X-live]` vs `[hypothesis]`).
 - No drafting, no ranking prose, no match judgments.
-- Tag `post_type` at retrieval from what the post visibly is.
-- **Prefer genuine discussion (2026-06-16 lesson).** Bias retrieval toward `discussion` / `question` posts — real debates, problems, hot takes, "why does X fail" threads. **Deprioritize product launches, ship-announcements, and self-showcases** (`announcement` / `promo` / `showcase`): the account replies to *conversations*, not to other people's launches, and the Matcher hard-drops those anyway, so surfacing them wastes the window. A launch only qualifies if a genuine technical debate has formed in its replies. Tag `post_type` honestly so the Matcher's replyability gate can enforce this.
+- Tag `post_type` at retrieval from what the post visibly is; prefer genuine discussion (`discussion` / `question`).
 - English-only: drop non-English posts before output.
-- Widen loop: if survivors <8 and passes <3, widen and re-scout. Cap at 3 passes then proceed.
+- Widen: exactly one widen pass per run (`thin_run.widen_passes`), only when fewer than min(`thin_run.widen_below`, `deliver_cap`) items passed after all bound candidates, time remains before the send cut-off and the reserve call is unused: one discovery call with unused query seeds and the `target_filter.py authors` list; same limits, same gates.
+- A failed grok call is not repeated beyond the budget. "402 ... balance exhausted" stops the run (`grok_balance`).

@@ -3,7 +3,7 @@ type: grounding_source
 account: ogrizkov
 channel: twitter
 created: 2026-06-08
-updated: 2026-06-09
+updated: 2026-11-23
 status: seed
 pillars: [development, agentic, marketing]
 anchor_projects:
@@ -56,7 +56,14 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - tags: <topics a scouted thread must touch to bind this>
 - postable_as: <experience | opinion | honest-gap>
 - reuse: <cooldown days>
+- finding: <optional; one operator-written line on what he learned>
+- his_words: <optional; one raw sentence from him on what happened, never edited>
 ```
+
+`finding:` and `his_words:` exist only where the operator has written them; no agent writes them.
+Deep bind rule (Matcher): an entry binds when something happened in it (past tense with a consequence,
+or a measured number) or when it has a `finding:` line. When that blocks a Deep bind that otherwise
+fit, the run appends a finding request to `runs/_analytics/finding_requests.md`.
 
 ===============================================================================
 # PILLAR 1 — DEVELOPMENT (real shipped software)
@@ -70,7 +77,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Real-time geo + trust-consensus is a distributed-systems problem; the model doesn't help here, the architecture does.
 - tags: [java, spring, microservices, real-time, redis, websocket, distributed-systems, backend]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-02 — killed the hand-maintained API spec
 - pillar: development
@@ -80,7 +87,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: A hand-maintained API spec drifts on every controller change; generating it from code is the only version that stays true.
 - tags: [api, openapi, drift, contract, java, backend, single-source-of-truth]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-03 — consistency audit before prod
 - pillar: development
@@ -90,7 +97,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: The bug that kills you in prod is usually the demo-mode shortcut nobody removed; an audit step is cheaper than the incident.
 - tags: [eval, audit, reliability, drift, backend, pre-prod]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-04 — nearest-address-codes: offline-first PWA
 - pillar: development
@@ -100,7 +107,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Offline-first on the web is its own discipline — queue, sync, cache invalidation — long before any AI enters the picture.
 - tags: [pwa, offline-first, nextjs, typescript, frontend, sync, web]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-05 — offline cold-launch hardening
 - pillar: development
@@ -110,7 +117,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: PWA offline bugs only show up on a real device in airplane mode; the simulator lies to you.
 - tags: [pwa, offline, service-worker, workbox, ios, web, debugging]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-06 — the precision bug hiding in a rounded URL
 - pillar: development
@@ -120,7 +127,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: A rounding bug can sit invisible until an unrelated change exposes it; the regression test that pins the contract is the real fix, not the patch.
 - tags: [bug, precision, regression, geo, frontend, self-correction, evolving-codebase]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-07 — localization at scale with parallel sub-agents
 - pillar: development
@@ -130,7 +137,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Parallel sub-agents only stay consistent when each gets its own scoped slice; without the scoping they overwrite each other.
 - tags: [ios, swift, localization, sub-agents, parallel, orchestration, scale]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-08 — an agent-friendly iOS build harness
 - pillar: development
@@ -140,7 +147,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: The eval step has to be fast or it won't run every time; splitting the slow tests out is what keeps the fast gate honest — and it's what makes the codebase agent-drivable.
 - tags: [ios, swift, ci, test-split, makefile, harness, eval, loop-speed]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### DEV-09 — Voice_Cloning_Bot: hybrid local/cloud TTS
 - pillar: development
@@ -150,7 +157,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: A tiered local→cloud fallback with a credit economy is how you ship a real product on top of expensive APIs without the bill owning you.
 - tags: [tts, local-first, hybrid, product, multi-tenant, cost, r2, python]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ===============================================================================
 # PILLAR 2 — AGENTIC / WORK SYSTEMS (the differentiated lead)
@@ -164,7 +171,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: The primitive most builders skip isn't a better prompt — it's putting the intelligence in files so the model stays swappable.
 - tags: [agent-agnostic, orchestration, claude-code, opencode, editor-vs-loop, llm-os, local-first]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-02 — the handshake before any work
 - pillar: agentic
@@ -174,7 +181,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Reliable agents start with a handshake, not a prompt; the loader runs before the model gets to act.
 - tags: [agents-md, claude-md, boot, context, harness, plan-first, security]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-03 — one kernel file, no duplicate rules
 - pillar: agentic
@@ -184,7 +191,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: When agent rules sprawl across files they drift; one kernel file is a constraint, not a preference.
 - tags: [claude-md, agents-md, rules, single-source-of-truth, drift, kernel]
 - postable_as: opinion
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-04 — error recovery as a first-class layer (and the honest gap)
 - pillar: agentic
@@ -194,7 +201,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Most "reliable agent" talk skips error taxonomy; defining the classes is step one, wiring them into every call is the unglamorous rest — and I'm still mid-wiring.
 - tags: [error-recovery, reliability, harness, agent-design, runaway-loop]
 - postable_as: honest-gap
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-05 — five roles, not one do-everything agent
 - pillar: agentic
@@ -204,7 +211,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Splitting the agent into bounded roles beats one prompt trying to be all of them; the boundaries are where reliability comes from.
 - tags: [sub-agents, roles, orchestration, agent-design, multi-agent]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-06 — context injection is budgeted, not "inject everything"
 - pillar: agentic
@@ -214,7 +221,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: A memory/context layer only helps if it's budgeted; uncapped "remember everything" is the cold-start cost moved up a layer.
 - tags: [context, memory, cold-start, token-budget, claude-md]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-07 — every macro emits telemetry as its last step
 - pillar: agentic
@@ -224,7 +231,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Eval-in-the-loop only survives if it's append-only and non-blocking; the moment instrumentation can stall a run, it gets turned off.
 - tags: [telemetry, eval, observability, in-the-loop, harness]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-08 — frozen structure, typed macros
 - pillar: agentic
@@ -234,7 +241,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Freezing the structure and typing every macro is boring discipline, and it's exactly what stops an agent system from rotting into chaos.
 - tags: [discipline, structure, macros, agent-design, maintainability]
 - postable_as: opinion
-- reuse: 7d
+- reuse: 30d
 
 ### CAK-09 — honest open gaps (build-in-public)
 - pillar: agentic
@@ -244,7 +251,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Stated flat, as the bio promises — what's built, what's still open. No arc, no hype.
 - tags: [build-in-public, honest-frictions, roadmap, agent-design]
 - postable_as: honest-gap
-- reuse: 7d
+- reuse: 30d
 
 ### TIT-01 — the brain/runner split
 - pillar: agentic
@@ -254,7 +261,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Decouple the brain from the runner and the model becomes a worker reading blueprints — that's the whole bet.
 - tags: [llm-os, tool-agnostic, local-first, agents-md, architecture, brain-runner, portability]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### TIT-02 — plan-first, before execute
 - pillar: agentic
@@ -264,7 +271,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Plan-first isn't a habit you remember to do; it's a directive in the loader that runs before the agent can touch anything.
 - tags: [plan-first, harness, discipline, agents-md, token-waste]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ===============================================================================
 # PILLAR 3 — MARKETING / GROWTH SYSTEMS
@@ -278,7 +285,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Per-step model routing with a single swap point beats hardcoding one model everywhere; the roster changes monthly, the pipeline doesn't.
 - tags: [multi-agent, orchestration, model-routing, pipeline, content, agent-design]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### MKT-02 — cross-family veto is load-bearing
 - pillar: marketing
@@ -288,7 +295,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: A model grading its own family's output is a blind spot; the veto only means something if the judge is a different family.
 - tags: [eval, judge, multi-agent, verification, cross-family, content]
 - postable_as: opinion
-- reuse: 7d
+- reuse: 30d
 
 ### MKT-03 — the Scout writes data, not prose (tone-firewall)
 - pillar: marketing
@@ -298,7 +305,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: Upstream agents should hand structured data downstream, not prose — voice leaks through prose, and a chatty scout poisons everything after it.
 - tags: [pipeline, tone, structure, multi-agent, content, agent-design]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### MKT-04 — source-honesty: tag every signal or it's a guess
 - pillar: marketing
@@ -308,7 +315,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: An agent finding without a source tag is a guess wearing a fact's clothes; tag the source or don't act on the number.
 - tags: [source-honesty, eval, hallucination, verification, content, agent-design]
 - postable_as: opinion
-- reuse: 7d
+- reuse: 30d
 
 ### GRW-01 — LinkedIn_Automation: invisible-by-design HITL pipeline
 - pillar: marketing
@@ -319,7 +326,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - tags: [automation, growth, linkedin, stealth, hitl, playwright, anti-detection]
 - reply_scope: excluded (anti-detection — not for public reply grounding)
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### GRW-02 — fixed fire-times are a detection signature
 - pillar: marketing
@@ -330,7 +337,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - tags: [scheduling, jitter, stealth, anti-detection, agent-rules, automation]
 - reply_scope: excluded (anti-detection — not for public reply grounding)
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### GRW-03 — the content pipeline is channel/type-agnostic
 - pillar: marketing
@@ -340,7 +347,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: A content pipeline worth building lets you add a channel/type (faceless, UGC AI-character, whatever) with zero core edits; if adding a format means rewriting the engine, it's not a pipeline.
 - tags: [content, pipeline, faceless, ugc, ai-character, ai-avatar, tiktok, ai-influencer, channel-agnostic, agent-design]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### GRW-04 — confessional travels, formula cards die
 - pillar: marketing
@@ -350,7 +357,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: On short-form, the teaching-card format is dead on arrival; the confession that happens to contain the lesson is what moves.
 - tags: [content, short-form, tiktok, craft, hook, ai-influencer, ugc, ai-character]
 - postable_as: opinion
-- reuse: 7d
+- reuse: 30d
 
 ### GRW-05 — assets are the unit of reuse, review before spend
 - pillar: marketing
@@ -360,7 +367,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: For AI image content, the asset is the unit of reuse, not the finished slide; and you review the prompt as text before you ever pay to render it.
 - tags: [content, ai-image, assets, reuse, faceless, ugc, ai-character, review-gate, cost, ai-influencer]
 - postable_as: experience
-- reuse: 7d
+- reuse: 30d
 
 ### GRW-06 — self-relative success + a pre-committed kill condition
 - pillar: marketing
@@ -370,7 +377,7 @@ here's what the agent system does to that workflow"); marketing is its own stron
 - angle: When you're manufacturing a niche, "beat the competitors" is the wrong metric — beat your own run 1, and pre-commit the kill condition so you don't pour effort into a dead format.
 - tags: [content, analytics, metrics, kill-condition, experiment, ai-influencer]
 - postable_as: opinion
-- reuse: 7d
+- reuse: 30d
 
 ===============================================================================
 

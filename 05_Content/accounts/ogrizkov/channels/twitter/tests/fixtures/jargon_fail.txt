@@ -1,0 +1,1 @@
+Hooks only check what you wired in, my E1-E5 classes still aren't wired into every command.

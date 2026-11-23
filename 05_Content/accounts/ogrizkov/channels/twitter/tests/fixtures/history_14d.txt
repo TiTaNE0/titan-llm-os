@@ -1,0 +1,2 @@
+The summary keeps the plan but drops the reasons behind a killed branch.
+Which threshold did you land on for goals that run past 3 hours?

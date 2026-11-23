@@ -1,0 +1,2 @@
+Moved my local inference box to kernel 6.8 last week and the GPU driver finally stopped dropping under load. Anyone else seeing the same with the 4090?
+Reply: which distro? Ubuntu 24.04 ships it by default now.

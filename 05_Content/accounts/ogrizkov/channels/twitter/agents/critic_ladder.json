@@ -1,0 +1,9 @@
+{
+  "note": "The only file that names a critic model. Order is the fallback order. Non-Claude, non-GPT only (cross-family veto). preflight.sh writes the model of the run to runs/_index/critic_model.json.",
+  "rungs": [
+    {"cli_name": "Gemini 4 Neon (High)", "telemetry_id": "gemini-4-neon-high", "provider": "google"},
+    {"cli_name": "Gemini 4 Argon (High)", "telemetry_id": "gemini-4-argon-high", "provider": "google"},
+    {"cli_name": "Gemini 4 Hydrogen (High)", "telemetry_id": "gemini-4-hydrogen-high", "provider": "google"},
+    {"cli_name": "Gemini 3.8 Flash (High)", "telemetry_id": "gemini-3.8-flash-high", "provider": "google"}
+  ]
+}

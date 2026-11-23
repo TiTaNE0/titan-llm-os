@@ -1,0 +1,2 @@
+An 8-step boot sequence. Injection is budgeted — a token-budget cap with explicit drop priority and a verification check before work — not a dump of all available context.
+Corroborates the paper's keep-it-compact result from the session-start side: our context injection is capped at a token budget with an explicit drop priority and a verification check before work, instead of loading all available context.

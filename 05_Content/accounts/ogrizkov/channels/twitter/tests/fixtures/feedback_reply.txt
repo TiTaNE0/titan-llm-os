@@ -1,0 +1,22 @@
+<<<MSG>>>
+id: <fixture-trial-1@icloud.com>
+subject: Re: [TRIAL] 2 Twitter reply ideas (2026-11-24 20:00)
+
+1 + good, would post this one
+2 - wrong post for me
+the second thread was a promo really
+3 - too late, saw it at midnight
+
+On 24 Nov 2026, at 20:41, Evgeny wrote:
+> TRIAL RUN.
+> 1 + example line in the quoted original that must not be read
+<<<MSG>>>
+id: <fixture-live-1@icloud.com>
+subject: Re: 2 Twitter replies to write (2026-11-24 15:30)
+
+1 - forced
+2 + boring but true
+nice mail
+
+On 24 Nov 2026, at 16:20, Evgeny wrote:
+> 2 Twitter replies to write

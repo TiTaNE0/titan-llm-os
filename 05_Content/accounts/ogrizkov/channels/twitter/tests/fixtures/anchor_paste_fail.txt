@@ -1,0 +1,1 @@
+Our session start does this from the other side. Injection has a token-budget cap with explicit drop priority, then a verification check before any work starts, instead of loading everything available

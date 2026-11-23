@@ -12,16 +12,28 @@
 # Usage:
 #   run_traced.sh --run-dir <dir> --role <name> --model <id> --provider <p> \
 #     --out <output_file> [--target <url>] [--vector <v>] [--retry <n>] \
-#     [--prompt-file <f>] -- <command> [args...]
+#     [--prompt-file <f>] [--timeout <seconds>] \
+#     [--grok-slot <SLOT_ID> --grok-purpose discovery|widen|read|maintenance [--grok-batch <B>]] \
+#     -- <command> [args...]
+#
+# Grok budget: with --grok-purpose the call is first spent through `slot_state.py grok-call`; when
+# that refuses (budget at 0, or a second attempt asking for a new discovery) the command is not
+# run, the refusal goes to --out and the exit is 75. A command named grok without --grok-purpose
+# is refused with exit 64, so no grok call bypasses the budget. After the call its result (ok, or
+# failed for error/timeout/no_block) is recorded with `slot_state.py grok-result`; a failed call of
+# the slot makes the next preflight of that slot probe grok again.
 #
 # Output of <command> is written to --out (stdout+stderr). Telemetry line is
 # appended to <run-dir>/_telemetry.jsonl. duration_ms and char-proxy token counts
-# are filled automatically; outcome = ok|error from the command's exit code.
+# are filled automatically; outcome = ok|error from the command's exit code,
+# timeout when --timeout fired (exit 124; macOS has no `timeout`, so perl's alarm is used),
+# no_block when the command exited 0 but its output holds no fenced ```json block.
 
 set -uo pipefail
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-run_dir="" role="" model="" provider="" out="" target="" vector="" retry="" prompt_file=""
+run_dir="" role="" model="" provider="" out="" target="" vector="" retry="" prompt_file="" timeout_s=""
+grok_slot="" grok_purpose="" grok_batch=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --run-dir)     run_dir="${2:-}";     shift 2 ;;
@@ -33,6 +45,10 @@ while [ "$#" -gt 0 ]; do
     --vector)      vector="${2:-}";      shift 2 ;;
     --retry)       retry="${2:-}";       shift 2 ;;
     --prompt-file) prompt_file="${2:-}"; shift 2 ;;
+    --timeout)     timeout_s="${2:-}";   shift 2 ;;
+    --grok-slot)   grok_slot="${2:-}";   shift 2 ;;
+    --grok-purpose) grok_purpose="${2:-}"; shift 2 ;;
+    --grok-batch)  grok_batch="${2:-}";  shift 2 ;;
     --)            shift; break ;;
     *)             echo "run_traced: unknown arg: $1" >&2; shift ;;
   esac
@@ -41,6 +57,21 @@ done
 if [ -z "$run_dir" ] || [ -z "$role" ] || [ -z "$out" ] || [ "$#" -eq 0 ]; then
   echo "run_traced: need --run-dir, --role, --out, and a -- <command>" >&2
   exit 64
+fi
+
+if [ -z "$grok_purpose" ] && [ "$(basename "$1")" = "grok" ]; then
+  echo "run_traced: a grok call needs --grok-slot and --grok-purpose (grok budget)" >&2
+  exit 64
+fi
+if [ -n "$grok_purpose" ]; then
+  [ -n "$grok_slot" ] || { echo "run_traced: --grok-purpose needs --grok-slot" >&2; exit 64; }
+  gargs=(grok-call --slot "$grok_slot" --purpose "$grok_purpose")
+  [ -n "$grok_batch" ] && gargs+=(--batch "$grok_batch")
+  if ! why="$(python3 "$BIN_DIR/slot_state.py" "${gargs[@]}" 2>&1 >/dev/null)"; then
+    printf 'grok budget: %s\n' "$why" > "$out"
+    echo "run_traced: grok budget: $why" >&2
+    exit 75
+  fi
 fi
 
 now_ms() {
@@ -52,8 +83,16 @@ now_ms() {
 }
 
 start_ms="$(now_ms)"
-"$@" > "$out" 2>&1
-code=$?
+timed_out=0
+if [ -n "$timeout_s" ]; then
+  ( perl -e 'alarm shift; exec @ARGV' "$timeout_s" "$@" > "$out" 2>&1; exit $? ) 2>/dev/null
+  code=$?
+  # SIGALRM kills the command: 128 + 14
+  if [ "$code" -eq 142 ]; then code=124; timed_out=1; fi
+else
+  "$@" > "$out" 2>&1
+  code=$?
+fi
 end_ms="$(now_ms)"
 dur=$(( end_ms - start_ms ))
 
@@ -66,6 +105,13 @@ tin=$(( in_chars / 4 ))
 tout=$(( out_chars / 4 ))
 
 outcome="ok"; [ "$code" -ne 0 ] && outcome="error"
+[ "$timed_out" -eq 1 ] && outcome="timeout"
+if [ "$code" -eq 0 ] && ! grep -q '```json' "$out" 2>/dev/null; then outcome="no_block"; fi
+
+if [ -n "$grok_purpose" ]; then
+  python3 "$BIN_DIR/slot_state.py" grok-result --slot "$grok_slot" --purpose "$grok_purpose" \
+    --ok "$([ "$outcome" = "ok" ] && echo true || echo false)" >/dev/null 2>&1 || true
+fi
 
 # Telemetry is best-effort; never let it change our exit code.
 "$BIN_DIR/trace.sh" --run-dir "$run_dir" --role "$role" --model "$model" \

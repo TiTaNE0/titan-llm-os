@@ -1,8 +1,356 @@
 {
+  "version": "2",
+  "updated": "2026-11-23",
+  "note": "Calibration probes for rubric v1.4. Snapshots are copied verbatim from runs/2026-11-22_batcha/00b_threads.json. Every critic call carries 2 (one must-fail, one must-ship; bin/qualify_critic.sh --pick); the weekly qualification runs all of them. Never pass id, expect, expect_fail or why to the critic.",
   "probes": [
-    {"id":"probe-pivot-01","url":"https://x.com/probe/status/1000000000000000001","grounded_claim":"Author ran a 6-week test where a cron-scheduled agent triaged their inbox unattended and cut manual triage time roughly in half.","draft":"Nice. I'm building TiTan, an LLM OS that does exactly this and a lot more — orchestrator, personas, telemetry, the whole stack. Want early access? DMs open, happy to onboard you.","why_bad":"Pivot-to-own-project + DM solicitation; must FIX on positioning_alignment + not_generic."},
-    {"id":"probe-fabnum-01","url":"https://x.com/probe/status/1000000000000000002","grounded_claim":"Author switched from polling to an event-driven webhook and said latency dropped noticeably — no figure given.","draft":"Same here — moving off polling cut our p99 latency from 1,400ms to 380ms and dropped infra cost 62%. Event-driven is the only sane default at scale.","why_bad":"Fabricated numbers (1,400ms/380ms/62%) absent from grounded_claim, claimed as own results; must FIX on no_fabrication."},
-    {"id":"probe-promo-01","url":"https://x.com/probe/status/1000000000000000003","grounded_claim":"Author is announcing the launch of their paid SaaS, posting a discount code and asking people to sign up today.","draft":"Congrats on the launch! This is exactly the kind of tool the space needs. Just signed up with the code — everyone reading this should grab it before the discount ends. Huge.","why_bad":"Hype reply to a promo with amplified CTA, no grounded substance; must FIX on not_generic + positioning_alignment."},
-    {"id":"probe-adjacent-flex-01","url":"https://x.com/probe/status/1000000000000000004","grounded_claim":"Author is debating CI/CD philosophy — arguing that teams should run fewer, fuller integration suites on every merge rather than splitting checks across many fast partial pipelines, because partial pipelines hide cross-module breakage.","draft":"Totally. We cut our iOS build time way down by switching xcodebuild to incremental compilation with a warm DerivedData cache and parallel -destination fan-out across simulators — derived-data hashing is the real unlock. Build speed is everything.","why_bad":"Topic-adjacent flex: rides the broad CI theme but injects domain-foreign xcodebuild/DerivedData build-speed jargon that never addresses the OP's specific point (fuller-vs-partial suites and hidden cross-module breakage). Same theme, different thing; must FIX on thread_fit."}
+    {
+      "id": "probe-ai-specsheet-01",
+      "url": "https://x.com/Sumanth_077/status/2124128730218176985",
+      "snapshot": {
+        "opening_post": "You don't need long context!\n\nNVIDIA researchers just published a paper questioning whether LLMs actually need huge context windows for long-running tasks.\n\nThe problem is that longer context is expensive.\n\nAs the context grows, every new token gets slower to generate, uses more memory, and costs more to serve.\n\nIn their measurements, going from a 16K to 256K context increased the cost per generated token by 3.6× for GLM 5.2, 5.6× for Kimi K2.6, and 7× for Qwen 3 Coder Next.\n\nTheir alternative is frequent context compaction.\n\nInstead of carrying the entire conversation history through a long agent run, you keep a compact representation of the current task state and start a new context when needed.\n\nFor long documents, they use a similar idea: keep the documents outside the context and let the agent selectively read the parts it needs rather than loading everything at once.\n\nThey test this across software engineering, terminal tasks, tool use, retrieval, and long-document reasoning.\n\nAnd the results are pretty interesting.\n\nOn long-horizon tasks, frequent compaction generally maintained or even improved task accuracy compared with keeping the full history.\n\nThey pushed this even further with Single-Action Compaction.\n\nThe model takes one action, observes the result, updates a compact semantic state, and then the entire conversation is discarded before the next action.\n\nOn Claude Opus 4.5, this preserved SWE-bench Verified performance and improved Terminal-Bench.\n\nOn GPT 5.6 Sol, the accuracy drop was only a few percentage points, while the median peak live context stayed around 7–9K tokens.\n\nThe paper takes this idea further and proposes Semantic State Space Models.\n\nInstead of maintaining an ever-growing conversation history, the model carries a compact natural-language state between turns containing the information needed to continue the task.\n\nThis feels especially relevant for long-running agents.\n\nYou may not need to keep hundreds of thousands of tokens alive throughout the entire run. Keep the current state, retrieve what you need, compact aggressively, and continue.\n\nI've shared the paper below!\n\nPaper: https://arxiv.org/abs/2611.05306",
+        "top_replies": [
+          {
+            "author": "@OmiidSayfun",
+            "text": "so what happens when step 40 needs something from step 3? does it re-read the files or is it just gone?"
+          },
+          {
+            "author": "@samaneggs",
+            "text": "It’s been 50% harness for 9 months now"
+          },
+          {
+            "author": "@ljedrz",
+            "text": "This harness embraces that concept, with addressable context items that are individually compactable: https://crates.io/crates/kamchatka"
+          },
+          {
+            "author": "@Exori_AI",
+            "text": "Append-only works until you need to correct something. What's held up for me: corrections go in as new entries that point at the old one, never edits. Then the log shows what you believed and when you stopped believing it."
+          },
+          {
+            "author": "@jornyc",
+            "text": "16K 扩到 256K，Qwen 3 Coder Next 每生成一个 token 的成本涨 7 倍——这组数最能说明问题：上下文不是越大越好，越大越贵。长上下文的账，得按每个 token 的价钱算，不是按窗口大小算。"
+          },
+          {
+            "author": "@iuneracom",
+            "text": "From my experience, you just need a proper neurosymbolic harness...then all problems work well with short context"
+          }
+        ],
+        "thread_gist": "Sumanth summarizes an NVIDIA paper where frequent and single-action compaction held long-task accuracy while a 16K-to-256K window raised per-token cost by 3.6× to 7×, and replies ask whether step-3 facts survive to step 40 and point at harnesses, individually compactable context, and correction logs.",
+        "engagement": {
+          "views": 32282,
+          "likes": 525,
+          "replies": 30,
+          "quotes": 7,
+          "reposts": 66,
+          "bookmarks": 601
+        },
+        "captured_at": "2026-11-22T16:39:53Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "Their alternative is frequent context compaction.",
+      "move": "measures_same_variable",
+      "grounded_claim": "An 8-step boot sequence. Injection is budgeted — a token-budget cap with explicit drop priority and a verification check before work — not a dump of all available context.",
+      "draft": "Our session start does this from the other side. Injection has a token-budget cap with explicit drop priority, then a verification check before any work starts, instead of loading everything available",
+      "expect": "FIX",
+      "expect_fail": [
+        "ai_tells"
+      ],
+      "why": "Batch A draft 1 verbatim: noun-stack spec phrasing with no first-person verb, a subjectless system sentence and a closing contrast clause ('instead of...'). Both reviewers called it AI (REVIEW Q-3)."
+    },
+    {
+      "id": "probe-template-question-01",
+      "url": "https://x.com/nateherk/status/2124541215333044480",
+      "snapshot": {
+        "opening_post": "My favorite Claude Code tip lately: set auto-compact to 400k\n\nBy default, Claude Code lets a conversation grow to about 967k tokens before it compacts, so I moved mine to 400k.\n\nModels tend to get worse at recalling details as the context window fills up (people call it context rot), and Anthropic writes about it in their own context engineering guide.\n\nSo when I run long tasks or goals, Claude compacts well before it gets anywhere near that territory.\n\nI've been letting goals run for hours like this and getting noticeably better results.\n\nThe tradeoff is more compactions, but for long goals it's been worth it for me.\n\nIt also goes a little easier on my usage limits, since every turn isn't re-reading a nearly full context window.\n\nHow to set it:\n→ Type /autocompact in Claude Code and pick a window\n→ Or add \"autoCompactWindow\": 400000 to your settings.json (you can also just ask Claude to do this in natural language)\n\nWhat other Claude Code tips have been helping you out lately?",
+        "top_replies": [
+          {
+            "author": "@johnroodepic",
+            "text": "compaction loses the reasons, not the recall. the branch you killed at minute 20 comes back at hour 3. built memoryrouter for that drift."
+          },
+          {
+            "author": "@tymofii",
+            "text": "Honestly, auto-compact at 400k is the one tip I keep repeating too. Long goals just behave better once you stop letting context fill up."
+          },
+          {
+            "author": "@coulditbecoley",
+            "text": "Solid tip!"
+          }
+        ],
+        "thread_gist": "Nate says moving Claude Code auto-compact from about 967k tokens to 400k avoids context rot on long goals and eases usage limits, and replies mostly agree while one says compaction drops the reasons behind a killed branch rather than just the recall.",
+        "engagement": {
+          "views": 400,
+          "likes": 6,
+          "replies": 6,
+          "quotes": 0,
+          "reposts": 1,
+          "bookmarks": 2
+        },
+        "captured_at": "2026-11-22T16:39:53Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "set auto-compact to 400k",
+      "move": "adds_boundary_condition",
+      "grounded_claim": "A decoupled, agent-agnostic orchestration layer bridging cloud LLMs (Claude Code, OpenCode, etc.) to a local Obsidian vault. The model is a replaceable runner; the intelligence lives in the vault, not chat history.",
+      "draft": "The reasons behind a killed branch are what compaction loses. I keep decisions in vault files, not chat, so compacting earlier costs me little - do you write the reasons down anywhere outside the session?",
+      "expect": "FIX",
+      "expect_fail": [
+        "ai_tells"
+      ],
+      "why": "Batch A draft 6 verbatim: the restate, my-setup, question template with an aphorism opener and a closing question the replier does not need answered."
+    },
+    {
+      "id": "probe-forced-anchor-01",
+      "url": "https://x.com/sristhi_saha/status/2124017472831389724",
+      "snapshot": {
+        "opening_post": "Genuine question for anyone using AI coding agents daily:\n\nHow many times has the agent shipped something that looked correct but was actually broken in a subtle, expensive way?\n\nFor me it’s at least 4 times in the last month.\n\nCurious where everyone else is at.",
+        "top_replies": [
+          {
+            "author": "@NabhaniMehdi",
+            "text": "The subtle ones I've run into almost always lived in code paths without a test. Making the agent write the failing test first, and show it failing before the fix, catches a good share of those looks-right changes."
+          },
+          {
+            "author": "@wangyan_im",
+            "text": "the subtle ones hurt the most, they pass review for looking right and production finds them weeks later"
+          },
+          {
+            "author": "@AppsolutelyxD",
+            "text": "The scary ones aren't the broken builds, it's the ones that pass every test you thought to write."
+          },
+          {
+            "author": "@vedantsingh44",
+            "text": "happens constantly with tricky logic bugs in hidden files."
+          },
+          {
+            "author": "@heRiverYY",
+            "text": "看着没问题结果埋雷最要命"
+          }
+        ],
+        "thread_gist": "Sristhi asks how often agents ship subtle expensive bugs (at least four in the last month for her), and replies say those pass review and the tests you thought to write, hide in untested or hidden paths, and are caught more often by forcing a failing test before the fix.",
+        "engagement": {
+          "views": 226,
+          "likes": 4,
+          "replies": 5,
+          "quotes": 0,
+          "reposts": 0,
+          "bookmarks": 0
+        },
+        "captured_at": "2026-11-22T16:39:53Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "How many times has the agent shipped something that looked correct but was actually broken",
+      "move": "answers_question",
+      "grounded_claim": "An 8-step boot sequence. Injection is budgeted — a token-budget cap with explicit drop priority and a verification check before work — not a dump of all available context.",
+      "draft": "I keep decisions in files, not in chat, my agent reads 8 boot steps before any work. Subtle bugs got rarer",
+      "expect": "FIX",
+      "expect_fail": [
+        "forced_anchor"
+      ],
+      "why": "Delete the own-work clauses and nothing answers her question; any other detail of his system would serve as well. A status update, not an answer (REVIEW R4 edit 3)."
+    },
+    {
+      "id": "probe-boring-01",
+      "url": "https://x.com/DanielSmidstrup/status/2124088043275473217",
+      "snapshot": {
+        "opening_post": "Claude Code builds my side projects now.\n\nTesting it is still me.\n\nWhat do you use to catch what your agent broke?",
+        "top_replies": [
+          {
+            "author": "@gvtnomad",
+            "text": "My best trick: \n2 adversarial agents and 1 regression agent. 2 runs the whole cycle."
+          },
+          {
+            "author": "@emonuxui",
+            "text": "The best safety net is automated coverage backed by human review."
+          },
+          {
+            "author": "@thelaserdoctor",
+            "text": "I let the agents drive a real browser and check screenshots and the DOM. Usually headless, I use Xvfb when a test needs a display."
+          },
+          {
+            "author": "@boringdev77",
+            "text": "a headless browser that loads every page. a duplicated line once broke my admin login and the syntax check still passed it"
+          },
+          {
+            "author": "@Dennis59899798",
+            "text": "@DanielSmidstrup The diff tells me it's done, not that it works. For anything user-facing: run the tests, then click through the one flow it touched before merging. Small stuff, diff plus tests is enough."
+          },
+          {
+            "author": "@blackleg_n",
+            "text": "The “actually uses what it built” part is where most of the setups I’ve tried still fall over. Running the existing test suite is easy; making the agent poke the real UI or API the way a user would without inventing a fake happy path is still messy. How are you giving it a reliable way to exercise the new behavior instead of just replaying the happy path it already knows?"
+          }
+        ],
+        "thread_gist": "Daniel asks what catches what Claude Code broke on side projects, and replies point to adversarial plus regression agents, a real or headless browser (Xvfb), clicking the touched flow, and human review on top of tests that can pass by design.",
+        "engagement": {
+          "views": 2358,
+          "likes": 54,
+          "replies": 77,
+          "quotes": 1,
+          "reposts": 2,
+          "bookmarks": 5
+        },
+        "captured_at": "2026-11-22T16:39:53Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "What do you use to catch what your agent broke?",
+      "move": "answers_question",
+      "grounded_claim": "A pre-prod consistency audit caught 3 criticals: confidence hardcoded to 100% (demo mode left in), API response field-name chaos, and a DDL wipe risk. Blocked deploy until fixed.",
+      "draft": "Same here, tests pass and it is still broken. I run the suite and then check by hand before merge",
+      "expect": "FIX",
+      "expect_fail": [
+        "stranger_interest"
+      ],
+      "why": "A stranger learns nothing the post and its replies did not already say: run tests, then check by hand (REVIEW R4 edit 3)."
+    },
+    {
+      "id": "probe-good-01",
+      "url": "https://x.com/sristhi_saha/status/2124017472831389724",
+      "snapshot": {
+        "opening_post": "Genuine question for anyone using AI coding agents daily:\n\nHow many times has the agent shipped something that looked correct but was actually broken in a subtle, expensive way?\n\nFor me it’s at least 4 times in the last month.\n\nCurious where everyone else is at.",
+        "top_replies": [
+          {
+            "author": "@NabhaniMehdi",
+            "text": "The subtle ones I've run into almost always lived in code paths without a test. Making the agent write the failing test first, and show it failing before the fix, catches a good share of those looks-right changes."
+          },
+          {
+            "author": "@wangyan_im",
+            "text": "the subtle ones hurt the most, they pass review for looking right and production finds them weeks later"
+          },
+          {
+            "author": "@AppsolutelyxD",
+            "text": "The scary ones aren't the broken builds, it's the ones that pass every test you thought to write."
+          },
+          {
+            "author": "@vedantsingh44",
+            "text": "happens constantly with tricky logic bugs in hidden files."
+          },
+          {
+            "author": "@heRiverYY",
+            "text": "看着没问题结果埋雷最要命"
+          }
+        ],
+        "thread_gist": "Sristhi asks how often agents ship subtle expensive bugs (at least four in the last month for her), and replies say those pass review and the tests you thought to write, hide in untested or hidden paths, and are caught more often by forcing a failing test before the fix.",
+        "engagement": {
+          "views": 226,
+          "likes": 4,
+          "replies": 5,
+          "quotes": 0,
+          "reposts": 0,
+          "bookmarks": 0
+        },
+        "captured_at": "2026-11-22T16:39:53Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "How many times has the agent shipped something that looked correct but was actually broken",
+      "move": "answers_question",
+      "grounded_claim": "SWR rounded lat/lng to 3 decimals (~110m grid) and baked them into the fetch URL, so the server ranked from the rounded center and missed the true-nearest address 30-50% of the time. Hidden for weeks; only surfaced when a later change tightened coordinate noise to ≤5m. Fix pins the precision contract (≥5 decimals) with a regression test.",
+      "draft": "Mine was lat/lng rounded to 3 decimals. It missed the nearest address 30-50% of the time, for weeks",
+      "expect": "SHIP",
+      "expect_fail": [],
+      "why": "Answers her question with one concrete, documented failure: the cause, the miss rate and how long it hid. Must SHIP; guards against a critic that refutes everything."
+    },
+    {
+      "id": "probe-fabnum-01",
+      "url": "https://x.com/yeemio/status/2124507138009809263",
+      "snapshot": {
+        "opening_post": "Spent some time reading through Google's Antigravity /teamwork docs. Honestly, they nailed a lot of hard stuff here. Upfront scoping, isolated folders, exclusive file ownership, plus Critic, Challenger, and Auditor roles actually trying to break the code before it ships.\n\nThe part I'm stealing for my own setup is how they handle context rot. After every milestone, the Project Orchestrator hands structured plan and progress files to a fresh instance instead of dragging one bloated chat for hours.\n\nWhere I'd do it differently is the final gate. Having an LLM Auditor check terminal output catches lazy mistakes, sure, but it's still a model grading another model.\n\nIn my own code (screenshot), the final check is completely offline and deterministic. Known receipt schemas only, raw byte hashing tied to the workspace fingerprint, networkRequests: 0, hard GO or NO_GO. Every return path also forces authorizationGranted: false and only outputs the nextAllowedAction.\n\nAn agent can't sweet-talk its way past a hash check, and passing verification never quietly turns into permission to run stuff.",
+        "top_replies": [
+          {
+            "author": "@JiaShen_AI",
+            "text": "\"Passing verification never quietly turns into permission\" is the line I'd frame. We hit exactly that in our own runs: a frozen package is not a go signal, and the run needs a separate, explicit yes.\n\nOne layer I'd add: a hash check proves the bytes are the ones you froze. It can't tell you the thing you froze measures what you think it measures. Reproducible and correct are two different gates, and the second one still needs a human looking at what the numbers mean."
+          },
+          {
+            "author": "@yeemio",
+            "text": "True, the hash just stops the agent from faking what ran. Still need eyes on whether the metric makes sense."
+          },
+          {
+            "author": "@vincenzo_naked",
+            "text": "The hash gate proves nothing got tampered with. Whether the code is actually correct still needs tests the agent didn't write."
+          },
+          {
+            "author": "@harden_369741",
+            "text": "I am stealing the fresh instance per milestone too. I dragged one bloated chat for hours last week and watched my agent forget the plan it wrote in the morning. A clean handoff with structured files beats any prompt trick I have tried for context rot."
+          },
+          {
+            "author": "@milessy_bc",
+            "text": "a checksum won't take the agent's word for it"
+          },
+          {
+            "author": "@BlakeXu_",
+            "text": "Critic role sounds fun until it blocks your build."
+          }
+        ],
+        "thread_gist": "Yeemio likes Antigravity's scoping, exclusive file ownership, and fresh-instance handoffs for context rot, but wants the last gate to be an offline hash (GO/NO_GO, authorizationGranted always false), and replies plus Yeemio agree the hash only stops tampering and still needs tests and a human to judge whether the metric means anything.",
+        "engagement": {
+          "views": 362,
+          "likes": 7,
+          "replies": 9,
+          "quotes": 0,
+          "reposts": 0,
+          "bookmarks": 0
+        },
+        "captured_at": "2026-11-22T16:40:17Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "it's still a model grading another model",
+      "move": "measures_same_variable",
+      "grounded_claim": "The Critic/Judge is deliberately kept on a non-Claude model so a Claude-written draft is scored by a different model family. The cross-family veto is treated as load-bearing, not optional.",
+      "draft": "Same here, moving the final gate to a hash cut our false passes from 14% to 2% and review time by 62%",
+      "expect": "FIX",
+      "expect_fail": [
+        "no_fabrication"
+      ],
+      "why": "The numbers (14% to 2%, 62%) and the claimed hash gate are not in the grounded claim; invented results presented as his own."
+    },
+    {
+      "id": "probe-adjacent-flex-01",
+      "url": "https://x.com/martynov014/status/2124424561278247060",
+      "snapshot": {
+        "opening_post": "your CLAUDE.md is a wish list\n\nthe agent reads it, weighs it, and skips it at step 40\n\nhooks don't ask. they check\n\n6 events, 3 exit codes and the Stop hook that makes \"done\" mean the tests passed https://x.com/i/article/2124419087090823168\n\nYou wrote \"never run rm -rf\" in CLAUDE.md. Forty steps later the agent ran it anyway\nNot because it ignored you. Because a line in context is a request, and requests get weighed against everything else the model is holding\nGetting out of that loop takes one idea most people never set up: a hook\nA rule asks the model to behave. A hook checks whether it did, and stops the action when it didn't\nHere is the split, the six events that matter, the three ways a hook answers, and the one hook that ends \"I'm done\" without tests\n\nA rule is a request, a hook is a check\nCLAUDE.md is loaded into context and read by the model. That is its strength and its ceiling\nIt is great for guidance: how the project is laid out, which commands to use, what style the team likes\nIt cannot fail an action. If the model decides step 40 is the exception, nothing stops it\nA hook is different in kind. It is a command bound to an event in Claude Code's lifecycle, and it runs every time that event fires\nThe model does not need to remember it, agree with it, or even know it exists\nSo the sorting rule is simple. If breaking it is annoying, keep it in CLAUDE.md. If breaking it is expensive, move it into a hook\n\nWhere hooks live\nHooks sit in your settings files: .claude/settings.json for the project, ~/.claude/settings.json for you everywhere\nEach one names an event, an optional matcher for which tool it applies to, and what to run:\n\nThe hook gets the event as JSON on stdin: the tool name, the tool input, the session, the working directory\nThat is all the context it needs. It reads the input, decides, and answers\n\nSix events to learn first\nThere are more events than six, but these carry almost every useful setup\nSessionStart runs when a session starts, resumes, clears or compacts. Use it to load live context: open issues, the current branch, what changed overnight\nUserPromptSubmit runs before Claude sees your message. It can add context to every prompt, or reject one outright\nPreToolUse runs before a tool call and is the only gate in front of it. It can allow, ask, or deny\nPostToolUse runs after a tool returns. The action already happened, so this is where you format, lint and log\nStop runs when Claude is about to finish. Block it and Claude keeps working\nPreCompact runs before context is trimmed. Write down anything you will want after it shrinks\nTwo of these do most of the work. PreToolUse guards the call. Stop guards the word \"done\"\n\nA hook has three ways to answer\nEverything else is detail\n\nExit 0 with nothing printed means no decision. The normal permission flow applies, and the hook was just watching\nExit 2 means block. The action stops, and whatever the hook printed to stderr goes back to Claude as the reason\nThis is the whole rm guard:\n\nThe stderr line matters more than it looks. A bare refusal makes the agent try a variation. A refusal with an alternative makes it switch\nExit 0 with JSON is the precise version. On PreToolUse you return a permission decision and a reason:\n\n\"deny\" cancels the call and tells Claude why. \"ask\" shows you the normal prompt. \"allow\" skips the prompt, though your deny rules still apply\nPick one style per hook. Exit 2 or JSON, not both\n\nThe hook nobody writes: Stop\nEvery agent says \"done\". Very few are made to prove it\nA Stop hook runs at the exact moment Claude is about to hand the turn back. Return decision: \"block\" with a reason, and instead of stopping, Claude reads the reason and keeps going\nPut your test suite there and \"done\" stops being a claim\n\nTwo brakes keep this from looping forever, and both are built in\nstop_hook_active is true when Claude is already continuing because of a stop hook. Check it, or a test that can never pass will hold the session hostage\nAnd after eight continuations in a row, Claude Code ends the turn anyway\nThe reason field is the part to get right. Send the failing test and the last lines of output, not \"tests failed\". The agent fixes what it can see\n\nFive kinds of hook, and four of them are not a model\n\ncommand runs a script. It is the cheapest, the fastest, and the only one that gives the same answer every time\nhttp posts the same JSON to a URL, so one server can enforce one policy across a whole team\nmcp_tool calls a tool from a server you already connected\nprompt sends the input to a model for a single judgment, returned as JSON\nagent spawns a subagent that can read files and search before it decides. It is the slowest and still marked experimental\nThe test for which one you need: if you can describe the rule without the words judge, assess or decide, it is a command hook\n\"No writes outside src/\" is a command. \"Does this change match the ticket?\" is a prompt\nA setup where every check is a model call pays for judgment on questions that had one correct answer\n\nWhere to start on your own setup\nTake the rule you repeat most often in chat. The one you type for the third time this week\nWrite it as a PreToolUse command hook that exits 2 with an alternative in stderr\nThen add one Stop hook that runs your fastest check: lint, types, or the tests for the files that changed\nThen one PostToolUse formatter, so you never review whitespace again\nLeave prompt and agent hooks for last, and only for rules a script cannot state\nPut the human where the hooks can't reach: the merge, the deploy, the migration\nThree lines hold the whole discipline\nA rule the model can skip is a suggestion\nA check that can't fail is decoration\nAnd every correction you type twice belongs in a hook",
+        "top_replies": [
+          {
+            "author": "@sinanbb_",
+            "text": "CLAUDE.md is for taste, hooks are for rules. If it has to happen every time (tests pass, no secrets in the diff), it belongs in a check the agent can't skip."
+          },
+          {
+            "author": "@ZeroTheory0",
+            "text": "stop hooks catch lazy exits, though the next trap is agents editing tests to turn the hook green. keeping a sealed held-out test vault outside the repo fixed that gap for us."
+          },
+          {
+            "author": "@prakharrsingh",
+            "text": "Keep It Simple, Stupid. \n\nDo you really need 40 steps in your Claude.md? Use hooks, skills, project-specific steering files. I also feel \"rules\" don't belong in Claude.md anyway."
+          },
+          {
+            "author": "@milhouscc",
+            "text": "What if npm test was already failing before Claude touched the code? Would you let Claude finish and flag the existing failure, or ask it to investigate if its edit touched the code that test covers?"
+          },
+          {
+            "author": "@Xusniddin_Q",
+            "text": "Hooks fix the other side too: knowing when the agent needs you.\n\nI run a dashboard for many sessions off PermissionRequest, Notification and Stop. \"Waiting on you\" became a fact instead of a guess.\n\nDo you block Stop with exit 2 until tests pass, or run the tests inside the hook?"
+          },
+          {
+            "author": "@DmitroCP",
+            "text": "Rules are useless unless agents must follow them"
+          }
+        ],
+        "thread_gist": "Valentin's article says a CLAUDE.md line is a request the model can skip at step 40, while a hook checks the action, and replies add a held-out test vault so agents cannot edit tests green, a taste-versus-rules split, and what to do when tests were already failing.",
+        "engagement": {
+          "views": 7796,
+          "likes": 59,
+          "replies": 36,
+          "quotes": 7,
+          "reposts": 5,
+          "bookmarks": 69
+        },
+        "captured_at": "2026-11-22T16:39:53Z"
+      },
+      "reply_type": "deep",
+      "author_claim": "a line in context is a request",
+      "move": "contradicts",
+      "grounded_claim": "A root Makefile wrapping `xcodebuild | xcbeautify` with a scheme split (unit vs UI) and `make doctor/build/test/ui-test`, so a fast unit gate runs every commit instead of the full slow suite each time. (No per-commit timing figure is documented for this iOS harness — do not state one; any \"minutes vs estimate\" number you may have seen belongs to a separate Java/Gradle test-split task, not here.)",
+      "draft": "Totally. We cut our iOS build time way down by switching xcodebuild to incremental compilation with a warm DerivedData cache and parallel -destination fan-out across simulators — derived-data hashing is the real unlock. Build speed is everything.",
+      "expect": "FIX",
+      "expect_fail": [
+        "thread_fit"
+      ],
+      "why": "Rides the broad agent-tooling theme but talks about build speed, which never addresses the post's point (rules in context are requests, hooks check). Same theme, different thing."
+    }
   ]
 }

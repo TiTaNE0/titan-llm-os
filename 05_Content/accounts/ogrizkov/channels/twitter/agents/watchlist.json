@@ -1,0 +1,287 @@
+{
+  "note": "Seed lists for discovery. Only the main session changes this file (runbook LEARNING); names come only from the council raw files or a later live Grok sample, never invented. Run-time counts live in runs/_index/authors.json.",
+  "authors": [
+    {
+      "handle": "pggalaviz",
+      "followers": 7334,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "not_sacke",
+      "followers": 3153,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "sonderby",
+      "followers": 8912,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "ivanleomk",
+      "followers": 13513,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "aymanemsi",
+      "followers": 2467,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "theotherpomp",
+      "followers": 14961,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "isaac_dev0",
+      "followers": 3274,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "sermakarevich",
+      "followers": 3074,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q4a_answered_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "Ionkosm",
+      "followers": 4857,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q3a_reply_delay_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "ShenSeanChen",
+      "followers": 12895,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q3a_reply_delay_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "jurlycat",
+      "followers": 16738,
+      "evidence": "answered",
+      "source": "council/2026-11-23/raw/E4_q3a_reply_delay_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "0x_fokki",
+      "followers": 16447,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q3a_reply_delay_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "aiwithremy",
+      "followers": 3132,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "bonsaixbt",
+      "followers": 2599,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "N01ennn",
+      "followers": 10175,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "fildotai",
+      "followers": 2313,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "seeconvm",
+      "followers": 4076,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "shikamarutsai",
+      "followers": 2956,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "danikkk_wqs",
+      "followers": 3358,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "Oluwaphilemon1",
+      "followers": 10548,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "MbaziiraRonn",
+      "followers": 15493,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "hsianghui",
+      "followers": 8257,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "rammcodes",
+      "followers": 7136,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "neo_subhamoy",
+      "followers": 3854,
+      "evidence": "niche_sample",
+      "source": "council/2026-11-23/raw/E4_q5a_post_hours_2k_20k.out.txt",
+      "added": "2026-11-23"
+    }
+  ],
+  "large": [
+    {
+      "handle": "claudeai",
+      "followers": 2101935,
+      "evidence": "lab",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "GoogleDeepMind",
+      "followers": 1620981,
+      "evidence": "lab",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "GeminiApp",
+      "followers": 628558,
+      "evidence": "lab",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "Google",
+      "followers": 31861980,
+      "evidence": "lab",
+      "source": "council/2026-11-23/raw/E3_q4_parent_metrics.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "OfficialLoganK",
+      "followers": 403938,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "theo",
+      "followers": 441426,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E3_q4_parent_metrics.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "swyx",
+      "followers": 215323,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "thdxr",
+      "followers": 193972,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "opencode",
+      "followers": 240234,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "hwchase17",
+      "followers": 142981,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E4_q4b_answered_20k_150k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "Teknium",
+      "followers": 137328,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E4_q5b_post_hours_20k_150k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "_philschmid",
+      "followers": 127998,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E4_q5b_post_hours_20k_150k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "yoheinakajima",
+      "followers": 127261,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E4_q5b_post_hours_20k_150k.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "yongfook",
+      "followers": 175813,
+      "evidence": "builder",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "arena",
+      "followers": 243835,
+      "evidence": "other",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    },
+    {
+      "handle": "LinuxHandbook",
+      "followers": 161065,
+      "evidence": "other",
+      "source": "council/2026-11-23/raw/E3_q2b_posts_1024_1123.out.txt",
+      "added": "2026-11-23"
+    }
+  ]
+}

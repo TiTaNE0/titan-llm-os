@@ -3,63 +3,45 @@ type: reference
 artifact: pipeline-overview
 account: ogrizkov
 channel: twitter
-describes: Reply_Pipeline_PRD_v3.0_Agentic.md (version 3.1, supply-driven)
-written: 2026-06-17
+describes: the reply pipeline v3.2 (council/2026-11-23/DECISION.md + skill/twitter-reply-orchestrate.md)
+written: 2026-11-23
 status: current
 ---
 
-# X Reply Pipeline — How It Works Now (v3.1)
+# X Reply Pipeline — How It Works Now (v3.2)
 
-A plain-language reference for the @ogrizkov Twitter/X reply-drafting pipeline as it currently
-stands. Source of truth for the spec is `Reply_Pipeline_PRD_v3.0_Agentic.md` (version 3.1); the
-per-role contracts live in `agents/roster.md`, `agents/role_specs/`, and `agents/schemas.md`; the
-runbook is `skill/twitter-reply-orchestrate.md`. This doc explains the system those files define.
+A plain-language reference for the @ogrizkov reply pipeline. Binding sources: `council/2026-11-23/DECISION.md` (sections 2, 3, 10, 11) and the runbook `skill/twitter-reply-orchestrate.md`. Where they differ from `Reply_Pipeline_PRD_v3.0_Agentic.md`, DECISION and the runbook supersede the v3.0 PRD. Per-role contracts: `agents/roster.md`, `agents/role_specs/`, `agents/schemas.md`. Numbers: `agents/params.json`. Critic model order: `agents/critic_ladder.json`.
 
 ---
 
 ## 1. What it is
 
-A single orchestrated run that finds live X threads worth replying to, drafts grounded replies in
-Evgeny's voice, judges them with an independent cross-family critic, and writes a human-review queue.
-**It never auto-posts.** The operator reviews `replies_to_post.md` and posts manually.
+Two runs a day find fresh discussions where @ogrizkov can add one checkable thing, draft a short starter for each, judge them with deterministic gates, a cross-family critic and a fresh-context interest reviewer, and mail only the passed items to the operator (iCloud → iCloud through Mail.app). He writes each reply in his own words on his phone (delivery mode B). **It never posts to X.** The mail carries only real items; nothing is sent when nothing passes, and no error or status mail exists.
 
-It is NOT the Hermes marketing pipeline (`05_Marketing_System/`). Different system, different account.
+Goal: replies a stranger in the thread finds worth reading, which earn profile visits. Volume is a ceiling, never a quota.
 
----
-
-## 2. Positioning the whole pipeline serves
-
-**Core:** *Building agentic systems that develop, promote, and grow my projects. Sharing real
-pipelines, experiments & numbers.*
-
-**Content pillars — 50 / 30 / 20:**
-
-| Pillar | Share | Covers | Grounds in |
-|--------|-------|--------|-----------|
-| **Build** | 50% | agentic systems: architecture, memory, orchestration, harnesses, reliability, context injection | `claude-agent-kit`, `TiTan_LLM_OS` (CAK-*, TIT-*) |
-| **Apply** | 30% | using agents on real work: dev pipelines, growth/marketing, shipped apps | DEV-*, GRW-*, MKT-04 |
-| **Results** | 20% | concrete outcomes — **build/process metrics** (reliability, retry-rate, time-saved, latency), NOT vanity (followers/impressions) | entries carrying a real number (DEV-02/06/07, CAK-06…) |
-
-Everything downstream serves this: the Scout searches for it, the Matcher tags each reply's pillar,
-the Critic checks the reply reads like an active builder.
+It is NOT the Hermes marketing pipeline (`05_Marketing_System/`).
 
 ---
 
-## 3. The core idea: supply-driven (vault-first)
+## 2. What changed in v3.2
 
-The earlier (v3.0) design was **demand-driven**: search X for what's hot, then hope a vault entry
-matches. It produced a "binding cliff" — most hot threads had no honest grounding, so almost nothing
-shipped (2026-06-15 run: 22 scouted → 3 bound → 0 shipped).
+- **What the thread lacks comes first.** The Matcher quotes the claim, names the open point and the move, and only then asks whether a project fact is the missing thing. Yes: a Deep item (at most 1 recommended a day; the fact then rests 30 days). No: a Clean item — the default — with no project fact and no implied experience, inside his authority zones (`voice.md`).
+- **Discovery:** grok is used only for the discovery search (at most `cost.max_grok_calls` a run): a watchlist of answering authors and of large accounts (`agents/watchlist.json`), plus topic vectors on his authority zones and project vectors. Every read of a known post goes through `bin/fetch_posts.py` (public endpoint), grok only as the fallback.
+- **Targets and ranking:** fresh posts first (under 90 minutes; 91-210 only when the fresh band yields nothing), up to 40 replies, authors 1k-20k then 20k-125k, ranked by two signals: authors who answer and post momentum. A large-account lane (125k+, posts under 60 minutes) is measured on its own.
+- **Hooks:** every starter opens with a pattern from `reply_patterns.md` (read-only; written by the hook study). The mail shows the hook as one plain "How to open" line.
+- **Delivery and posting are separate:** up to 6 passed items per run, best first, in trial and live mode; the mail recommends how many to post today and marks those items. Stages (2, 4, 6 pipeline items a day) open only on posting conditions; a tripwire sets the recommendation to 0 for 7 days while items keep coming for review.
+- **Timing:** windows 16:30-18:30 and 21:00-23:00 Israel; runs start earlier (15:30 and 20:00 to begin with) so the mail is in Sent when a window opens; post-by = the earliest of send + 120 minutes, window end and post time + 360 minutes.
+- **Reliability:** preflight (probes, lock, branch guard, Mail readiness), verified delivery (in Sent, not in Outbox or Drafts; incident I-9), slot log, `STATUS.md`, alarms in the daily log, timeouts, one owner for the unattended rules.
+- **Measurement:** per-reply log at 24 h and 48 h, marks from mail feedback, tripwire, X Analytics import, period reports on days 14 and 28, a 14-day pattern refresh proposal, a LEARNING section owned by the main session.
+- **Trial first:** every slot starts in trial (mails marked TRIAL), over at least 5 weekdays and a weekend; it ends on the trial report, 21 of 26 agreement with his marks and the own-8 report.
+- **Not built (E30):** a 24/7 host. The pipeline runs on this Mac; the Mac must be awake at the start times.
 
-**v3.1 inverts it.** Index the vault FIRST into search vectors, then send the Scout to find live
-threads that match what we already know we can ground in. Groundability stops being a hope and becomes
-the thing we search by.
+---
 
-- **Load-bearing rule:** every search vector is AI/agentic — either an agentic-systems topic itself,
-  or "how an agent reasoned/implemented X". This keeps every vector inside the always-hot agentic
-  discourse, so live threads reliably exist for it.
-- **Result (2026-06-16 run):** 22 candidates → **10 honest binds** (vs 3 demand-driven). The cliff is
-  gone; the bottleneck moved downstream (see §9).
+## 3. Positioning the whole pipeline serves
+
+**Core:** *Building agentic systems that develop, promote, and grow my projects. Sharing real pipelines, experiments & numbers.* Pillars build / apply / results remain tags on each item; pillar mix is a tie-breaker only (E18), never a quota.
 
 ---
 
@@ -67,201 +49,125 @@ the thing we search by.
 
 | # | Role | Model | Job |
 |---|------|-------|-----|
-| 0 | **Orchestrator** | Opus 4.8 host (Fable 5 if available) | Runs the loop, holds thin state, routes artifacts, owns 50/30/20 balance + retry/quarantine decisions. Never ingests voice/grounding/search text. |
-| 0b | **Vault_Scout** | Sonnet 4.6 | Parses `project_authority.md` → `runs/_index/search_vectors.json`. Cached; re-runs on vault change or 7-day TTL. |
-| 1 | **Scout** | **grok** (`grok -p`) | Live X retrieval per vector + thread-context fetch. Only model with live X access. |
-| 2 | **Matcher** | Opus 4.8 | Liveness + replyability + contributability gates (incl. domain/mechanism transfer drop — same-theme-but-mechanism-foreign binds are dropped); binds each thread 1:1 to a distinct vault entry; tags pillars. |
-| 3 | **Drafter** | Sonnet 4.6 | Writes one reply per target, in voice, grounded in the bound entry. Fresh instance per retry. |
-| 4 | **Critic** | **Gemini 4 Neon (High)** via `agy -p` (cross-family) | Judges against Rubric v1.3 from the persisted `00b_threads` snapshot, SHIP/FIX. The independent veto. Never opens the URL. |
-| 5 | **Gatekeeper** | — (shell) | `bin/gate.sh` — deterministic word-range/`!`/batch-variety checks (single-draft specificity is a non-fatal WARN, not a block — owned by the Critic). No model. |
-| 6 | **Asset** | Haiku 4.5 | Fills the aurora-frost card for the top 1–2 (optional). |
-| 7 | **Producer** | Haiku 4.5 | Assembles `replies_to_post.md` (the human gate). Never posts. |
-| 8 | **Wins-logger** | grok + orchestrator | ~1 day after posting, pulls real engagement → `wins.md`; orchestrator distills one rule per winner. |
+| 0 | Orchestrator | Opus 4.8 host (Fable 5 if available) | Runs the control flow, holds thin state, routes artifacts. Never ingests voice/grounding/search text. |
+| 0b | Vault_Scout | Sonnet 4.6 | Project vectors (`answers[]`/`contests[]`) and topic vectors per authority zone → `runs/_index/search_vectors.json`. |
+| 1 | Scout | grok (`grok -p`) | Discovery search only: call A (watchlist + large accounts), call B (vectors). |
+| 1b | Post reader | script | `bin/fetch_posts.py`: snapshots, his reply count, readings, author answers. |
+| 2 | Matcher | Opus 4.8 | Claim-first fit test, Deep or Clean, zone, source logging, drops with reasons. |
+| 3 | Drafter | Sonnet 4.6 | One starter per target with a hook, a quoted line, a one-line point, optional "Yours?". |
+| 4 | Critic | non-Claude rung of `critic_ladder.json` via `agy -p` | Rubric v1.4 from the persisted snapshot, plus the interest question; 2 probes per call. |
+| 4b | Interest reviewer | Opus 4.8, fresh per draft | Rule 11: "what does a builder learn?"; "nothing" rejects. |
+| 5 | Gatekeeper | scripts | `bin/gate.sh` v2.5 and `bin/target_filter.py`. |
+| 6 | Asset | Haiku 4.5 | Cards, interactive runs only. |
+| 7 | Producer | script | `bin/produce.py`: the review file and the recommended/review marks. |
+| 8 | Wins-logger | scripts (+ grok fallback) | `fetch_posts.py my-reply` + `measure.py`; winners into `wins.md`. |
 
-**Cross-family veto is preserved:** the Drafter is Claude, the Critic is Gemini (via `agy -p`) — a draft is never graded
-by its own model family. Independence = non-Claude family + judging from the persisted `00b_threads` snapshot (full opening
-post + replies + engagement at `captured_at`). Gemini cannot browse X; the Scout enriches `00b_threads.json` with
-engagement stats and `captured_at` so the Critic has a complete snapshot to judge from, without opening the URL.
+Cross-family veto: the Drafter is Claude, the Critic is not; never a Claude or GPT model as Critic. Independence = non-Claude family + judging the persisted snapshot.
 
 ---
 
-## 5. End-to-end flow
+## 5. End-to-end flow (runbook `## CONTROL FLOW`)
 
 ```
-0.  PROBE          grok + agy fenced-JSON probes. Either fails → ABORT (no spend).
-0b. VAULT_SCOUT    project_authority.md → runs/_index/search_vectors.json (cached / 7-day TTL).
-1.  ROUND-ROBIN    Orchestrator picks the next vector, biased toward the under-filled pillar (50/30/20).
-                   Vectors are NON-EXCLUSIVE (one vector can yield >1 reply). Query seeds rotated per run.
-2.  SCOUT (grok)   Searches that vector → live candidates + thread context in ONE fetch
-                   (00_candidates.json + 00b_threads.json with engagement+captured_at). Recency-filtered; already-engaged URLs excluded.
-3.  MATCHER (Opus) Corpse-drop pre-filter → replyability gate → contributability gate → 1:1 bind →
-                   tag content_pillar/project_pillar/vector → 01_anchored.json (LOCK).
-                   Off-vector or no-honest-contribution → back to Scout for next candidate on that vector.
-4.  PER TARGET:    DRAFTER (Sonnet, fresh per retry) → GATEKEEPER (gate.sh) → CRITIC (Gemini via agy, snapshot-read).
-                   FIX routing (§7) decides retry vs replace vs quarantine.
-5.  STOP when:     shipped == TARGET (12, soft) OR all vectors EXHAUSTED OR grok budget hit OR
-                   failure-rate breaker fires. Ship what's real; report any shortfall.
-6.  ASSET          top 1–2 by views → PNG card (optional, non-fatal if render fails).
-7.  PRODUCER       replies_to_post.md: ready-to-post + dropped + skipped + quarantined, all DRAFT.
-                   >>> STOP. Human reviews and posts manually. <<<
-8.  WINS-LOGGER    (next day) real engagement → wins.md → feeds the next Scout.
+0.  PROBE          bin/preflight.sh (exit codes 0/2/3/5/6/7/8/9/10/11; every stop is logged).
+1.  IN PARALLEL    reply count (fetch_posts.py) + discovery (2 grok calls; 1 in reserve).
+2.  BUDGET         slot_state.py budget: deliver_cap, post_today, resting entries, recent hooks.
+3.  TARGETS        target_filter.py prefilter (rule 10, rank) → fetch_posts.py thread → rank.
+4.  MATCHER        two waves: wave 1 for the recommendation, wave 2 for review items.
+5.  PER TARGET     Drafter → gate.sh → check-item → Critic (batched, 2 probes) ‖ interest reviewer
+                   → batch gate. Mail at the send cut-off or when both waves are done.
+                   Thin run: one widen pass. Zero passed: log no_pass, no mail.
+6.  PRODUCER       produce.py → replies_to_post.md (marks, order, caps).
+7.  DELIVERY       email_replies.py --send: verified in Sent, retried, alarmed.
+8.  RECORD + LOG   slot_state.py record / log (STATUS.md).
+9.  MAINTENANCE    readings, tripwire, feedback marks, critic qualification, pattern refresh,
+                   period report, release the lock. Never changes a delivered mail.
 ```
 
 ---
 
 ## 6. The artifact chain (every hop is a file)
 
-| File | Writer | Holds |
-|------|--------|-------|
-| `runs/_index/search_vectors.json` | Vault_Scout | vectors: `{id, content_pillar, search_intent, grounds_with[], query_seeds[]}` + `generated_at` (TTL) |
-| `runs/<batch>/00_candidates.json` | Scout | live candidates `{url, author, age, views, likes, replies, lang, vector, text_snippet, post_type}` |
-| `runs/<batch>/00b_threads.json` | Scout | thread context + judging snapshot `{url, opening_post, top_replies[], thread_gist, engagement{views,likes,replies,quotes,reposts,bookmarks}, captured_at, replyable}` |
-| `runs/<batch>/01_anchored.json` | Matcher | bound targets `{url, engagement, content_pillar, project_pillar, vector, ground_with, entry_substance, contribution, thread_gist, post_type}` |
-| `runs/<batch>/02_drafts.json` | Drafter | `{url, ground_with, draft, verify_flags[]}` per target |
-| `runs/<batch>/03_review.json` | Orchestrator | per-result `{gate, critic_verdict, criteria[], status, …}` + batch flags |
-| `runs/<batch>/replies_to_post.md` | Producer | the human-review queue (all DRAFT) |
-| `runs/<batch>/_telemetry.jsonl` | every role | one line per call (timing, tokens, verdict, confidence, reason) |
-| `runs/<batch>/batch_report.md` | `batch_report.sh` | funnel counts + per-role cost + per-criterion kill-rate + per-vector yield |
-
-The orchestrator routes these files; it never reads voice/register/grounding/search text itself. That
-isolation ("tone-firewall") is the core of v3 — no role's context bleeds into the next.
+Per batch (`runs/SLOT_ID_batch/`): `00_candidates.json` (Scout), `00_survivors.json` / `00_ranked.json` and `_prefilter_cuts.json` (`target_filter.py`), `00b_threads.json` (`fetch_posts.py`), `01_anchored.json` (Matcher), `02_drafts.json` (Drafter), `03_review.json` (orchestrator), `replies_to_post.md` (`produce.py`), `email.html` (`email_replies.py`), `_telemetry.jsonl`, `batch_report.md`. Shared state: `runs/_index/` (slot log, ledger, delivery state, sent markers, critic model, zones, authors). Measurement: `runs/_analytics/`. Fields: `agents/schemas.md`.
 
 ---
 
-## 7. The gates and rules (where things get killed, and why)
+## 7. The gates (any one rejects)
 
-### Replyability — reply to DISCUSSIONS, not launches (2026-06-16 rule)
-The Matcher **hard-drops** `post_type` ∈ `promo | announcement | showcase | meme | poll`. Replying to a
-stranger's product launch / ship-announcement / self-showcase reads as congratulation or a self-promo
-hijack — never an additive contribution. Reply **only** to `discussion` / `question` (or a genuine
-technical debate that has formed in a launch's replies). The Scout deprioritizes launches; the Critic's
-`thread_fit` fails them as a backstop.
+1. Reads fine with the post deleted (Drafter deletion test; Critic `op_relevance`).
+2. Without project nouns and numbers it restates the post or a reply (Matcher subtraction test; Critic `thread_fit`, `forced_anchor`).
+3. Agreement only (Matcher moves; `gate.sh`; Critic `forced_anchor`).
+4. Cannot quote the line it answers (`target_filter.py check-item`).
+5. Forced anchor (Critic; the target is dropped, never redrafted).
+6. Aphorism, internal label, planted typo, engagement bait (`gate.sh` labels and tic cap; Critic `ai_tells`). `aren;t` alone is not rejected.
+7. Unverified claim (Critic `no_fabrication`; `gate.sh --type clean`; logged source fields).
+8. A fact inside its rest, or reused wording (`check-item`; `gate.sh --history`, 5-word run, 14 days).
+9. Off-topic promotion (Matcher replyability; Critic `thread_fit`).
+10. Target outside the limits (`target_filter.py prefilter`).
+11. Interest: the Critic's `learns` and a fresh-context reviewer; either "nothing" rejects.
 
-### Contributability — groundable ≠ contributable
-For each bind the Matcher must write a one-sentence `contribution` from the THREAD's perspective: what
-the reply adds to THIS thread. If the honest sentence requires redirecting the thread toward our
-project's topic, that's a pivot → DROP. (A vault entry merely touching the topic is not enough.)
-**Domain/mechanism transfer (2026-06-23):** bind only if the entry's specific mechanism maps onto what
-the OP is actually discussing — same theme + different mechanism/domain = DROP. **Forced-bind tell:** if
-the `contribution` can only be made concrete with a proper noun/number the thread isn't about, the bind
-is forced → DROP. (A cross-domain entry whose mechanism genuinely transfers still binds.)
+Never reject for a missing project fact. Never pass because of a project noun. The hook check is a separate deterministic check and never overrides a rule. Fewer than 6 pass, fewer are sent.
 
-### Gatekeeper — `bin/gate.sh` (deterministic, no LLM)
-Per draft: 5–45 words, zero `!`. Missing concrete signal (digit / known tool token / mid-sentence proper
-noun) is a non-fatal `GATE WARN` only — it no longer hard-fails (2026-06-23: the deterministic specificity
-mandate forced noun-injection; specificity-in-context is now the Critic's `specificity_present` judgment).
-`--batch` mode still hard-fails cross-draft variety (no repeated openers, structural-template, em-dash
-overuse, length uniformity). Exit 0 = pass (word-range/`!`/batch ok), 1 = rewrite (word-range, `!`, or a
-batch check), 2 = config error (abort; needs bash ≥4).
-
-### Critic — Rubric v1.3 (fair-judge, recalibrated 2026-06-16; snapshot-read as of 2026-06-24)
-Gemini 4 Neon (High) via `agy -p`. Judges from the persisted `00b_threads` snapshot (opening post + replies + engagement at `captured_at`) — never opens the URL. **Mandate: be a fair judge — SHIP
-what a sharp builder would post; fail a criterion only on a MATERIAL problem, not a stylistic nitpick.**
-Two tiers, confidence-gated:
-
-- **HARD gates** (block SHIP at confidence ≥ 0.65):
-  - `no_fabrication` — every claim traces to the bound entry; the post author's numbers aren't claimed
-    as ours; no invented personal/employment detail. (Kept strict — this protects credibility.)
-  - `thread_fit` — engages what the post is actually about, and the post is a genuine discussion (not a
-    promo). Passes if it adds one real builder data point / grounded take / sharp question that speaks to
-    the OP's SPECIFIC point — a data point counts only when it's about the SAME thing the OP is discussing,
-    not merely the same theme. FAILS on **topic-adjacent flex** (2026-06-23): a reply that rides the broad
-    theme while flexing domain-foreign jargon/numbers that don't map to the OP's point. (A cross-domain
-    data point whose mechanism genuinely maps still ships.)
-- **ADVISORY** (block SHIP only if egregious, ≥ 0.80; else pass with a note): `voice_fit`,
-  `specificity_present`, `not_generic`, `length_register_sane`, `positioning_alignment`.
-- **Cross-pass stability:** on re-judge, judge fresh and fairly — do not invent a new objection once the
-  named fix landed. (This drift was the v1.2 miscalibration.)
-
-History: v1.2 was a pure "refute, don't grade gently" mandate that rejected acceptable drafts and
-invented fresh objections each pass; the 2026-06-10 Claude *stub* is the opposite ditch (shipped 13/13
-garbage). v1.3 is the fair middle.
-
-### FIX → action routing (two separate budgets)
-The Orchestrator routes on the Critic's structured per-criterion verdicts (not the free-text FIX):
-
-- **Advisory/voice fail → STYLE budget (3):** kill the Drafter instance, spawn a **fresh** Drafter with
-  `{prompt + prior draft + named criterion}`. Does NOT consume the bind budget; does NOT quarantine.
-  (This is "just send it back to the drafter if it's a voice issue.")
-- **Hard-gate fail (`no_fabrication` / `thread_fit`) → BIND budget:** draft-fixable ONCE; if the same
-  hard gate fails again → **bind-bad** → return to Matcher/Scout for a replacement on that vector.
-- **Immediate bind-bad:** post dead/locked or drifted.
-- **Quarantine** (keep the batch moving, record reject history) when the bind budget is spent + one
-  replacement failed, OR the style budget is exhausted with an advisory still failing.
-
-### 12 is a soft target, not an invariant
-The loop runs toward 12 but is bounded by stop conditions (per-vector cap, global grok budget, vectors
-exhausted, failure-rate breaker). When supply is short it ships what's real and reports the shortfall —
-never spins, never pressures a gate to pass a marginal draft.
+Rubric v1.4 (`agents/role_specs/critic.md`): HARD `no_fabrication`, `thread_fit`, `op_relevance`, `forced_anchor`, `stranger_interest`, `ai_tells`; advisory `no_hype`, `length_register_sane`. Calibration: 2 probes per call from `tests/critic_probes.json` (v2, frozen real snapshots); the full set weekly (`bin/qualify_critic.sh`).
 
 ---
 
-## 8. Telemetry (CAK-07 applied)
+## 8. Telemetry and health
 
-Every role appends one JSONL line via `bin/trace.sh` (CLI roles wrapped in `bin/run_traced.sh`, which
-adds wall-clock + char/4 token proxies since grok doesn't report tokens). Rejects carry a **confidence
-(0–1) and a one-line reason** — confidence is ordinal (triage/sort), never a soft override of a hard
-gate. `bin/batch_report.sh <run-dir>` rolls it all up into `batch_report.md`: the funnel, per-role
-cost/latency, per-criterion kill-rate, per-vector yield, and the quarantine list. This is what makes the
-funnel debuggable — when a run underperforms, the report says which criterion/vector/role is responsible.
-
-Two logs, kept separate, both feed the Scout: `_telemetry.jsonl` (why the funnel leaks — gate behavior)
-and `wins.md` (what the audience rewarded — post-posting engagement).
+- `bin/trace.sh` / `bin/run_traced.sh` (`--timeout`, outcomes `timeout` and `no_block`) per call; `bin/batch_report.sh` per batch (counts `dropped`).
+- `runs/_index/scheduler_log.jsonl` one line per slot with the funnel by age band, minutes to Sent and the reason; `spend.jsonl`; `STATUS.md` (last 10 slots, stage, recommendation, alarms, pause).
+- Alarms: more than 1 slot in 10 without delivery, or a missed slot, writes one line to the daily log through `.vault_link/.scripts/append_log.sh`; never an email.
 
 ---
 
-## 9. Honest current status & the next lever
+## 9. How to run it
 
-**What works:** supply-driven binding (10 vs 3), clean FIX-routing, honest skips, telemetry, the fair v1.3
-critic clearing genuine-discussion drafts.
-
-**The live bottleneck:** topic-matching vectors **over-surface product launches**. On the 2026-06-16
-window, 10 binds were mostly showcases/announcements; after the promo-drop rule the real yield was **2
-genuine-discussion targets** (one of them a 61k-view thread). The cross-family critic is calibrated fairly
-now; the constraint is target *type*.
-
-**Next-run lever:** bias the vault vectors and Scout queries toward **debates / questions / problem-threads**
-("why does X fail", "how do you handle Y", hot takes), not topic-matches — topics return launches,
-questions return conversations. That's the single change most likely to fill the funnel.
+- Interactive: "Run the @ogrizkov Twitter reply pipeline." → the runbook.
+- Unattended: the scheduled task applies `skill/scheduled_task_prompt.md` → runbook `## UNATTENDED MODE` (the single owner of the unattended rules). The main session switches it on only after a supervised live run and a test mail confirmed on his device (runbook `## TRIAL AND LAUNCH`).
+- Gateway: `/opt/homebrew/bin/bash bin/verify_v32.sh` (offline, stubs only). The two legacy doc lints (`verify_v3_scaffold.sh`, `verify_gemini_swap.sh`) assert v3.1 documents and are not run.
 
 ---
 
-## 10. How to run it
+## 10. Failure policies
 
-The host Claude Code session IS the orchestrator. In practice: invoke the orchestrate skill /
-ask the session to run a batch. It will:
-probe grok → (re)build search_vectors if stale → round-robin scout+match toward 12 → draft/gate/critic
-loop → write `runs/<YYYY-MM-DD>_batch/replies_to_post.md` → stop for review.
-
-**Prereqs:** `grok` CLI logged in (Scout + Wins-logger); `agy` CLI logged in and responding (`~/.local/bin/agy`, Google Antigravity — required for the Critic); bash ≥4 at
-`/opt/homebrew/bin/bash`; `python3`; `project_authority.md` current (drives the vectors); `voice.md` +
-`reply_register.md` + `drafting_contract.md` for the Drafter.
-
-**Hard rule:** if grok fails to inference at any stage, the run halts (SAVE-AND-HALT) rather than
-substituting a model or stubbing the critic. Nothing is ever auto-posted.
+SAVE-AND-HALT for interactive runs; resume and self-heal for infrastructure failures in unattended runs; never stub or substitute a model; never lower a gate to fill a mail; every non-delivery counted. Details: runbook `## ERROR PATHS`, `## SAVE-AND-HALT`, `## UNATTENDED MODE`.
 
 ---
 
-## 11. Failure policies
+## 11. Operator minutes
 
-- **SAVE-AND-HALT (universal):** any role whose output is unobtainable (credits, auth, dead CLI, sub-agent
-  fails ×2, no fenced block after one re-prompt) → save artifacts, write `runs/<batch>/HALT.json`, stop all
-  downstream stages, resume from `next_stage` when the blocker clears. Never substitute/stub/improvise a model.
-- **Critic degradation:** if the agy/Gemini critic can't be invoked mid-run (unreachable / no fenced block / print-timeout self-abort after 10m) → ABORT, all results `held`,
-  `critic: UNAVAILABLE`, loud held-line. The Claude stub is scaffold-test-only, NEVER a runtime fallback
-  (2026-06-10 proved it ships irrelevant drafts as SHIP).
+The time budget to hold; estimates until the phone walk-through measures them (`runs/_analytics/workload.md`). He reads up to 12 items a day and posts only the recommended ones. At stage 1 the posting part is 17 minutes a day, inside the 20-minute target; reading and marking the review items adds up to 15 minutes, which he asked for, so the day total is up to 32 minutes, above the target.
+
+| When | Task | Minutes |
+|---|---|---|
+| Once, before the trial | Mail fix: outgoing server, clear two stuck messages | 10 |
+| Once, before the trial | Pinned post: edit one candidate and post it | 30 |
+| Once, before the trial | Week-0 numbers and pinned post URL into `weekly.md` | 5 |
+| Once, before the trial | Test mail walk-through on the phone | 15 |
+| Each day, stage 1 | Post the 2 recommended replies, about 7 minutes each (read the thread, write, post) | 14 |
+| Each day, stage 1 | One follow-up when an author answers | 3 |
+| Each day | Read the other items, up to 10, about 1 minute each (quoted line, angle, starter) | 10 |
+| Each day | Feedback marks: one reply per mail, two mails | 5 |
+| Each day, stage 1 | Total: posting part 17, with reading and marks up to 32 | 32 |
+| Each week | Visits and follows into `weekly.md` | 5 |
+| Days 14 and 28 | Download the X Analytics export, read the period report | 15 |
+| Each month | Save the X monthly report file | 5 |
 
 ---
 
 ## Appendix — key files
 
-- PRD / spec: `Reply_Pipeline_PRD_v3.0_Agentic.md` (v3.1)
-- Roster: `agents/roster.md` · Role specs: `agents/role_specs/{vault_scout,scout,matcher,drafter,critic,asset,producer,wins}.md`
-- Schemas: `agents/schemas.md` · Runbook: `skill/twitter-reply-orchestrate.md`
-- Gate: `bin/gate.sh` · Telemetry: `bin/{trace,run_traced,batch_report}.sh` · Scaffold validator: `bin/verify_v3_scaffold.sh`
-- Grounding: `project_authority.md` · Voice: `../../voice.md` + `reply_register.md` + `drafting_contract.md`
-- Latest run: `runs/2026-06-16_batch/` (2 ready, 6 promo-dropped, 2 skipped)
-
-> Note (2026-06-17): the v3.1 spec edits (critic v1.3, promo-drop in matcher/scout, orchestrate split
-> budgets, the v3.1 build) are on disk and validator-green but **uncommitted** pending the operator's
-> commit/graduate call. The telemetry scripts are built and smoke-tested.
+| File | What |
+|------|------|
+| `skill/twitter-reply-orchestrate.md` | runbook (v3.2) |
+| `skill/scheduled_task_prompt.md` | the scheduled prompt (a pointer to UNATTENDED MODE) |
+| `agents/params.json` | every number a script reads |
+| `agents/critic_ladder.json` | critic model order (the only file naming a critic model) |
+| `agents/watchlist.json` | seed lists: answering authors, large accounts |
+| `agents/roster.md`, `agents/role_specs/`, `agents/schemas.md` | roles and fields |
+| `reply_patterns.md` | the hook sheet (read-only input) |
+| `project_authority.md` | project facts (`reuse: 30d`, optional `finding:` / `his_words:`) |
+| `reply_register.md`, `../../voice.md` | voice and register |
+| `bin/*.sh`, `bin/*.py` | gates, state, reads, mail, measurement |
+| `tests/` | fixtures, stubs, critic probes |
+| `council/2026-11-23/DECISION.md` | the decision record this version implements |

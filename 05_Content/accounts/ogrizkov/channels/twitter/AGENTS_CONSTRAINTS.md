@@ -3,125 +3,98 @@ type: reference
 artifact: agent-constraints
 account: ogrizkov
 channel: twitter
-describes: per-agent constraints for the v3.1 reply pipeline (roster + isolation matrix + role-spec gates + caps)
-sources: agents/roster.md, agents/role_specs/*, agents/schemas.md, skill/twitter-reply-orchestrate.md
-written: 2026-06-25
+describes: per-agent constraints for the v3.2 reply pipeline (roster + isolation matrix + role-spec gates + caps)
+sources: agents/roster.md, agents/role_specs/*, agents/schemas.md, agents/params.json, agents/critic_ladder.json, skill/twitter-reply-orchestrate.md
+written: 2026-11-23
 status: current
 ---
 
-# Agent Constraints — @ogrizkov reply pipeline (v3.1)
+# Agent Constraints — @ogrizkov reply pipeline (v3.2)
 
-One line per agent's hard edges: model · what it reads · what it must never see · the rules it enforces · the caps that bound it. Authoritative source files are the roster, the role specs, and the orchestrator ISOLATION MATRIX / CAPS — this page consolidates them. Reflects the v3.1 calibration (matcher transfer drop, drafter lens, gate WARN, critic topic-adjacent flex) and the Gemini-snapshot critic swap.
+One line per agent's hard edges: model · what it reads · what it must never see · the rules it enforces · the caps that bound it. Authoritative sources are the roster, the role specs, the scripts in `bin/`, and the runbook ISOLATION MATRIX / CAPS — this page consolidates them. Numbers are not repeated here: every number a script reads lives in `agents/params.json`; the critic model order lives in `agents/critic_ladder.json` and the model of a run in `runs/_index/critic_model.json`.
 
 ---
 
 ## 0 · Orchestrator
 - **Model:** claude-opus-4-8 host (claude-fable-5 if available)
-- **Reads:** file artifacts only (routes paths)
+- **Reads:** file artifacts only (routes paths), the budget JSON of the run
 - **Never sees:** voice.md, reply_register.md, grounding text, search results — never ingests content
-- **Enforces:** thin state only (batch_id, per-target status/retry, counters); 50/30/20 steering; retry/quarantine routing; SAVE-AND-HALT on any dead dependency
-- **Caps:** MAX_GROK_CALLS=40 · TARGET=12 (soft)
+- **Enforces:** thin state; two waves (recommended items never wait on review items); routing (forced_anchor / op_relevance / interest → drop, no redraft); SAVE-AND-HALT interactive, resume unattended (runbook `## UNATTENDED MODE` is the single owner)
+- **Caps:** `cost.*` and `volume.deliver_per_run` in params.json; the delivery number is a ceiling, never a quota
 
 ## 0b · Vault_Scout
 - **Model:** claude-sonnet-4-6 (Opus on a major vault change)
-- **Reads:** `project_authority.md` only
+- **Reads:** `project_authority.md`, `runs/_index/authority_zones.json`
 - **Never sees:** voice/register, drafts, live X, run artifacts
-- **Enforces:** every search vector phrased through the agentic lens; output is `runs/_index/search_vectors.json`
-- **Caps:** cached; regenerate only on vault change or 7-day TTL
+- **Enforces:** project vectors from `answers[]` / `contests[]` only; topic vectors, at least one per authority zone (these find the Clean items)
+- **Caps:** cached; regenerate on vault or zone change or 7-day TTL
 
-## 1 · Scout
-- **Model:** grok (`grok -p`) — only model with live X access
-- **Reads:** concrete query from orchestrator, 24–72h window, `wins.md`, prior `replies_to_post.md` (dedup)
+## 1 · Scout (discovery only)
+- **Model:** grok (`grok -p`) — the only model with live X search; used only for the discovery search
+- **Reads:** concrete queries: call A the watchlist authors and the large-account list, call B the vector queries; the exclude list
 - **Never sees:** voice/register, `project_authority` grounding entries, drafts
-- **Enforces:** live retrieval only (no drafting/opinions); English; recency filter; exclude already-engaged URLs; honest `post_type` tagging; **captures the snapshot** (`engagement{views,likes,replies,quotes,reposts,bookmarks}` + `captured_at`) for the Critic
-- **Caps:** MAX_FETCH_PER_VECTOR=3 → vector EXHAUSTED; counts against MAX_GROK_CALLS=40
+- **Enforces:** live retrieval only; English; `author_followers`, `posted_at`, `views`, `matched_quote`, honest `post_type`
+- **Caps:** `cost.max_grok_calls` per run (two discovery calls plus one reserve for the widen pass, a needed probe or a fallback read)
+
+## 1b · Post reader (`bin/fetch_posts.py`)
+- **Model:** none — the public conversation endpoint (`endpoint.base`)
+- **Enforces:** thread snapshots for the Critic, his reply count, the 24 h / 48 h readings, author answers, the pattern refresh sample; a clear failure reason (`endpoint_http`, `endpoint_timeout`, `endpoint_shape`, `not_found`) so the caller falls back to grok or logs
+- **Caps:** `endpoint.timeout_s`, `endpoint.parallel`
 
 ## 2 · Matcher
 - **Model:** claude-opus-4-8
-- **Reads:** `00_candidates.json`, `00b_threads.json`, `project_authority.md`, `search_vectors.json`
+- **Reads:** ranked survivors, `00b_threads.json`, `project_authority.md`, the zone list, the budget fields, one public source per target
 - **Never sees:** voice/register, search internals, other roles' reasoning
-- **Enforces (gates):**
-  - Liveness / corpse-drop (age / views / velocity)
-  - Replyability — discussion/question only; hard-drop promo / announcement / showcase / meme / poll
-  - Contributability — write the thread-perspective `contribution`; pivot-toward-our-project → DROP
-  - **Domain/mechanism transfer (v3.1)** — bind only if the entry's mechanism maps onto the OP's specific point; same-theme / different-mechanism → DROP
-  - **Forced-bind tell (v3.1)** — if it needs a proper-noun/number the thread isn't about → DROP
-  - **1:1 binding — one DISTINCT entry per survivor, no reuse within a batch** (the hard ceiling on batch size N)
-  - Stealth-scope exclusion — never bind GRW-01 / GRW-02 or stealth / anti-detection / bot-evasion entries
-  - Results-bucket rule — bind a results target only if the entry carries a real build/process number
+- **Enforces (gates):** claim-first fit test (author_claim, open_point, move, subtraction test; only fit 3 binds Deep); Deep only when a project fact is what the thread lacks and the entry is not resting and something happened in it (else a finding request); Clean is the default, no project fact, no implied experience, inside the authority zones; replyability (discussion only); mechanism transfer; forced-bind tell; stealth-scope exclusion; large-account lane = a correction or a number only
+- **Caps:** `caps.bind_max` binds per run
 
 ## 3 · Drafter
 - **Model:** claude-sonnet-4-6 (FRESH instance per retry)
-- **Reads:** ONE target's `thread_gist` + bound entry substance + `contribution` + `content_pillar`, `voice.md`, `reply_register.md`, never-list
+- **Reads:** ONE target's snapshot + anchored fields, `reply_patterns.md`, `voice.md`, `reply_register.md`, never-list, `hooks_recent`
 - **Never sees:** full `project_authority`, other targets, search internals, asset templates, gate internals
-- **Enforces:**
-  - **Grounding as lens (v3.1)** — reason FROM the entry as stance, not a noun-bank to surface
-  - **Option-B KEEP/DROP (v3.1)** — a concrete detail appears only when the thread is specifically about it
-  - **Never inject a token to clear a gate**; use `[VERIFY]` when a specific would help but isn't in the entry
-  - Voice: Evgeny-B, skew-short, varied opener, register texture (ESL tics), no hype/bait, never invent personal facts
-- **Caps:** STYLE budget 3 retries · BIND budget 2 (HARD gates)
-- **Known gap (proposed v3.2):** no rule yet against reader-illegible *internal* jargon (e.g. `E1-E5`, "loader directive", persona names) — the inverse-noun problem
+- **Enforces:** interest first (`answers`, `point`); a starter of 40 words at most (25 in the lane), no link, no hashtag; Deep: he is the doer; Clean: no first-person experience; a hook from the sheet (never X1-X7, never in `hooks_recent`, once per run) with a plain instruction line; optional "Yours?" question; no planted typos; never invent; no reply says how it was written
+- **Caps:** one redraft for a hard criterion; STYLE budget for the advisory ones
 
 ## 4 · Critic
-- **Model:** Gemini 4 Neon (High) via `agy -p` — non-Claude (cross-family veto)
-- **Invocation:** `agy -p "<prompt>" --model "Gemini 4 Neon (High)" --print-timeout 10m`
-- **Reads:** the draft, the persisted `00b_threads` snapshot `{opening_post, top_replies, thread_gist, engagement, captured_at}`, bound entry claim, `content_pillar`, Rubric v1.3
-- **Never sees:** full voice/register, other drafts, gate internals, **live X / any URL to open** (snapshot-read only)
-- **Enforces:**
-  - HARD gates (block SHIP at conf ≥0.65): `no_fabrication`, `thread_fit` (incl. **topic-adjacent-flex FAIL**, v3.1)
-  - Advisory (block only if egregious, conf ≥0.80): voice_fit, `specificity_present`, not_generic, length_register_sane, positioning_alignment, voice_texture
-  - Per-criterion verdict; never rewrites; verdict `SHIP` | `FIX:<criterion>`; output one fenced JSON block; `"critic":"gemini"`
-- **Caps:** `--print-timeout 10m` (waits for the slow response, no external kill); exceed 10m → CRITIC-UNAVAILABLE → SAVE-AND-HALT; NOT counted against the grok budget
-- **Known gap (proposed v3.2):** `specificity_present` rewards a present token even when it's reader-illegible internal jargon — should require reader-legibility
+- **Model:** non-Claude, non-GPT: the first answering rung of `agents/critic_ladder.json` (cross-family veto); model of the run in `runs/_index/critic_model.json`
+- **Invocation:** `agy -p "<prompt>" --model "<cli_name>" --print-timeout 10m`, one batched call per wave with 2 calibration probes
+- **Reads:** drafts of its wave, the persisted snapshots, `author_claim`, `move`, `reply_type`, `grounded_claim` (Deep), `source_quote`, Rubric v1.4
+- **Never sees:** full voice/register, gate internals, the Matcher's reasoning, **live X / any URL to open**
+- **Enforces:** Rubric v1.4 — HARD `no_fabrication`, `thread_fit`, `op_relevance`, `forced_anchor`, `stranger_interest`, `ai_tells` (incl. tells (i) how it was written and (j) a verdict opening); advisory `no_hype`, `length_register_sane`; `learns` for rule 11. Never reject for a missing project fact. Never pass because of a project noun.
+- **Caps:** `probes_per_call` per call; weekly qualification on the full set (`bin/qualify_critic.sh`), a failed rung rests `critic_qualified_days`; NOT a grok call
+
+## 4b · Interest reviewer (rule 11)
+- **Model:** claude-opus-4-8, fresh context per draft, in parallel with the Critic
+- **Reads:** the opening post, the top replies and the draft only
+- **Enforces:** "what does a builder learn that the thread did not give"; "nothing" or an empty answer rejects (either verdict rejects)
 
 ## 5 · Gatekeeper
-- **Model:** none — `bin/gate.sh` (deterministic shell; needs bash ≥4)
-- **Reads:** the draft (or batch file); no LLM context
-- **Enforces:**
-  - Single-draft HARD: 5–45 words; no `!`
-  - **Specificity = non-fatal WARN (v3.1)** — no longer blocks; owned by the Critic's `specificity_present`
-  - `--batch` HARD: keyword-repetition, length-variety, skeleton-shape, em-dash-splice
-- **Caps:** exit 2 (bash <4) → ABORT (config error)
+- **Model:** none — `bin/gate.sh` v2.5 (bash ≥4) and `bin/target_filter.py`
+- **Enforces:** single: word count, no `!`, no link or hashtag, no internal label, not agreement only, Clean without implied experience, no 4-word anchor paste, no 5-word reuse of the last 14 days (specificity stays a WARN); batch: duplicate opener, structural template, em-dash rate, skeleton shape, keyword share, pairwise overlap, same word count, the tic cap (no question cap); `target_filter.py`: rule 10 limits and ranking (answers and momentum), hook check, zone, verbatim quote, logged source, resting entry, lane move
+- **Caps:** word and n-gram limits are constants in `gate.sh`; exit 2 → ABORT (config error)
 
 ## 6 · Asset
-- **Model:** claude-haiku-4-5
-- **Reads:** top 1–2 `{draft + bound entry}` (selected by orchestrator), aurora-frost template
-- **Never sees:** search internals, other targets, gate internals, voice/register
-- **Enforces:** optional / non-fatal (render fail → keep HTML, "open + screenshot")
-- **Caps:** top 2 by `engagement.views` among SHIP
+- **Model:** claude-haiku-4-5 — interactive runs only
+- **Enforces:** optional / non-fatal (render fail → keep HTML, "open + screenshot"); text unchanged
 
 ## 7 · Producer
-- **Model:** claude-haiku-4-5
-- **Reads:** `01_anchored.json`, `02_drafts.json`, `03_review.json`
-- **Never sees:** search internals, voice/register, `project_authority`, asset templates, gate internals
-- **Enforces:** writes `replies_to_post.md` (all DRAFT; SHIP + skipped + quarantined sections); **STOP at human review — never posts**
+- **Model:** none — `bin/produce.py`
+- **Enforces:** `replies_to_post.md` v3.2; byte-for-byte copy; recommended/review marks (one per author a day, Deep and large-account limits per day, the lane's place); delivery order and caps (deliver cap, lane cap, one hook per mail); never posts
 
 ## 8 · Wins-logger
-- **Model:** grok (`grok -p from:ogrizkov`) + orchestrator for distillation
-- **Reads:** `wins.md`, the posted batch `replies_to_post.md`
-- **Never sees:** other batches' drafts, asset templates, gate internals
-- **Enforces:** runs ~1 day post-posting; appends real winners; distillation (one rule per winner) never delegated to a small model
+- **Model:** none for reads (`fetch_posts.py` + `measure.py`); grok only as the fallback; the host distils one rule per winner
+- **Enforces:** per-reply log at 24 h and 48 h, marks, tripwire, pattern refresh proposal every 14 days; never an email; the pattern sheet is never changed by a run
 
 ---
 
 ## Global stops (Orchestrator)
-`shipped == TARGET` · all vectors EXHAUSTED · `grok_calls == MAX_GROK_CALLS (40)` · failure-rate >~40%. On early stop: ship what's real, report the shortfall — never pressure a gate.
+`deliver_cap` passed · candidates exhausted · `max_grok_calls` · the send cut-off · `slot_deadline_min` · failure-rate >~40%. On early stop: deliver what passed — never pressure a gate. Zero passed: a slot-log line, no email.
 
 ## Cross-cutting invariants
 - **Tone-firewall** — the Orchestrator routes file artifacts only; no role's raw context bleeds into the next.
-- **Cross-family veto** — the Drafter is Claude, the Critic is Gemini; a draft is never graded by its own model family. Independence = non-Claude family + judging the persisted snapshot.
-- **SAVE-AND-HALT** — when any role cannot produce its output, save artifacts, write `HALT.json`, stop; never stub or substitute a model.
+- **Cross-family veto** — the Drafter is Claude, the Critic is not; a draft is never graded only by its own model family.
+- **Verified delivery** — a mail counts only when it is in Mail's Sent mailbox (incident I-9); every non-delivery is counted and can alarm in the daily log, never by email.
+- **SAVE-AND-HALT** — when any role cannot produce its output, save artifacts, write `HALT.json`, stop (unattended: resume); never stub or substitute a model.
 
 ## Caps (consolidated)
-| Cap | Value |
-|-----|-------|
-| MAX_FETCH_PER_VECTOR (grok calls per vector per run) | 3 → EXHAUSTED on cap with no bind |
-| MAX_GROK_CALLS (global grok budget) | 40 |
-| TARGET (shipped replies) | 12 (soft) |
-| Bind-budget draft retries (HARD gates) | 2 |
-| Style-budget draft retries (advisory) | 3 |
-| Replacement targets per target before quarantine | 1 |
-| Asset selection | top 2 by `engagement.views` among SHIP |
-| Failure-rate escalation | ~40% |
-| Vault_Scout staleness TTL | 7 days |
-| Critic wait ceiling (`agy --print-timeout`) | 10m (waits; not a kill) |
+All values: `agents/params.json` (see the runbook `## CAPS (consolidated)` for the key of each cap). Critic order: `agents/critic_ladder.json`.

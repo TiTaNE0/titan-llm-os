@@ -1,49 +1,67 @@
 ---
 type: pipeline-artifact
 artifact: reply-schemas
-prd_ref: "§4, §6, §v3.1"
-locked: 2026-06-16
+prd_ref: "§4, §6, §v3.1, v3.2 (spec D6)"
+locked: 2026-11-23
 ---
 
-# v3 Artifact Field Reference
+# v3.2 Artifact Field Reference
 
 Each stage writes one structured file to `runs/<batch>/`. Every hop is file-only — no role reads
-another role's reasoning, only its artifact. Batch id format: `<YYYY-MM-DD>_batch`, with suffix
-letters for same-day reruns (e.g. `2026-06-09b_batch`).
+another role's reasoning, only its artifact. Batch id format (v3.2): `SLOT_ID_batch`, a second
+attempt `SLOT_ID_a2_batch`, with `SLOT_ID` = `YYYY-MM-DD_HHMM` (Israel date and the slot's scheduled
+start, from `bin/slot_state.py slot-id`), e.g. `2026-11-24_1530_batch`. The ignore rule
+`runs/*_batch/` matches these names; the old suffix-letter form (`2026-11-22_batcha`) is not ignored.
 
-`runs/_index/` is a SHARED non-batch directory holding `search_vectors.json` — written once by
-Vault_Scout, reused across all runs until TTL or vault change.
+`runs/_index/` is a SHARED non-batch directory: `search_vectors.json` (Vault_Scout), and the run-time
+state of the scripts (slot log, ledger, delivery state, sent markers, critic model, authority zones;
+see `bin/slot_state.py`). It is created at run time, never by a build.
 
 ---
 
 ## search_vectors.json
 
-Writer: Vault_Scout (`claude-sonnet-4-6`). Reader: Orchestrator.
+Writer: Vault_Scout (`claude-sonnet-4-6`). Reader: Orchestrator → Scout call B.
 
 Lives in `runs/_index/` — shared, non-batch; persists across runs. Re-generated when
-`project_authority.md` changes OR after 7-day TTL (driven by `generated_at`).
+`project_authority.md` or `runs/_index/authority_zones.json` changes OR after 7-day TTL (driven by `generated_at`).
 
 Fields:
 - `generated_from` — `"project_authority.md@<hash>"` (hash of the source file at generation time)
 - `generated_at` — ISO 8601 timestamp; drives the 7-day TTL
 - `vectors[]` — array of vector objects:
   - `id` — unique vector id (e.g. `"V-agentic-orchestration"`)
+  - `kind` — `"project"` or `"topic"`
+  - `zone` — topic vectors: one authority zone from `authority_zones.json`
   - `content_pillar` — one of `"build"` | `"apply"` | `"results"`
   - `search_intent` — one sentence describing the live-thread angle to find on X
-  - `grounds_with` — array of `project_authority.md` entry ids that can honestly ground a reply
-  - `query_seeds` — pool of search query synonyms/phrasings; Orchestrator rotates/samples per run
+  - `grounds_with` — project vectors: `project_authority.md` entry ids that can honestly ground a reply; topic vectors: empty
+  - `answers` / `contests` — project vectors: questions the entry answers / claims it confirms or refutes
+  - `query_seeds` — pool of search query phrasings; Orchestrator rotates/samples per run
 
 ```json
 {
   "generated_from": "project_authority.md@a3f9c12",
-  "generated_at": "2026-06-16T10:00:00Z",
+  "generated_at": "2026-11-23T10:00:00Z",
   "vectors": [
     {
       "id": "V-agentic-orchestration",
+      "kind": "project",
       "content_pillar": "build",
       "search_intent": "threads where people argue about agent-agnostic orchestration / model-as-runner / owning the routing graph",
       "grounds_with": ["CAK-01", "TIT-01"],
-      "query_seeds": ["agent orchestration", "model agnostic", "routing graph", "claude code vs opencode"]
+      "answers": ["can I swap Claude Code for OpenCode without losing my setup"],
+      "contests": ["your agent setup is locked to one vendor"],
+      "query_seeds": ["agent orchestration", "model agnostic", "claude code vs opencode"]
+    },
+    {
+      "id": "V-topic-rate-limits",
+      "kind": "topic",
+      "zone": "rate limits and quirks of providers",
+      "content_pillar": "apply",
+      "search_intent": "people posting claims or questions about provider rate limits on coding agents",
+      "grounds_with": [],
+      "query_seeds": ["hit the rate limit", "usage limits reset", "why is my quota gone"]
     }
   ]
 }
@@ -53,34 +71,40 @@ Fields:
 
 ## 00_candidates.json
 
-Writer: Scout (Grok via `grok -p`). Reader: Matcher.
+Writer: Scout (Grok via `grok -p`, discovery only). Reader: `bin/target_filter.py prefilter`.
 
 Fields per candidate:
 - `url` — full X thread URL
 - `author` — @handle (no leading @)
-- `age` — human-readable age at scout time (e.g. "3h", "14h")
-- `views` — integer or null if unavailable
+- `author_followers` — int (required; a candidate without it is cut `no_followers`)
+- `posted_at` — ISO-8601 UTC (required; without it: `no_posted_at`)
+- `views` — integer or null; feeds the momentum signal (a post with no view count has no momentum)
 - `likes` — integer or null
 - `replies` — integer or null
-- `lang` — ISO 639-1 language code (must be "en" to survive Matcher's liveness gate)
-- `source_tag` — `"hot"` (broad trending AI thread) or `"domain"` (pillar keyword match)
-- `text_snippet` — first ~280 chars of the thread's opening post (raw, no paraphrase)
-- `post_type` — enum `discussion|announcement|poll|meme|promo|question|showcase`: the kind of post,
-  judged at retrieval; drives the Matcher replyability filter
+- `lang` — ISO 639-1 language code (must be "en")
+- `source` — `"watchlist"`, `"large"` or the vector id
+- `matched_quote` — the sentence in the post that asks or asserts what the vector looked for
+- `source_tag` — `"hot"` or `"domain"` (legacy)
+- `text_snippet` — first ~280 chars of the opening post (raw, no paraphrase)
+- `post_type` — enum `discussion|announcement|poll|meme|promo|question|showcase|listicle|giveaway|connect|growth_tool`;
+  everything but discussion, question and showcase is cut by `target_filter.py` (`post_type`)
 
 ```json
 {
-  "batch": "2026-06-09_batch",
+  "batch": "2026-11-24_1530_batch",
   "candidates": [
     {
       "url": "https://x.com/swyx/status/1234567890",
       "author": "swyx",
-      "age": "6h",
-      "views": 42000,
-      "likes": 310,
-      "replies": 47,
+      "author_followers": 12000,
+      "posted_at": "2026-11-24T12:55:00Z",
+      "views": 4200,
+      "likes": 31,
+      "replies": 17,
       "lang": "en",
-      "source_tag": "hot",
+      "source": "V-agentic-orchestration",
+      "matched_quote": "we stopped trusting one call and started chaining graded sub-agents",
+      "source_tag": "domain",
       "text_snippet": "The shift from 'LLM as autocomplete' to 'LLM as orchestrator' is finally clicking in prod systems. Here's what changed for us...",
       "post_type": "discussion"
     }
@@ -92,43 +116,42 @@ Fields per candidate:
 
 ## 00b_threads.json
 
-Writer: Scout (Grok via `grok -p`, batched). Reader: Matcher.
-
-Fetched for liveness survivors only, one batched grok call; orchestrator routes without reading.
+Writer: `bin/fetch_posts.py thread` over the public endpoint (one batched grok call only as the fallback). Reader: `target_filter.py rank`, Matcher, Drafter, Critic, interest reviewer.
 
 Fields per entry:
-- `url` — same as candidates (the survivor URL the thread was fetched for)
+- `url` — the survivor URL the thread was read for
 - `opening_post` — full text of the opening post (not the 280-char snippet)
-- `top_replies` — array of `{author, text}`, highest-signal replies (incl. any reveal/punchline/answer)
-- `thread_gist` — one sentence: what the thread is actually about, incl. what the replies add
-- `engagement` — `{views, likes, replies, quotes, reposts, bookmarks}`, each int|null. Raw counts only (no `velocity`). X often hides bookmarks; all nullable, degrades gracefully.
-- `captured_at` — ISO-8601 fetch time; the staleness window the Critic accepts (PRD §178-182). Scout fills explicitly (not file-mtime).
-- `replyable` — boolean Scout hint (false for polls/memes/promos with no substantive discussion)
+- `top_replies` — array of `{author, text, url}`, the top replies as ranked by the endpoint (the author's own replies excluded)
+- `engagement` — `{views, likes, replies, quotes, reposts, bookmarks}`, each int|null. Raw counts only.
+- `captured_at` — ISO-8601 read time; the staleness window the Critic accepts (PRD §178-182).
+- `op_replies_in_thread` — int: replies by the post's author in the thread (the "answers" signal)
+- `author_followers`, `posted_at` — filled from the endpoint
+- `thread_gist` is no longer written here: the Matcher writes it into `01_anchored.json` from the snapshot.
 
-This artifact is the Critic's judging snapshot — the Scout must capture the opening post text and stats completely. The Critic NEVER opens the URL; it judges from this snapshot.
+This artifact is the Critic's judging snapshot. The Critic NEVER opens the URL; it judges from this snapshot.
 
 ```json
 {
-  "batch": "2026-06-09_batch",
+  "batch": "2026-11-24_1530_batch",
   "threads": [
     {
       "url": "https://x.com/swyx/status/1234567890",
       "opening_post": "The shift from 'LLM as autocomplete' to 'LLM as orchestrator' is finally clicking in prod systems. Here's what changed for us: we stopped trusting one call and started chaining graded sub-agents.",
       "top_replies": [
-        {"author": "hingeloss", "text": "the grading step is the whole game — without a veto you just compound the first model's bias"},
-        {"author": "swyx", "text": "right, and the veto has to be cross-family or it's theatre"}
+        {"author": "@hingeloss", "text": "the grading step is the whole game — without a veto you just compound the first model's bias", "url": "https://x.com/hingeloss/status/1234567899"}
       ],
-      "thread_gist": "swyx argues orchestration beats autocomplete; the replies sharpen it to the cross-family veto being the load-bearing part.",
       "engagement": {
-        "views": 42000,
-        "likes": 310,
-        "replies": 47,
-        "quotes": 12,
-        "reposts": 38,
+        "views": 4200,
+        "likes": 31,
+        "replies": 17,
+        "quotes": 2,
+        "reposts": 5,
         "bookmarks": null
       },
-      "captured_at": "2026-06-09T10:15:00Z",
-      "replyable": true
+      "captured_at": "2026-11-24T13:45:00Z",
+      "op_replies_in_thread": 2,
+      "author_followers": 12000,
+      "posted_at": "2026-11-24T12:55:00Z"
     }
   ]
 }
@@ -138,50 +161,62 @@ This artifact is the Critic's judging snapshot — the Scout must capture the op
 
 ## 01_anchored.json
 
-Writer: Matcher (Opus 4.8). Readers: Drafter (per-target), orchestrator (top-2 select), Producer.
+Writer: Matcher (Opus 4.8). Readers: Drafter (per-target), `target_filter.py check-item`, `produce.py`, `slot_state.py record`.
 
-Matcher applies the hard Liveness gate (corpse-drop, velocity, fresh-by-reach, English) then
-binds each survivor 1:1 to a distinct `project_authority.md` entry. No entry is reused across
-targets in the same batch.
-
-Fields per target:
-- `url` — same as candidates
-- `author` — same as candidates
-- `engagement` — object: `{views, likes, replies, velocity}` (velocity: subjective tier "low|mid|high")
-- `content_pillar` — `"build"` | `"apply"` | `"results"` (pillar of THIS bind)
-- `project_pillar` — `"development"` | `"agentic"` | `"marketing"` (source pillar in project_authority.md)
-- `vector` — the source vector id from `search_vectors.json` that led the Scout to this candidate
-- `touches` — short string array of candidate topics the entry touches (e.g. `["scheduling", "reliability"]`)
-- `ground_with` — the exact `project_authority.md` entry id bound to this target
-- `why_live` — one-sentence liveness rationale (age + velocity)
-- `entry_substance` — the bound entry's core claim/fact (copied verbatim from authority)
-- `contribution` — one sentence, THREAD-perspective: what this reply genuinely adds to THIS thread (answers the ask / extends the point / corroborates with specific experience), supportable by `entry_substance`. If the Matcher cannot write it honestly without redirecting the thread, the target is dropped (contributability gate, no drafting)
-- `thread_gist` — copied from `00b_threads.json`. Drafter and Critic read this, not the snippet.
-- `post_type` — copied from `00_candidates.json` (audit trail of what the Matcher's replyability filter saw)
+The Matcher decides what the thread lacks first (claim-first fit test), then whether a project fact
+is that thing (Deep) or not (Clean, the default). Fields per target:
+- `url`, `author`, `engagement` — as in the snapshot
+- `reply_to_url` — the post the reply goes under (top-level by default; the author's own follow-up or a named person's reply)
+- `author_followers`, `tier` (1, 2, or 3 for the large-account lane), `posted_at`, `age_min_at_capture`, `parent_views_at_capture`, `momentum` (bool), `rank` (0-based rank order)
+- `content_pillar`, `project_pillar`, `vector`, `post_type`
+- `thread_gist` — one sentence written by the Matcher from the snapshot
+- `author_claim` — the claim or question addressed, a quote of 15 words or fewer
+- `open_point` — what the thread has not settled
+- `move` — `answers_question|contradicts|counter_example|measures_same_variable|adds_boundary_condition|failure_story|practitioner_question`
+- `reply_type` — `deep` | `clean`
+- `claim_origin` — `project_fact|thread|public_source|question`
+- `zone` — the authority zone of a Clean item
+- `fit` — 0-3 (only fit 3 binds Deep)
+- `contribution` — the one checkable thing the reply adds, written first with no project noun or number
+- `ground_with`, `entry_substance` — Deep: the bound entry id and its substance (verbatim); Clean: null
+- `his_words` — the entry's `his_words` line when it has one, else null
+- `source_url`, `source_quote` (exact sentence, 40 words or fewer), `basis` (one line) — public_source only
 
 ```json
 {
-  "batch": "2026-06-09_batch",
+  "batch": "2026-11-24_1530_batch",
   "targets": [
     {
       "url": "https://x.com/swyx/status/1234567890",
+      "reply_to_url": "https://x.com/swyx/status/1234567890",
       "author": "swyx",
-      "engagement": {
-        "views": 42000,
-        "likes": 310,
-        "replies": 47,
-        "velocity": "high"
-      },
+      "author_followers": 12000,
+      "tier": 1,
+      "posted_at": "2026-11-24T12:55:00Z",
+      "age_min_at_capture": 50,
+      "parent_views_at_capture": 4200,
+      "momentum": true,
+      "rank": 0,
+      "engagement": {"views": 4200, "likes": 31, "replies": 17},
       "content_pillar": "build",
-      "project_pillar": "agentic",
-      "vector": "V-agentic-orchestration",
-      "touches": ["scheduling", "reliability", "orchestration"],
-      "ground_with": "P5-launchd-agent",
-      "why_live": "6h old, 310 likes in first 6h — high velocity, safe window.",
-      "entry_substance": "launchd-scheduled Claude sub-agent running nightly, zero human trigger; 47 consecutive nights stable",
-      "contribution": "corroborates the orchestration-beats-autocomplete claim with a concrete stability datapoint from running it nightly",
-      "thread_gist": "swyx argues orchestration beats autocomplete; the replies sharpen it to the cross-family veto being the load-bearing part.",
-      "post_type": "discussion"
+      "project_pillar": null,
+      "vector": "V-topic-rate-limits",
+      "post_type": "discussion",
+      "thread_gist": "swyx argues orchestration beats autocomplete; the replies say the veto is the load-bearing part.",
+      "author_claim": "we stopped trusting one call and started chaining graded sub-agents",
+      "open_point": "nobody says what grades the grader",
+      "move": "practitioner_question",
+      "reply_type": "clean",
+      "claim_origin": "question",
+      "zone": "AI tooling and workflows",
+      "fit": 3,
+      "contribution": "asks which model family grades the sub-agents, the point the replies leave open",
+      "ground_with": null,
+      "entry_substance": null,
+      "his_words": null,
+      "source_url": null,
+      "source_quote": null,
+      "basis": null
     }
   ]
 }
@@ -191,28 +226,36 @@ Fields per target:
 
 ## 02_drafts.json
 
-Writer: Drafter (Sonnet 4.6). Readers: Gatekeeper (`gate.sh`), Critic, Producer.
+Writer: Drafter (Sonnet 4.6). Readers: Gatekeeper (`gate.sh`), `target_filter.py check-item`, Critic, interest reviewer, `produce.py`.
 
-Drafter sees ONE target at a time — the bound `entry_substance` + `contribution` + `content_pillar` + `voice.md` +
-`reply_register.md`. Not the full `project_authority.md`. Not other targets.
-
-Fields per draft:
+Drafter sees ONE target at a time (see `role_specs/drafter.md`). Fields per draft:
 - `url` — target thread URL
-- `ground_with` — the `project_authority.md` entry id used (must match `01_anchored.json`)
-- `draft` — the reply text (subject to gate: 5–45 words, no `!`, concrete signal)
-- `verify_flags` — array of `[VERIFY]` strings for any claim the Drafter flagged as needing
-  human confirmation before posting; empty array if all claims are from the bound entry
+- `reply_type` — `deep` | `clean`
+- `ground_with` — Deep: the entry id (must match `01_anchored.json`); Clean: null
+- `answers` — the quoted line the reply answers, verbatim from the opening post or a top reply
+- `point` — one line, 12 words or fewer: what the reply adds
+- `hook` — `{id, name, instruction}`: the hook id and short name from `reply_patterns.md`, and one plain line (15 words or fewer, no id) that tells him how to open
+- `draft` — the starter (gate: 5–40 words, 25 in the large-account lane; no `!`, no link, no hashtag)
+- `yours` — optional: one short question to him about his own experience on this exact point
+- `verify_flags` — array of `[VERIFY]` strings; empty array if none
+- or `{"url", "skip": "no turn"}` / `{"url", "skip": "no hook"}`
 
 ```json
 {
-  "batch": "2026-06-09_batch",
+  "batch": "2026-11-24_1530_batch",
   "drafts": [
     {
       "url": "https://x.com/swyx/status/1234567890",
-      "ground_with": "P5-launchd-agent",
-      "draft": "47 nights straight on launchd — no babysitting. The flip from 'LLM as autocomplete' to scheduled orchestrator is where the stability actually lives.",
+      "reply_type": "clean",
+      "ground_with": null,
+      "answers": "we stopped trusting one call and started chaining graded sub-agents",
+      "point": "Which model family grades the sub-agents",
+      "hook": {"id": "H1", "name": "Question first, one concrete detail", "instruction": "Ask which model grades the chained sub-agents."},
+      "draft": "Which model grades the chained sub-agents, the same family that wrote them or a different one?",
+      "yours": "Have you run a grader from another model family yourself?",
       "verify_flags": []
-    }
+    },
+    {"url": "https://x.com/someone/status/9999", "skip": "no hook"}
   ]
 }
 ```
@@ -221,75 +264,73 @@ Fields per draft:
 
 ## 03_review.json
 
-Writer: orchestrator (assembles Gatekeeper + Critic verdicts). This file is the audit trail for
-the human review gate.
+Writer: orchestrator (assembles Gatekeeper, check-item, Critic and interest-review verdicts). This file is the audit trail.
 
 Fields per result:
 - `url` — target thread URL
-- `gate_single` — `"pass"` or `"fail"` (gate.sh single-draft verdict)
-- `gate_batch` — `"pass"` or `"fail"` (gate.sh --batch verdict over the surviving set)
-- `critic_verdict` — `"SHIP"` or `"FIX:<one-line reason naming the failed criterion>"` (cross-family Critic).
-  The named criterion is one of the SEVEN: `voice_fit|specificity_present|no_fabrication|not_generic|length_register_sane|thread_fit|positioning_alignment`.
-- `criteria` — array of per-criterion objects `{criterion, verdict: "pass"|"fail", confidence: <0-1 float>, reason: "<one line>"}`, one per criterion
-- `status` — `"drafted"` | `"passed"` | `"failed"` | `"skipped"` | `"held"` | `"quarantined"`
-- `retries` — integer, 0-indexed; how many Drafter retries this target consumed
-- `skip_reason` — string if status is `"skipped"`, null otherwise
+- `gate_single` — `"pass"` | `"fail"` (gate.sh single-draft verdict)
+- `gate_item` — `"pass"` or the `target_filter.py check-item` reason code
+- `gate_batch` — `"pass"` | `"fail"` (gate.sh --batch over the passed set)
+- `critic_verdict` — `"SHIP"` or `"FIX:<criterion>"`. The criteria are the eight of rubric v1.4:
+  `no_fabrication|thread_fit|op_relevance|forced_anchor|stranger_interest|ai_tells` (hard) and `no_hype|length_register_sane` (advisory).
+- `criteria` — array of `{criterion, verdict: "pass"|"fail", confidence: <0-1 float>, reason}`, one per criterion
+- `op_point`, `takeaway`, `tells` — written by the Critic before its verdicts
+- `interest` — `{critic_learns, reviewer: {model, learns}, verdict: "pass"|"reject"}` (rule 11; either "nothing" rejects)
+- `status` — `"drafted"` | `"passed"` | `"failed"` | `"skipped"` | `"held"` | `"quarantined"` | `"dropped"`
+- `drop_reason` — when `status` is `"dropped"` (e.g. `forced_anchor`, `op_relevance`, `interest`, `hook_banned`)
+- `retries` — integer; `skip_reason` — string if skipped, else null
 
 Batch-level fields:
-- `held` — boolean. True if the batch halted at the critic gate or any hard-block; a held batch must not be posted.
-- `cross_family_veto` — boolean. MUST be false whenever `critic` is `claude-stub` (the stub is not a cross-family veto).
-- `critic` — `"gemini"` | `"grok"` | `"claude-stub"` | `"UNAVAILABLE"`. (`"grok"` retained for historical batches; new batches emit `"gemini"`)
-- `_calibration` — object recording the critic calibration-probe result (see `../tests/critic_probes.json`). Orchestrator injects 1-2 known-bad probes at step 4c, judges with real drafts, strips before FIX-routing/Producer. Calibrated critic FIXes every probe; SHIP on any → `held:true` + abort. Fields: `probes_injected` (int), `probes_shipped` (int, non-zero ⇒ soft), `result` (`"pass"` | `"abort"`), `probe_ids` (array, traceable to fixture). Probe entries are NEVER in `results[]`; `_calibration` is the only on-disk trace.
+- `held` — boolean. True if the batch halted at the critic gate or any hard-block; a held batch is not mailed.
+- `cross_family_veto` — boolean. MUST be false whenever `critic` is `claude-stub`.
+- `critic` / `critic_model` — the telemetry id of the run's critic (from `runs/_index/critic_model.json`), `"claude-stub"` or `"UNAVAILABLE"`.
+- `_calibration` — the per-call probe result: `probes_injected`, `probes_shipped`, `result` (`"pass"` | `"abort"`), `probe_ids` (from `bin/qualify_critic.sh --pick`), evaluated by `qualify_critic.sh --evaluate`. Probe entries are NEVER in `results[]`.
 
 ```json
-{"_calibration":{"probes_injected":2,"probes_shipped":0,"result":"pass","probe_ids":["probe-pivot-01","probe-fabnum-01"]}}
+{"_calibration":{"probes_injected":2,"probes_shipped":0,"result":"pass","probe_ids":["probe-forced-anchor-01","probe-good-01"]}}
 ```
-
-Criterion note — `no_fabrication` (absorbs the old `claim_sanity`): the draft's concrete claim must trace
-to `grounded_claim`; fails if it distorts that claim or claims the author's numbers/experience as the replier's.
 
 ```json
 {
-  "batch": "2026-06-09_batch",
-  "critic": "gemini",
+  "batch": "2026-11-24_1530_batch",
+  "critic": "<telemetry id from critic_model.json>",
   "cross_family_veto": true,
   "held": false,
   "results": [
     {
       "url": "https://x.com/swyx/status/1234567890",
       "gate_single": "pass",
+      "gate_item": "pass",
       "gate_batch": "pass",
       "critic_verdict": "SHIP",
+      "op_point": "chaining graded sub-agents beats one call",
+      "takeaway": "whether the grader shares the writer's model family",
+      "tells": [],
       "criteria": [
-        {"criterion": "voice_fit", "verdict": "pass", "confidence": 0.92, "reason": "flat opener, no hype"},
-        {"criterion": "specificity_present", "verdict": "pass", "confidence": 0.88, "reason": "47 nights named"},
-        {"criterion": "no_fabrication", "verdict": "pass", "confidence": 0.95, "reason": "claim traces to bound entry"},
-        {"criterion": "not_generic", "verdict": "pass", "confidence": 0.85, "reason": "launchd stability is specific to the builder"},
-        {"criterion": "length_register_sane", "verdict": "pass", "confidence": 0.9, "reason": "two short sentences"},
-        {"criterion": "thread_fit", "verdict": "pass", "confidence": 0.87, "reason": "directly corroborates swyx's orchestration point"},
-        {"criterion": "positioning_alignment", "verdict": "pass", "confidence": 0.83, "reason": "reads as active builder, build-pillar, no vanity metrics"}
+        {"criterion": "no_fabrication", "verdict": "pass", "confidence": 0.95, "reason": "a question, no claim"},
+        {"criterion": "thread_fit", "verdict": "pass", "confidence": 0.87, "reason": "asks about the post's own mechanism"},
+        {"criterion": "op_relevance", "verdict": "pass", "confidence": 0.9, "reason": "aimed at op_point"},
+        {"criterion": "forced_anchor", "verdict": "pass", "confidence": 0.9, "reason": "no own-work clause"},
+        {"criterion": "stranger_interest", "verdict": "pass", "confidence": 0.8, "reason": "names a concrete open point"},
+        {"criterion": "ai_tells", "verdict": "pass", "confidence": 0.8, "reason": "no tells"},
+        {"criterion": "no_hype", "verdict": "pass", "confidence": 0.92, "reason": "flat"},
+        {"criterion": "length_register_sane", "verdict": "pass", "confidence": 0.9, "reason": "one sentence"}
       ],
+      "interest": {"critic_learns": "that grader family is the open variable", "reviewer": {"model": "claude-opus-4-8", "learns": "the replies never say who grades"}, "verdict": "pass"},
       "status": "passed",
       "retries": 0,
       "skip_reason": null
     },
     {
       "url": "https://x.com/someone/status/9999",
-      "gate_single": "fail",
+      "gate_single": "pass",
+      "gate_item": "pass",
       "gate_batch": "pass",
-      "critic_verdict": "FIX:specificity_present",
-      "criteria": [
-        {"criterion": "voice_fit", "verdict": "pass", "confidence": 0.8, "reason": "flat opener"},
-        {"criterion": "specificity_present", "verdict": "fail", "confidence": 0.75, "reason": "mentions memory but no number or tool"},
-        {"criterion": "no_fabrication", "verdict": "pass", "confidence": 0.9, "reason": "no untraced claims"},
-        {"criterion": "not_generic", "verdict": "pass", "confidence": 0.7, "reason": "project angle present"},
-        {"criterion": "length_register_sane", "verdict": "pass", "confidence": 0.85, "reason": "within length norm"},
-        {"criterion": "thread_fit", "verdict": "pass", "confidence": 0.8, "reason": "addresses thread ask"},
-        {"criterion": "positioning_alignment", "verdict": "fail", "confidence": 0.6, "reason": "reads spectator not builder"}
-      ],
-      "status": "skipped",
-      "retries": 2,
-      "skip_reason": "still failing gate after 2 retries"
+      "critic_verdict": "FIX:forced_anchor",
+      "status": "dropped",
+      "drop_reason": "forced_anchor",
+      "retries": 0,
+      "skip_reason": null
     }
   ]
 }
@@ -297,22 +338,15 @@ to `grounded_claim`; fails if it distorts that claim or claims the author's numb
 
 ---
 
-## replies_to_post.md
+## replies_to_post.md (v3.2)
 
-Writer: Producer (Haiku). Format: Markdown. The human review gate — operator posts manually, never
-auto-posted.
+Writer: `bin/produce.py`. Format: Markdown. The review file the mail is built from (`bin/email_replies.py`); the operator posts manually, never auto-posted.
 
-Contains per target (passed only):
-- Target link
-- `ground_with` entry id
-- `content_pillar` and `project_pillar`
-- DRAFT reply text (marked DRAFT)
-- `[VERIFY]` flags if any
-- Asset html + png paths, or "open + screenshot" note if Asset role ran
-- Skipped targets listed at bottom with skip reasons
-- Quarantined targets listed (separately from skipped) with reject history — surfaced, never silently dropped
+Header lines: `slot:`, `mode:` (trial|live), `stage:`, `post_today:` (the number of items marked recommended), `post_reason:`, `post_short:` (why `post_today` is below the budget's, e.g. "only 1 item passed"; empty otherwise), `today_more:`, `stage_note:`, `items:`, `critic:`, `calibration:`, `status_line:`, and `status: HELD - DO NOT POST` when held.
 
-All content marked **DRAFT**. Producer never posts.
+Per delivered item under `### N. URL`: `- author:`, `- followers:`, `- tier:`, `- mark:` (recommended or review), `- lane:` (large, on large-account items only), `- type:`, `- claim:`, `- bound:`, `- views:` (the post's views at capture), `- posted_at:`, `- age_min:`, `- HOOK:` (id, a middle dot, short name; for the logs, never shown in the mail), `- OPEN:` (the instruction line), `- QUOTE:`, `- POINT:`, `- DRAFT:`, optional `- YOURS:`, for `claim: public_source` `- SOURCE:` and `- BASIS:`, optional `- VERIFY:`.
+
+Then `## Skipped` (skipped, dropped and over-cap items with reasons) and `## Quarantined` (reject history). Only the text before `## Skipped` / `## Quarantined` is ever mailed.
 
 ---
 
@@ -321,7 +355,7 @@ All content marked **DRAFT**. Producer never posts.
 `runs/<batch>/targets/tN.json` and `runs/<batch>/drafts/tN.json` are per-target **projections** of
 `01_anchored.json` and `02_drafts.json` — jq views split out for per-target sub-agent invocation, NOT a
 parallel source of truth. The single-file schemas above stay authoritative; the per-target files inherit
-whatever those carry (incl. `thread_gist` and `post_type`). Regenerate them from the source files; never
+whatever those carry (incl. `thread_gist`, `post_type` and the v3.2 fields). Regenerate them from the source files; never
 hand-edit a `tN.json` and expect it to propagate back.
 
 ---

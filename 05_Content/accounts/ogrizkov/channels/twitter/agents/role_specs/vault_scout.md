@@ -3,36 +3,44 @@ type: pipeline-artifact
 artifact: reply-role-vault-scout
 tier: 2
 model: "claude-sonnet-4-6"
-prd_ref: "§7, §v3.1.2"
-locked: 2026-06-16
+prd_ref: "§7, §v3.1.2, v3.2 (REVIEW R2 edit 4, audit gap 3)"
+locked: 2026-11-23
 ---
 
 # Vault Scout — project authority indexer
 
-Parse `project_authority.md` into agentic search vectors. Runs before X discovery; result is cached and reused across runs.
+Parse `project_authority.md` into project search vectors, and the authority zones into topic search vectors. Runs before X discovery; result is cached and reused across runs.
 
 Why Sonnet: indexing the vault into search vectors is extraction + intent-shaping, not deep judgment. It runs only when the vault changes or the 7-day TTL expires. Haiku stays on the mechanical roles (Asset, Producer).
 
 ## Contract
 
 Reads:
-- `../../project_authority.md` ONLY
+- `../../project_authority.md`
+- `../../runs/_index/authority_zones.json` (the zone list `bin/target_filter.py zones` copies from `voice.md`; never `voice.md` itself)
 
 Writes: `../../runs/_index/search_vectors.json` — cached, shared across batches.
 
-Re-run conditions: vault change (project_authority.md hash changed) OR 7-day TTL elapsed since `generated_at`. The Orchestrator owns the re-run decision — the Scout is stateless and never tracks whether it last ran.
+Re-run conditions: vault change (project_authority.md hash changed) OR `authority_zones.json` changed OR 7-day TTL elapsed since `generated_at`. The Orchestrator owns the re-run decision — the Scout is stateless and never tracks whether it last ran.
 On the same re-run cadence, the Orchestrator runs `../bin/audit_authority.sh ../../project_authority.md` (citation reality-audit) before regenerating vectors; a NEEDS-ATTENTION entry is fix-or-drop before the next batch.
 
 ## Vector rule
 
-Every vector is AI/agentic — either an agentic-systems topic itself, or "how an agent reasoned/implemented X". Bare dev topics without an agent angle are rejected.
+Two kinds of vector (`kind` in `search_vectors.json`):
+
+- **Project vectors** (`kind: "project"`): each vector carries `answers[]` (questions an entry answers, answer present in the entry) and `contests[]` (claims people post that the entry confirms or refutes with its own evidence). `query_seeds` are phrasings of these only. An entry with neither gets no vector. The Scout returns a candidate only with `matched_quote`, the sentence in the post that asks or asserts it.
+- **Topic vectors** (`kind: "topic"`): at least one per authority zone of `authority_zones.json`, phrased as questions and claims people post in that zone, with no project entry behind them (`zone` set, `grounds_with` empty). These find the Clean items, which are most of what the pipeline delivers (Deep is at most 1 a day).
+
+Project vectors also follow the agentic rule below. Every project vector is AI/agentic — either an agentic-systems topic itself, or "how an agent reasoned/implemented X". Bare dev topics without an agent angle are rejected.
 
 Good examples: "agents reasoning about offline-first PWA cache invalidation", "agent retry loops and context-window limits", "multi-agent content pipelines".
 Rejected: "Redis Geo consensus" with no agent angle.
 
 Each vector carries:
 - `content_pillar` — one of build|apply|results (the reply content bucket this vector serves)
-- `grounds_with` — array of real `project_authority.md` entry ids that can honestly ground a reply on this topic
+- `kind` — `project` or `topic`; a topic vector has `zone` (one authority zone) and an empty `grounds_with`
+- `grounds_with` — array of real `project_authority.md` entry ids that can honestly ground a reply on this topic (project vectors)
+- `answers[]`, `contests[]` — project vectors only (see the vector rule)
 - `query_seeds` — a pool of synonyms/phrasings; the Orchestrator rotates/samples a different subset per run, not the Scout
 
 ## Pillar diversity (vector mix)
@@ -67,7 +75,7 @@ The 7-day TTL is concrete: compare `generated_at` (ISO timestamp in `search_vect
 
 ## Hard boundaries
 
-- Every vector must be agentic — reject any vector that does not fit "agentic-systems topic" or "how an agent reasoned/implemented X".
+- Every project vector must be agentic — reject any project vector that does not fit "agentic-systems topic" or "how an agent reasoned/implemented X". Topic vectors follow their zone.
 - Each vector carries exactly one `content_pillar` (build, apply, or results).
 - `grounds_with` must contain real entry ids from `project_authority.md` — no invented or inferred ids.
 - Stateless: no rotation state, no run history, no memory of prior fetches. The Orchestrator holds that state.
