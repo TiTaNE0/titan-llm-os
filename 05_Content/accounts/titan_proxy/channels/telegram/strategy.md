@@ -16,10 +16,11 @@ The Telegram channel (`https://t.me/TitanMTProxyNews`) serves as the read-only w
 - **Target Feed File:** `/Users/titane0/Programming/titan-proxy-bot/content/posts.json` (read by `titan-proxy-bot` on the VPS).
 
 ## 2. Publication Cadence
-- **Channel Posting (Bot on VPS):** `5/7` (Mon–Fri) default schedule in `Europe/Moscow`, max 3 sound notifications (`silent: false`) per week, quiet hours `22:00–09:00` MSK.
-- **Content Generation (Autonomous Calendar + Evergreen Batches):**
+- **Channel Posting (Bot on VPS):** `7/7` (Mon–Sun) daily schedule in `Europe/Moscow` (quiet background value 80–90%, max 3 sound notifications `silent: false` per week, quiet hours `22:00–09:00` MSK, `IMAGE_COOLDOWN = 18h` bypassed for `priority >= 10`).
+- **Immediate Breaking News (`news_brief`):** Outage digests and urgent news (`rubric: "news_brief"`, `priority >= 10`, `max_sends: 1`, valid `publish_from`/`publish_until`) publish immediately on the next daytime tick (`09:00–22:00` MSK) independent of the daily slot (allowing up to 2 posts on news days).
+- **Content Generation (Autonomous Calendar + Evergreen Batches, 4:1 Value-to-Offer Ratio):**
   - Check `[[channels/telegram/calendar.yaml]]` on every run (`human_approval_required: false`). Any `planned` event within its `lead_days` window is autonomously promoted by the Agent Council (`strategist` + `tech_fact_critic` + `growth_calendar_critic` + `gate_telegram.sh`) within `promo_guardrails` (`bonus_days` 5..14, `price_changes_allowed: false`, max 20 days window), wired into `content/promos.json` + time-windowed `content/posts.json` entries (`publish_from`/`publish_until`, `priority`, `max_sends`).
-  - Evergreen batches add 2–3 new posts (`1–2` article-bridge summaries from `[[channels/articles/LEDGER]]` + `1–2` selling/scenario/FAQ topics from `[[channels/telegram/backlog]]`).
+  - Evergreen batches add **5–7 new posts/week** to keep `7/7` fresh without repetition fatigue: `1–2` article-bridge summaries from `[[channels/articles/LEDGER]]` + `3–5` value/selling/scenario/Q&A/micro-tip/weekend-checklist topics (targeting ~80% practical utility/status vs ~20% direct tier offers).
   - **Selling Angles (Zero Hype):** Frame real workflow stakes (guest test vs daily work, peak-hour file delivery, honest plain-language technical limits, `/gift` separate access for relatives/colleagues) rather than dry technical notes.
 
 ## 3. Structural Conventions

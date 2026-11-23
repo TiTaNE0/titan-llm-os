@@ -65,8 +65,8 @@ The following substrings (case-insensitive) are prohibited:
 - `start_param`: `^[a-zA-Z0-9_-]{1,64}$` (e.g., `ch_13`, `article_tg-proxy-link-structure`, `ch_gift_ny27`)
 - `html`: valid Telegram HTML (`<b>`, `<i>`, `<code>`, `<a href="...">`, `<blockquote>` only; do not wrap `@usernames` in `<code>` so links remain tappable; balanced tags).
 - `image` *(optional)*: relative asset path under `content/` (e.g., `media/titan_pin_cover.jpg`; extension `.png`/`.jpg`/`.jpeg`/`.webp`, no `..`, file must exist, and plain-text caption length `<= 1024`).
-- `publish_from`, `publish_until` *(optional; REQUIRED for `promo` and `holiday`)*: `YYYY-MM-DD` or ISO datetime; `publish_from <= publish_until`.
-- `priority` *(optional, integer, default `0`)*: `>= 10` for active promo windows, `>= 20` for exact-day holiday greetings (also enables weekend 11:00 MSK greeting slots when `max_sends == 1`).
+- `publish_from`, `publish_until` *(optional; REQUIRED for `promo`, `holiday`, and active `news_brief`)*: `YYYY-MM-DD` or ISO datetime; `publish_from <= publish_until`.
+- `priority` *(optional, integer, default `0`)*: `>= 10` for active promo windows and urgent `news_brief` (bypasses `IMAGE_COOLDOWN = 18h`; `news_brief` with `priority >= 10` and `max_sends: 1` publishes immediately in daytime `09:00–22:00` MSK), `>= 20` for exact-day holiday greetings (also enables weekend 11:00 MSK greeting slots when `max_sends == 1`).
 - `max_sends` *(optional, integer `>= 1`)*: caps total deliveries of a one-shot announcement or greeting.
 - `promo_slug` *(optional, `^[a-z0-9_-]{2,32}$`)*: binds the post to a live entry in `content/promos.json`.
 - **Media visual policy (`Sapphire Dark` + Seasonal Russian Winter Landscapes):**
