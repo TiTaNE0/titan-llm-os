@@ -1,6 +1,6 @@
 {
   "version": "3.2",
-  "updated": "2026-11-23",
+  "updated": "2026-11-24",
   "timezone": "Asia/Jerusalem",
   "slots": [
     {"starts": ["15:30"], "window": ["16:30", "18:30"]},
@@ -14,16 +14,16 @@
   "tiers": {
     "t1_max_followers": 20000,
     "t2_max_followers": 125000,
-    "large": {"per_run": 2, "max_age_min": 60, "max_words": 25}
+    "large": {"per_run": 3, "max_age_min": 240, "max_words": 25, "min_parent_views": 20000, "watch_max_age_min": 90, "allowed_post_types": ["announcement"]}
   },
   "volume": {
-    "deliver_per_run": 6,
+    "deliver_per_run": 9,
     "stages": [
-      {"post_per_run": 1, "pipeline_per_day": 2, "all_replies_per_day": 4, "large_per_day": 1},
-      {"post_per_run": 2, "pipeline_per_day": 4, "all_replies_per_day": 6, "large_per_day": 1},
-      {"post_per_run": 3, "pipeline_per_day": 6, "all_replies_per_day": 10, "large_per_day": 1}
+      {"post_per_run": 4, "pipeline_per_day": 8, "all_replies_per_day": 10, "large_per_day": 6},
+      {"post_per_run": 5, "pipeline_per_day": 10, "all_replies_per_day": 14, "large_per_day": 6},
+      {"post_per_run": 6, "pipeline_per_day": 12, "all_replies_per_day": 18, "large_per_day": 6}
     ],
-    "allowance_avg_plus": 2,
+    "allowance_avg_plus": 8,
     "stage2_posting_days": 7,
     "author_per_day": 1,
     "deep_per_day": 1,
@@ -38,7 +38,7 @@
   "measure": {"read_hours": [24, 48], "wins_pages_max": 3, "period_days": 14, "patterns_refresh_days": 14, "patterns_sample": 40, "big_post_views": 20000},
   "cost": {
     "enforce_grok_caps": false,
-    "max_grok_calls": 3,
+    "max_grok_calls": 4,
     "max_grok_calls_day": 12,
     "maintenance_grok_calls": 2,
     "grok_reply_count": false,

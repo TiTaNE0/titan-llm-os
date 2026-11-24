@@ -36,7 +36,7 @@ ROOT = Path(tempfile.mkdtemp(prefix="v32_acceptance."))
 SHEET = ROOT / "sheet.md"
 SHEET.write_text("## Hooks\n\n" + "".join(f"### H{i} - Hook name {i}\n\nDescription.\n\n" for i in range(1, 9))
                  + "## Do not use\n\n- X1 - verdict opening\n- X2 - restating\n")
-PARAMS = json.loads((C / "agents" / "params.json").read_text())
+PARAMS = json.loads((C / "tests" / "fixtures" / "params_v32.json").read_text())   # frozen; agents/params.json is live tuning
 PARAMS["delivery"].update({"verify_wait_s": 3, "verify_poll_s": 1, "send_timeout_s": 3, "query_timeout_s": 1})
 PARAMS_T = ROOT / "params_test.json"
 PARAMS_T.write_text(json.dumps(dict(PARAMS, cost=dict(PARAMS["cost"], enforce_grok_caps=True))))
@@ -404,10 +404,10 @@ class LargeAccountLane(unittest.TestCase):
         cuts = {c["url"].split("/")[3]: c["reason"] for c in json.loads((d / "cuts.json").read_text())["cuts"]}
         return surv, cuts
 
-    def test_lane_boundary_at_125k_and_60_minutes(self):
+    def test_lane_boundary_at_125k_and_90_minutes(self):
         surv, cuts = self.prefilter(fresh(), [
-            {"author": "at125k", "followers": 125000, "age": 70}, {"author": "over125k", "followers": 125001, "age": 70},
-            {"author": "lab59", "followers": 300000, "age": 59, "replies": 900}])
+            {"author": "at125k", "followers": 125000, "age": 70}, {"author": "over125k", "followers": 125001, "age": 95},
+            {"author": "lab59", "followers": 300000, "age": 89, "replies": 900}])
         tiers = {c["author"]: c["tier"] for c in surv["survivors"] + surv["lane"]}
         self.assertEqual(tiers.get("at125k"), 2, "125,000 followers is tier 2, not the lane")
         self.assertEqual(cuts.get("over125k"), "large_too_old")
@@ -421,13 +421,23 @@ class LargeAccountLane(unittest.TestCase):
                                            {"author": "labx", "followers": 900000, "age": 50}], watchlist=wl)
         self.assertEqual([c["author"] for c in surv["lane"]], ["labx", "othery"])
 
-    def test_at_most_two_lane_items_delivered_and_flagged(self):
+    def test_at_most_three_lane_items_delivered_and_flagged(self):
         env = fresh()
-        r = pipeline(env, [item(f"lab{i}", tier=3, followers=900000, hook=f"H{i + 1}") for i in range(3)]
+        r = pipeline(env, [item(f"lab{i}", tier=3, followers=900000, hook=f"H{i + 1}") for i in range(4)]
                      + [item("small", hook="H5")])
         self.assertEqual(r["rc"], 0)
-        self.assertEqual(mailed(r["html"]), 3)
-        self.assertEqual(badges(r["html"], "Large account"), 2)
+        self.assertEqual(mailed(r["html"]), 4)
+        self.assertEqual(badges(r["html"], "Large account"), 3)
+
+    def test_big_parent_from_a_small_author_joins_the_lane(self):
+        surv, cuts = self.prefilter(fresh(), [
+            {"author": "smallbig", "followers": 3000, "age": 200, "views": 90000, "replies": 135},
+            {"author": "smallold", "followers": 3000, "age": 250, "views": 90000, "replies": 135},
+            {"author": "smallquiet", "followers": 3000, "age": 30, "views": 900, "replies": 5}])
+        self.assertEqual([c["author"] for c in surv["lane"]], ["smallbig"])
+        self.assertEqual(surv["lane"][0]["tier"], 3)
+        self.assertEqual([c["author"] for c in surv["survivors"]], ["smallquiet"])
+        self.assertIn("smallold", cuts)
 
     def test_at_most_one_lane_item_recommended_in_a_mail(self):
         env = fresh()

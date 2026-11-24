@@ -28,7 +28,6 @@ WATCHLIST = Path(os.environ.get("PIPELINE_WATCHLIST") or C / "agents" / "watchli
 VOICE = Path(os.environ.get("PIPELINE_VOICE") or C.parents[1] / "voice.md")
 
 CUT_POST_TYPES = {"promo", "announcement", "listicle", "giveaway", "connect", "growth_tool", "meme", "poll"}
-LANE_MOVES = {"contradicts", "measures_same_variable"}
 ID_RE = r"[A-Z]{1,3}\d{1,2}"
 
 
@@ -238,11 +237,29 @@ def rank_key(c):
 def lane_key(large):
     def k(c):
         ev = large.get(handle_of(c), {}).get("evidence")
-        return (0 if ev in ("lab", "builder") else 1, c["age_min_at_capture"])
+        views = c.get("parent_views_at_capture") or 0
+        return (0 if ev in ("lab", "builder") else 1, -views / ((num(c.get("replies")) or 0) + 1),
+                c["age_min_at_capture"])
     return k
 
 
-def cut_reason(c, age, followers, P, delivered, seen):
+def in_lane(c, age, followers, P, large):
+    """Big-thread lane (board 2026-11-24): the parent's reach decides, not the author's size.
+    Door 1: a watchlist large account or any account above t2_max_followers, fresh (watch_max_age_min).
+    Door 2: any author, parent at min_parent_views or more, up to max_age_min."""
+    L, tiers = P["tiers"]["large"], P["tiers"]
+    if age is None:
+        return False
+    fresh_max = L.get("watch_max_age_min", L["max_age_min"])
+    if (handle_of(c) in large or (followers or 0) > tiers["t2_max_followers"]) and age <= fresh_max:
+        return True
+    views = num(c.get("views"))
+    if views is None:
+        views = num((c.get("engagement") or {}).get("views"))
+    return views is not None and views >= L.get("min_parent_views", float("inf")) and age <= L["max_age_min"]
+
+
+def cut_reason(c, age, followers, P, delivered, seen, lane=False):
     cap, tiers = P["capture"], P["tiers"]
     if c.get("url") in seen:
         return "duplicate"
@@ -250,14 +267,17 @@ def cut_reason(c, age, followers, P, delivered, seen):
         return "already_delivered"
     if c.get("lang") and str(c["lang"]).lower() not in ("en", "english"):
         return "not_english"
-    if str(c.get("post_type") or "discussion").lower() in CUT_POST_TYPES:
+    ptype = str(c.get("post_type") or "discussion").lower()
+    if ptype in CUT_POST_TYPES and not (lane and ptype in tiers["large"].get("allowed_post_types", [])):
         return "post_type"
     if age is None:
         return "no_posted_at"
     if followers is None:
         return "no_followers"
+    if lane:
+        return None
     if followers > tiers["t2_max_followers"]:
-        return "large_too_old" if age > tiers["large"]["max_age_min"] else None
+        return "large_too_old"
     if followers < cap["min_followers"]:
         return "author_too_small"
     if age > cap["max_age_min"]:
@@ -287,14 +307,15 @@ def cmd_prefilter(a):
         followers = num(c.get("author_followers"))
         if age is not None and age <= P["capture"]["max_age_min"]:
             bands[band_of(age, P["capture"])]["candidates"] += 1
-        why = cut_reason(c, age, followers, P, delivered, seen)
+        big = in_lane(c, age, followers, P, large)
+        why = cut_reason(c, age, followers, P, delivered, seen, lane=big)
         seen.add(c.get("url"))
         if why:
             cuts.append({"url": c.get("url"), "reason": why})
             continue
-        tier = tier_of(followers, P["tiers"])
+        tier = 3 if big else tier_of(followers, P["tiers"])
         c = annotate(dict(c), age, tier, P, small, known)
-        (lane if tier == 3 else normal).append(c)
+        (lane if big else normal).append(c)
     normal.sort(key=rank_key)
     lane.sort(key=lane_key(large))
     for c in normal:
@@ -404,8 +425,6 @@ def item_failures(target, draft, thread, budget, source_text):
             out.append("source_quote_not_found")
     if rtype == "deep" and target.get("ground_with") in (budget.get("resting_entries") or []):
         out.append("entry_resting")
-    if str(target.get("tier")) == "3" and target.get("move") not in LANE_MOVES:
-        out.append("large_move")
     return out
 
 

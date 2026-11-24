@@ -137,8 +137,8 @@ def utc(s):
 def z(t):
     return t.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-# test params: same as the live file, with short Mail waits so the delivery cases run in seconds
-params = json.loads((C / "agents" / "params.json").read_text())
+# test params: the frozen fixture (the live file is tuning), with short Mail waits so the delivery cases run in seconds
+params = json.loads((C / "tests" / "fixtures" / "params_v32.json").read_text())
 params["delivery"].update({"verify_wait_s": 2, "verify_poll_s": 1, "send_timeout_s": 2})
 params["cost"]["enforce_grok_caps"] = True   # the suite checks the enforced behaviour; the live file may have the caps off
 PARAMS_T = wjson(T / "params_test.json", params)
@@ -450,10 +450,10 @@ def cand(name, followers, age, views=500, replies=10, post_type="discussion"):
     return {"url": f"https://x.com/{name}/status/1{abs(hash(name)) % 10**8}", "author": name, "author_followers": followers,
             "posted_at": ago(age), "views": views, "replies": replies, "lang": "en", "post_type": post_type}
 cands = [cand("old", 5000, 250), cand("busy", 5000, 30, replies=55), cand("promo", 5000, 30, post_type="promo"),
-         cand("tiny", 600, 30), cand("bigold", 150000, 80), cand("mid", 40000, 40),
+         cand("tiny", 600, 30), cand("bigold", 150000, 100), cand("mid", 40000, 40),
          cand("lane", 150000, 40, replies=300), cand("t60", 5000, 60, views=100), cand("t150", 5000, 150, views=100),
-         cand("v25k", 6000, 50, views=25000), cand("v2k", 6000, 45, views=2000), cand("mom", 7000, 30, views=4000),
-         cand("t2mom", 40000, 20, views=30000), cand("t1nomom", 8000, 70, views=100),
+         cand("v25k", 6000, 50, views=15000), cand("v2k", 6000, 45, views=2000), cand("mom", 7000, 30, views=4000),
+         cand("t2mom", 40000, 20, views=15000), cand("t1nomom", 8000, 70, views=100),
          {**cand("noviews", 9000, 35), "views": None}]
 url = {c["author"]: c["url"] for c in cands}
 wjson(T / "t4" / "cands.json", {"candidates": cands})
@@ -468,7 +468,7 @@ case("prefilter cuts with one reason each (too_old, too_many_replies, post_type,
 case("a 40,000-follower author is kept as tier 2", lambda: next(c for c in surv["survivors"] if c["author"] == "mid")["tier"] == 2)
 case("a 150,000-follower author at 40 minutes with 300 replies is kept in the lane", lambda: [c["author"] for c in surv["lane"]] == ["lane"])
 case("a 60-minute candidate ranks before a 150-minute one", lambda: order.index("t60") < order.index("t150"))
-case("inside a band a tier-1 post with 25,000 views ranks before one with 2,000", lambda: order.index("v25k") < order.index("v2k"))
+case("inside a band a tier-1 post with 15,000 views ranks before one with 2,000", lambda: order.index("v25k") < order.index("v2k"))
 case("a 30-minute post with 4,000 views counts as momentum", lambda: next(c for c in surv["survivors"] if c["author"] == "mom")["momentum"] is True)
 case("tier-2 with momentum and tier-1 without have the same score; tier 1 first",
      lambda: (lambda a, b: a["score"] == b["score"] and order.index("t1nomom") < order.index("t2mom"))(
@@ -507,7 +507,7 @@ case("check-item: a source quote missing from the saved page fails",
      lambda: "source_quote_not_found" in ci(target={"claim_origin": "public_source", "source_url": "https://docs.example.com/a", "source_quote": "Compaction keeps the last 20 turns.", "basis": "the docs say so"}, source="Other text entirely.")[1])
 case("check-item: a Clean item outside the zones fails outside_zones", lambda: "outside_zones" in ci(target={"zone": "cooking"})[1])
 case("check-item: a yours line that is not a question fails", lambda: "yours_not_question" in ci(draft={"yours": "Tell them about your run."})[1])
-case("check-item: a lane item with another move than a correction or a number fails", lambda: "large_move" in ci(target={"tier": 3, "move": "answers_question"})[1])
+case("check-item: a big-lane item may use any move", lambda: "large_move" not in ci(target={"tier": 3, "move": "answers_question"})[1])
 case("check-item: a second Deep item or a second question is not rejected here",
      lambda: ci(target={"reply_type": "deep", "ground_with": "CAK-05"}, budget_over={"recommended_today": {"authors": [], "deep": 1, "large": 0}})[0] == 0)
 hk = tf("hooks", env=t4)
@@ -859,8 +859,9 @@ case("the scheduled prompt states 15:30 and 20:00 and holds no cap and no model 
 pj = json.loads(txt(C / "agents" / "params.json"))
 D1 = ["timezone", "slots", "runs_per_window", "slot_grace_min", "timing", "capture", "ranking", "tiers", "volume", "reuse_days", "thin_run",
       "tripwire", "alarm", "trial", "hooks", "measure", "cost", "endpoint", "delivery", "lock_stale_min", "critic_qualified_days", "probes_per_call"]
-case("params.json: all D1 keys, max_grok_calls 3, runs_per_window 1, no question cap",
-     lambda: all(k in pj for k in D1) and pj["cost"]["max_grok_calls"] == 3 and pj["runs_per_window"] == 1 and "question" not in json.dumps(pj))
+case("params.json: all D1 keys, the big-thread lane keys, runs_per_window 1, no question cap",
+     lambda: all(k in pj for k in D1) and {"min_parent_views", "watch_max_age_min", "per_run"} <= set(pj["tiers"]["large"])
+     and pj["runs_per_window"] == 1 and "question" not in json.dumps(pj))
 case("critic_ladder.json: 4 rungs with cli_name, telemetry_id, provider; no Claude or GPT rung",
      lambda: len(ladder["rungs"]) == 4 and all(set(r) == {"cli_name", "telemetry_id", "provider"} for r in ladder["rungs"])
      and not re.search(r"claude|gpt|opus|sonnet", json.dumps(ladder["rungs"]), re.I))
