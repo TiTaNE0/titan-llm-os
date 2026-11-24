@@ -536,7 +536,7 @@ class Hooks(unittest.TestCase):
 
 # ============ DoD: Reliability - verified delivery (I-9) and preflight ======================
 class VerifiedDelivery(unittest.TestCase):
-    SUBJ = "2 Twitter replies to write (2026-11-24 15:30)"
+    SUBJ = "2 Twitter replies to write (2026-11-24 15:30) #5dec"
 
     def send(self, env, src=FX / "replies_mode_b.md", slot=SLOT):
         return py("email_replies.py", src, "--slot", slot, "--send", env=env)
@@ -888,7 +888,7 @@ class TimingModeBTrial(unittest.TestCase):
         weekly.write_text(weekly.read_text().replace("pinned_post_url: ", "pinned_post_url: https://x.com/ogrizkov/status/42"))
         self.assertEqual(py("slot_state.py", "set-mode", "--slot", "15:30", "live", env=env)[0], 0)
         r2 = pipeline(env, [item("t2", hook="H2")], name="live_batch")
-        self.assertEqual(r2["subject"], "1 Twitter replies to write (2026-11-24 15:30)")
+        self.assertRegex(r2["subject"], r"^1 Twitter replies to write \(2026-11-24 15:30\) #[0-9a-f]{4}$")
         self.assertNotIn(">TRIAL<", r2["html"])
         self.assertEqual(budget(dict(env, PIPELINE_NOW=NOW_EVE))["mode"], "trial", "the 20:00 slot stays in trial")
 
@@ -1411,7 +1411,7 @@ class ValidatorMinor(unittest.TestCase):
 # ============ Round 5 (first live run): delivery check, ready replies, mobile layout ==========
 class SentIsDelivered(unittest.TestCase):
     """A message in Sent is delivered whatever else exists; a draft copy of it is a leftover moved to Trash."""
-    SUBJ = "2 Twitter replies to write (2026-11-24 15:30)"
+    SUBJ = "2 Twitter replies to write (2026-11-24 15:30) #5dec"
 
     def send(self, env, src=FX / "replies_mode_b.md"):
         return py("email_replies.py", src, "--slot", SLOT, "--send", env=env)
@@ -1444,6 +1444,14 @@ class SentIsDelivered(unittest.TestCase):
         env["STUB_MAIL_MODE"] = "deliver_leftover"
         self.assertEqual(self.send(env)[0], 0)
         self.assertEqual(self.box(env, "mail_drafts"), [other])
+
+    def test_an_earlier_batch_of_the_slot_with_the_same_count_does_not_block_the_send(self):
+        env = fresh()
+        first = pipeline(env, [item("e1", hook="H1"), item("e2", hook="H2")], name="earlier_batch")
+        Path(env["STUB_DIR"], "mail_sent").write_text(first["subject"] + "\n")
+        r = pipeline(env, [item("n1", hook="H1"), item("n2", hook="H2")], send=True)
+        self.assertNotEqual(r["subject"], first["subject"])
+        self.assertEqual((r["rc"], sends(env)), (0, 1), r["err"])
 
     def test_verify_delivery_finds_the_subject_in_the_batch_file_and_writes_the_marker(self):
         env = fresh()

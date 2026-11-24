@@ -32,6 +32,7 @@ retry goes through the same check first and never sends blindly. No Mail hang en
 """
 import argparse
 import datetime as dt
+import hashlib
 import html
 import json
 import os
@@ -268,12 +269,17 @@ def header_text(h, n):
     return [line1] + ([h["stage_note"]] if h.get("stage_note") else [])
 
 
-def subject_for(h, n, slot_id):
+def subject_for(h, items, slot_id):
     parts = slot_parts(slot_id)
     stamp = f"{parts[0].isoformat()} {parts[1]}" if parts else now_utc().astimezone(TZ).strftime("%Y-%m-%d %H:%M")
+    # Two batches of one slot with the same item count got the same subject, so the Sent check took a
+    # first batch's mail for the second's and skipped the send. The tag follows the items, and stays
+    # stable when --verify-delivery rebuilds the subject from the batch file.
+    tag = hashlib.sha1("\n".join(i["url"] for i in items).encode()).hexdigest()[:4]
+    n = len(items)
     if h.get("mode") == "trial":
-        return f"[TRIAL] {n} Twitter reply ideas ({stamp})"
-    return f"{n} Twitter replies to write ({stamp})"
+        return f"[TRIAL] {n} Twitter reply ideas ({stamp}) #{tag}"
+    return f"{n} Twitter replies to write ({stamp}) #{tag}"
 
 
 def week_due(today):
@@ -323,7 +329,7 @@ def build(md, slot_id, sent_at, weekly=False):
     lines = weekly_lines(end) if end else []
     block = weekly_block(lines) if lines else ""
     body = wrap(top + "".join(card(i, slot_id, sent_at) for i in items) + block + foot)
-    return subject_for(h, len(items), slot_id), body, len(items), end if lines else None
+    return subject_for(h, items, slot_id), body, len(items), end if lines else None
 
 
 def wrap(inner):
