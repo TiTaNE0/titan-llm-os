@@ -43,6 +43,21 @@ PARAMS_T.write_text(json.dumps(PARAMS))
 EMPTY_WL = ROOT / "wl_empty.json"
 EMPTY_WL.write_text(json.dumps({"authors": [], "large": []}))
 _n = [0]
+LIVE = [C / "STATUS.md", C / "runs" / f"{'2026-11-24_1530'}_batch"] + [
+    C / "runs" / "_index" / n for n in ("scheduler_log.jsonl", "delivered.jsonl", "delivery_state.json", "sent",
+                                        "alarms.jsonl", "grok_calls.jsonl", ".run.lock")]
+
+
+def live_snapshot():
+    """What exists of the live state now (live runs write it, so tests compare instead of expecting nothing)."""
+    out = {}
+    for p in LIVE:
+        files = [p] if p.is_file() else sorted(p.rglob("*")) if p.is_dir() else []
+        out[str(p)] = [(str(f), f.stat().st_mtime_ns, f.stat().st_size) for f in files if f.is_file()] if p.exists() else None
+    return out
+
+
+LIVE_BEFORE = live_snapshot()
 
 
 def utc(s):
@@ -236,7 +251,7 @@ class DeliveryAndPostingSeparate(unittest.TestCase):
         self.assertEqual(r["budget"]["post_today"], 1)
         self.assertEqual(mailed(r["html"]), 6, "up to 6 passed items are delivered")
         self.assertEqual(post_today_in_mail(r["html"]), 1)
-        self.assertEqual(badges(r["html"], "Recommended to post"), 1)
+        self.assertEqual(badges(r["html"], "Post this"), 1)
         self.assertEqual(badges(r["html"], "For review"), 5)
         first = r["html"].find("/au0/status/")
         self.assertTrue(0 < first < r["html"].find("/au1/status/"), "the best-ranked item is the recommended one, first")
@@ -248,7 +263,7 @@ class DeliveryAndPostingSeparate(unittest.TestCase):
         r = pipeline(env, [item(f"bu{i}", hook=f"H{i + 1}") for i in range(4)])
         self.assertEqual(r["budget"]["allowance_today"], 5)   # min(6, 3 + 2)
         self.assertEqual(r["budget"]["post_today"], 2)
-        self.assertEqual(badges(r["html"], "Recommended to post"), 2)
+        self.assertEqual(badges(r["html"], "Post this"), 2)
         self.assertEqual(mailed(r["html"]), 4)
 
     def test_stage_three_allowance_is_the_smaller_of_stage_total_and_average_plus_two(self):
@@ -267,7 +282,7 @@ class DeliveryAndPostingSeparate(unittest.TestCase):
         self.assertEqual(r["budget"]["post_today"], 0)
         self.assertEqual(r["rc"], 0)
         self.assertEqual(mailed(r["html"]), 3)
-        self.assertEqual(badges(r["html"], "Recommended to post"), 0)
+        self.assertEqual(badges(r["html"], "Post this"), 0)
         self.assertIn("Post today: 0", r["html"])
         self.assertIn("you already posted 4 replies today", r["html"])
 
@@ -279,7 +294,7 @@ class DeliveryAndPostingSeparate(unittest.TestCase):
         r = pipeline(env, [item("solo", hook="H1")])
         self.assertEqual(r["budget"]["post_today"], 2)
         self.assertEqual(mailed(r["html"]), 1)
-        self.assertEqual(post_today_in_mail(r["html"]), badges(r["html"], "Recommended to post"),
+        self.assertEqual(post_today_in_mail(r["html"]), badges(r["html"], "Post this"),
                          "mail says 'Post today: N' but marks a different number of items recommended")
         self.assertIn("only 1 item passed", r["html"], "the mail does not say why fewer items are recommended")
 
@@ -330,7 +345,7 @@ class DeliveryAndPostingSeparate(unittest.TestCase):
             with self.subTest(posted=posted):
                 r = pipeline(fresh(), items, posted_today=posted)
                 self.assertRegex(r["md"], r"(?m)^post_short: *$")
-                self.assertNotIn("Why only", r["html"])
+                self.assertNotRegex(r["html"], r"Post today: [1-9]\d* \(", "no shortfall reason when the recommendation is met")
 
     def test_post_short_says_why_when_the_author_rule_blocks_a_second_mark(self):
         env = fresh()
@@ -340,8 +355,8 @@ class DeliveryAndPostingSeparate(unittest.TestCase):
         self.assertEqual(r["budget"]["post_today"], 2)
         self.assertRegex(r["md"], r"(?m)^post_today: 1$")
         self.assertRegex(r["md"], r"(?m)^post_short: .*one per author a day")
-        self.assertEqual((post_today_in_mail(r["html"]), badges(r["html"], "Recommended to post")), (1, 1))
-        self.assertIn("Why only 1:", r["html"])
+        self.assertEqual((post_today_in_mail(r["html"]), badges(r["html"], "Post this")), (1, 1))
+        self.assertRegex(r["html"], r"Post today: 1 \(only 1 of 2 passed items can be recommended: one per author a day\)<")
 
     def test_one_recommended_reply_per_author_per_day_across_mails(self):
         env = fresh()
@@ -683,7 +698,7 @@ class Tripwire(unittest.TestCase):
         self.assertEqual((r["budget"]["stage"], r["budget"]["post_today"], r["budget"]["deliver_cap"]), (1, 0, 6))
         self.assertEqual(r["rc"], 0)
         self.assertEqual(mailed(r["html"]), 3)
-        self.assertEqual(badges(r["html"], "Recommended to post"), 0)
+        self.assertEqual(badges(r["html"], "Post this"), 0)
         self.assertEqual(badges(r["html"], "For review"), 3)
         self.assertIn("Post today: 0, tripwire: the last 5 posted replies had 8 views or fewer at 24 hours; back on 2026-12-01", r["html"])
         self.assertEqual(sends(env), 1)
@@ -834,10 +849,10 @@ class TimingModeBTrial(unittest.TestCase):
         r = pipeline(env, [item("doc", hook="H1", claim="public_source", source_url="https://docs.example.com/compaction",
                                 source_quote="Compaction keeps the last 20 turns.", basis="the vendor docs state the limit")])
         self.assertEqual(mailed(r["html"]), 1)
-        self.assertIn("Source:", r["html"])
-        self.assertIn('href="https://docs.example.com/compaction"', r["html"])
-        self.assertIn("Why it holds:", r["html"])
-        self.assertIn("the vendor docs state the limit", r["html"])
+        self.assertIn("- SOURCE: https://docs.example.com/compaction", r["md"], "the source stays in the file")
+        self.assertIn("- BASIS: the vendor docs state the limit", r["md"])
+        for s in ("Source:", "Why it holds:", "docs.example.com"):
+            self.assertNotIn(s, r["html"], "the mail carries the reply only (round 5)")
 
     def test_public_source_item_without_basis_is_not_mailed(self):
         env = fresh()
@@ -849,10 +864,15 @@ class TimingModeBTrial(unittest.TestCase):
         env = fresh()
         r = pipeline(env, [item("cardy", hook="H1", yours="Have you hit this cap on a long run?")])
         h = r["html"]
-        for s in ("They wrote:", "quoted line 0", "Angle:", "angle 0", "How to open:", "Open with detail 0.",
-                  "Starter (rewrite in your own words):", "Yours?", "Have you hit this cap on a long run?", "Post by ",
-                  "Feedback: reply to this mail, one line per item", "Today in total:"):
+        for s in ("@cardy", "5,000 followers", "41 min old", "3,000 views", "Which step 0 did the cardy run change first",
+                  "Post by ", ">Open post<", "Post this", "If the author answers, reply once the same day.",
+                  "Feedback: reply with the item number"):
             self.assertIn(s, h)
+        for s in ("They wrote:", "quoted line 0", "Angle:", "angle 0", "How to open:", "Open with detail 0.",
+                  "Starter", "Yours?", "Have you hit this cap on a long run?", "Today in total:", "in your own words"):
+            self.assertNotIn(s, h, "round 5: the mail carries the reply, not instructions")
+        for s in ("- QUOTE: quoted line 0", "- POINT: angle 0", "- OPEN: Open with detail 0.", "- YOURS: Have you hit"):
+            self.assertIn(s, r["md"], "the removed lines stay in replies_to_post.md for measurement")
         self.assertNotRegex(h, r"\bH\d\b", "no hook id appears in the mail")
 
     def test_trial_by_default_then_live_per_slot_after_pinned_post(self):
@@ -953,7 +973,7 @@ class MailStateUnknown(unittest.TestCase):
         f.write_text(md)
         self.assertEqual(py("email_replies.py", f, "--slot", SLOT, env=env)[0], 0)
         html = (f.parent / "email.html").read_text()
-        self.assertIn("Post today: 0. All items are for review.", html)
+        self.assertIn(">Post today: 0<", html)
         self.assertNotIn("()", html)
 
 
@@ -1375,16 +1395,245 @@ class ValidatorMinor(unittest.TestCase):
         self.assertIn("that slot's own share in `trial-report`", t)
 
 
+# ============ Round 5 (first live run): delivery check, ready replies, mobile layout ==========
+class SentIsDelivered(unittest.TestCase):
+    """A message in Sent is delivered whatever else exists; a draft copy of it is a leftover moved to Trash."""
+    SUBJ = "2 Twitter replies to write (2026-11-24 15:30)"
+
+    def send(self, env, src=FX / "replies_mode_b.md"):
+        return py("email_replies.py", src, "--slot", SLOT, "--send", env=env)
+
+    def box(self, env, name):
+        p = Path(env["STUB_DIR"]) / name
+        return p.read_text().splitlines() if p.exists() else []
+
+    def test_a_send_that_leaves_a_draft_copy_is_delivered_and_the_copy_trashed(self):
+        env = fresh(STUB_MAIL_MODE="deliver_leftover")
+        rc, out, err = self.send(env)
+        self.assertEqual(rc, 0, err)
+        self.assertIn("moved to Trash (1)", out)
+        self.assertEqual((sends(env), self.box(env, "mail_drafts"), self.box(env, "mail_trash")), (1, [], [self.SUBJ]))
+        self.assertTrue((Path(env["PIPELINE_STATE_DIR"]) / "sent" / SLOT).exists())
+
+    def test_a_retry_with_the_message_in_sent_and_a_draft_copy_sends_nothing(self):
+        env = fresh()
+        Path(env["STUB_DIR"], "mail_sent").write_text(self.SUBJ + "\n")
+        Path(env["STUB_DIR"], "mail_drafts").write_text(self.SUBJ + "\n")
+        rc, out, _ = self.send(env)
+        self.assertEqual((rc, sends(env)), (0, 0))
+        self.assertIn("already in Sent", out)
+        self.assertEqual(self.box(env, "mail_drafts"), [])
+
+    def test_a_draft_not_in_sent_is_never_trashed(self):
+        env = fresh()
+        other = "[TRIAL] 3 Twitter reply ideas (2026-11-23 20:00)"
+        Path(env["STUB_DIR"], "mail_drafts").write_text(other + "\n")
+        env["STUB_MAIL_MODE"] = "deliver_leftover"
+        self.assertEqual(self.send(env)[0], 0)
+        self.assertEqual(self.box(env, "mail_drafts"), [other])
+
+    def test_verify_delivery_finds_the_subject_in_the_batch_file_and_writes_the_marker(self):
+        env = fresh()
+        r = pipeline(env, [item("vd1", hook="H1"), item("vd2", hook="H2")])
+        Path(env["STUB_DIR"], "mail_sent").write_text(r["subject"] + "\n")
+        rc, out, err = py("email_replies.py", "--verify-delivery", "--slot", SLOT, env=env)
+        self.assertEqual(rc, 0, err)
+        self.assertIn(f"delivered: {r['subject']}", out)
+        marker = json.loads((Path(env["PIPELINE_STATE_DIR"]) / "sent" / SLOT).read_text())
+        self.assertEqual((marker["subject"], marker["items"]), (r["subject"], 2))
+        self.assertEqual(py("email_replies.py", r["run_dir"] / "replies_to_post.md", "--slot", SLOT, "--send", env=env)[0], 6)
+        self.assertEqual(sends(env), 0)
+
+    def test_verify_delivery_with_no_batch_and_no_marker_says_why(self):
+        rc, _, err = py("email_replies.py", "--verify-delivery", "--slot", SLOT, env=fresh())
+        self.assertEqual(rc, 4)
+        self.assertIn("no marker and no batch file", err)
+
+    def test_preflight_passes_a_leftover_copy_and_stops_on_a_real_stuck_draft(self):
+        env = fresh()
+        Path(env["STUB_DIR"], "mail_sent").write_text(self.SUBJ + "\n")
+        Path(env["STUB_DIR"], "mail_drafts").write_text(self.SUBJ + "\n")
+        self.assertEqual(run([BASH, BIN / "preflight.sh"], env)[0], 0)
+        env2 = fresh()
+        Path(env2["STUB_DIR"], "mail_drafts").write_text(self.SUBJ + "\n")
+        self.assertEqual(run([BASH, BIN / "preflight.sh"], env2)[0], 9)
+
+
+class ReadyRepliesMail(unittest.TestCase):
+
+    def test_the_drafter_writes_a_finished_reply_in_his_voice(self):
+        t = (C / "agents" / "role_specs" / "drafter.md").read_text()
+        self.assertIn("## Reply rules", t)
+        self.assertIn("posts as it is", t)
+        self.assertNotIn("Starter draft rules", t)
+        self.assertIn("voice.md", t)
+
+    def test_feedback_on_the_simpler_mail_is_still_read(self):
+        env = fresh()
+        r = pipeline(env, [item("fb1", hook="H1"), item("fb2", hook="H2")])
+        fb = Path(env["_DIR"]) / "fb.txt"
+        fb.write_text(f"<<<MSG>>>\nid: <m1@x>\nsubject: Re: {r['subject']}\n\n1 + good\n2 - forced\n\nOn Tue wrote:\n> old\n")
+        rc, out, _ = py("email_replies.py", "--feedback", env=dict(env, STUB_FEEDBACK=str(fb)))
+        self.assertEqual(rc, 0)
+        msg = json.loads(out.splitlines()[0])
+        self.assertEqual((msg["slot_id"], [(m["n"], m["verdict"], m["reason"]) for m in msg["marks"]]),
+                         (SLOT, [(1, "would_post", "good"), (2, "would_not", "forced")]))
+        self.assertIn("Feedback: reply with the item number, + or -, and a word", r["html"])
+
+
+# ============ Round 5 D: results of posted replies, weekly summary, "Last week" block =========
+MONDAY = "2026-11-30T13:41:00Z"       # Mon 15:41 Israel -> slot 2026-11-30_1530
+MON_SLOT = "2026-11-30_1530"
+
+
+def weekly_rows(env, specs, start="2026-11-23T10:00:00Z"):
+    """reply_log rows, 48 h readings: (views, parent_views, thread_rank, answered) per posted pipeline reply."""
+    rows = [{"reply_url": f"https://x.com/ogrizkov/status/7{i:03d}", "arm": "pipeline", "reading": "48h",
+             "views": v, "parent_views": pv, "thread_rank": tr, "author_answered": ans, "hook": "H1", "tier": 1,
+             "text_posted": f"Reply number {i} says one two three four five six seven eight nine ten eleven",
+             "posted_at": z(utc(start) + dt.timedelta(hours=6 * i))} for i, (v, pv, tr, ans) in enumerate(specs)]
+    wjsonl(Path(env["PIPELINE_ANALYTICS_DIR"]) / "reply_log.jsonl", rows)
+
+
+class ThreadRankAndShare(unittest.TestCase):
+    PID = "2124541215333044480"
+    URL = f"https://x.com/nateherk/status/{PID}"
+
+    def conv(self, env, views_others, mine_views, cursor=False):
+        conv = json.loads((FX / "fx_conversation.json").read_text())
+        base = conv["replies"][0]
+        reps = [dict(base, id=f"5{i}", url=f"https://x.com/o{i}/status/5{i}", views=v,
+                     author=dict(base["author"], screen_name=f"o{i}")) for i, v in enumerate(views_others)]
+        reps.append(dict(base, id="777", url="https://x.com/ogrizkov/status/777", views=mine_views,
+                         author=dict(base["author"], screen_name="ogrizkov")))
+        page = dict(conv, replies=reps, status=dict(conv["status"], views=10000))
+        if not cursor:
+            page.pop("cursor", None)
+        wjson(Path(env["PIPELINE_FETCH_DIR"]) / f"conversation_{self.PID}.json", page)
+
+    def my_reply(self, env):
+        r = py("fetch_posts.py", "my-reply", "--parent", self.URL, "--handle", "ogrizkov", env=env)
+        self.assertEqual(r[0], 0, r[2])
+        return json.loads(r[1])
+
+    def test_rank_share_and_replies_seen(self):
+        env = fresh()
+        self.conv(env, [10, 20, 30, 40, 500, 600, 700, 800, 900], 50)
+        out = self.my_reply(env)
+        self.assertEqual((out["thread_rank"], out["thread_replies_seen"], out["share_of_parent"]), (50, 10, 0.005))
+
+    def test_the_most_viewed_reply_ranks_100(self):
+        env = fresh()
+        self.conv(env, [1, 2, 3, 4], 99)
+        self.assertEqual(self.my_reply(env)["thread_rank"], 100)
+
+    def test_fewer_than_5_replies_seen_gives_null(self):
+        env = fresh()
+        self.conv(env, [1, 2, 3], 99)
+        out = self.my_reply(env)
+        self.assertEqual((out["thread_rank"], out["thread_replies_seen"]), (None, 4))
+
+    def test_pages_left_unread_give_null(self):
+        env = fresh()
+        self.conv(env, [10, 20, 30, 40, 500, 600], 50, cursor=True)
+        out = self.my_reply(env)
+        self.assertTrue(out["found"])
+        self.assertIsNone(out["thread_rank"])
+
+    def test_merge_stores_the_three_fields(self):
+        env = fresh(PIPELINE_NOW="2026-11-25T15:00:00Z")
+        led = [{"item_id": f"{SLOT}#1", "slot_id": SLOT, "url": self.URL, "author": "nateherk", "tier": 1, "recommended": True,
+                "reply_type": "clean", "hook": "H1", "starter": "Which cap?", "delivered_at": "2026-11-24T13:50:00Z", "mode": "trial"}]
+        wjsonl(Path(env["PIPELINE_STATE_DIR"]) / "delivered.jsonl", led)
+        page = [{"parent_url": self.URL, "found": True, "reply_url": "https://x.com/ogrizkov/status/777", "text": "Which cap?",
+                 "posted_at": "2026-11-24T14:00:00Z", "views": 50, "parent_views": 10000, "thread_rank": 50,
+                 "thread_replies_seen": 10, "share_of_parent": 0.005, "author_answered": False, "reading": "24h"}]
+        py("measure.py", "merge", "--pages", wjson(Path(env["_DIR"]) / "p.json", page), env=env)
+        row = json.loads((Path(env["PIPELINE_ANALYTICS_DIR"]) / "reply_log.jsonl").read_text().splitlines()[0])
+        self.assertEqual((row["thread_rank"], row["thread_replies_seen"], row["share_of_parent"]), (50, 10, 0.005))
+
+
+class WeeklySummary(unittest.TestCase):
+
+    def weekly(self, env, end="2026-11-29"):
+        r = py("measure.py", "weekly", "--end", end, env=env)
+        self.assertEqual(r[0], 0, r[2])
+        return (Path(env["PIPELINE_ANALYTICS_DIR"]) / f"weekly_summary_{end}.md").read_text()
+
+    def test_counts_top_three_and_both_comparisons(self):
+        env = fresh(PIPELINE_PATTERNS=C / "reply_patterns.md")
+        specs = [(40, 5000, 90, True), (30, 6000, 80, False), (20, 7000, 70, False), (10, 8000, 30, False),
+                 (15, 9000, 20, True), (200, 50000, 95, False), (300, 60000, 10, False)]
+        weekly_rows(env, specs)
+        t = self.weekly(env)
+        self.assertIn("# Last week, 2026-11-23 to 2026-11-29", t)
+        self.assertIn("- Replies posted: 7. Median views: 30. The author answered 2.", t)
+        self.assertEqual(t.count("- Top: "), 3)
+        self.assertIn('- Top: "Reply number 6 says one two three four five six seven eight" 300 views, '
+                      'Question first, one concrete detail, tier 1, thread rank 10.', t)
+        self.assertIn("- By the size of the post: posts under 20,000 views: 5 replies, median 20 views, 2 answered; "
+                      "posts of 20,000 views and more: too few replies to tell (2).", t)
+        self.assertIn("- By the reply's rank in its thread: top third: too few replies to tell (4); "
+                      "the rest: too few replies to tell (3).", t)
+        weekly_rows(env, specs + [(60, 5000, 99, False), (70, 5000, 98, True)])
+        t2 = self.weekly(env)
+        self.assertIn("top third: 6 replies, median 50 views, 2 answered; the rest: too few replies to tell (3).", t2)
+
+    def test_replies_outside_the_week_and_unranked_replies_are_left_out(self):
+        env = fresh()
+        weekly_rows(env, [(40, 5000, None, False)] * 6, start="2026-11-16T10:00:00Z")
+        t = self.weekly(env)
+        self.assertIn("- Replies posted: 0.", t)
+        self.assertIn("top third: too few replies to tell (0); the rest: too few replies to tell (0).", t)
+
+
+class LastWeekBlock(unittest.TestCase):
+
+    def mail(self, env, author, now, slot, name, send=True):
+        return pipeline(dict(env, PIPELINE_NOW=now), [item(author, hook="H1")], slot=slot, name=name, send=send)
+
+    def test_the_first_monday_mail_carries_the_block_and_later_mails_do_not(self):
+        env = fresh()
+        weekly_rows(env, [(40, 5000, 90, True)] * 6)
+        r1 = self.mail(env, "mo1", MONDAY, MON_SLOT, f"{MON_SLOT}_batch")
+        self.assertEqual(r1["rc"], 0)
+        h = r1["html"]
+        self.assertIn(">Last week</p>", h)
+        self.assertIn("Replies posted: 6.", h)
+        self.assertLess(h.rfind(">Open post<"), h.find(">Last week<"))
+        self.assertIn("font-size:20px;font-weight:bold;line-height:1.35;color:#3b2a1a;margin:8px 0 8px 0'>Last week", h)
+        r2 = self.mail(env, "mo2", "2026-11-30T18:11:00Z", "2026-11-30_2000", "2026-11-30_2000_batch")
+        self.assertEqual(r2["rc"], 0)
+        self.assertNotIn("Last week", r2["html"])
+        self.assertEqual(sends(env), 2, "no separate mail for the summary")
+
+    def test_no_monday_mail_puts_the_block_into_the_next_mail(self):
+        env = fresh()
+        weekly_rows(env, [(40, 5000, 90, True)] * 6)
+        r = self.mail(env, "tu1", "2026-12-01T13:41:00Z", "2026-12-01_1530", "2026-12-01_1530_batch")
+        self.assertIn(">Last week</p>", r["html"])
+
+    def test_a_failed_send_keeps_the_block_for_the_next_mail(self):
+        env = fresh(STUB_MAIL_MODE="error")
+        weekly_rows(env, [(40, 5000, 90, True)] * 6)
+        self.assertEqual(self.mail(env, "mo1", MONDAY, MON_SLOT, f"{MON_SLOT}_batch")["rc"], 4)
+        env["STUB_MAIL_MODE"] = "deliver"
+        r = self.mail(env, "mo2", "2026-11-30T18:11:00Z", "2026-11-30_2000", "2026-11-30_2000_batch")
+        self.assertIn(">Last week</p>", r["html"])
+
+    def test_a_week_with_no_posted_reply_has_no_block(self):
+        env = fresh()
+        r = self.mail(env, "mo1", MONDAY, MON_SLOT, f"{MON_SLOT}_batch")
+        self.assertNotIn("Last week", r["html"])
+
+
 # ============ Isolation and the Verification Gateway =========================================
 class ZZIsolationAndGateway(unittest.TestCase):
 
     def test_tests_never_touched_live_state(self):
-        self.assertFalse((C / "STATUS.md").exists(), "a test wrote the live STATUS.md")
-        idx = C / "runs" / "_index"
-        self.assertFalse((C / "runs" / f"{SLOT}_batch").exists(), "a test wrote a live batch folder")
-        for name in ("scheduler_log.jsonl", "delivered.jsonl", "delivery_state.json", "sent", "alarms.jsonl",
-                     "grok_calls.jsonl", ".run.lock"):
-            self.assertFalse((idx / name).exists(), f"a test wrote runs/_index/{name}")
+        after = live_snapshot()
+        for k, v in LIVE_BEFORE.items():
+            self.assertEqual(after[k], v, f"a test changed the live {k}")
 
     @unittest.skipIf(os.environ.get("ACC_SKIP_GATEWAY") == "1", "ACC_SKIP_GATEWAY=1: the gateway runs once in its own step")
     def test_verification_gateway_is_green(self):

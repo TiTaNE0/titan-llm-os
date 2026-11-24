@@ -11,6 +11,7 @@ of the @ogrizkov reply pipeline (v3.2, DECISION section 3 as amended). Never sen
   agreement [--export F]
   import-export --file F
   period --end DATE [--day 14|28]
+  weekly --end DATE        the "Last week" summary: runs/_analytics/weekly_summary_DATE.md (7 days to DATE)
 """
 import argparse
 import csv
@@ -157,6 +158,8 @@ def base_row(rd, it, now, arm):
         "move": (it or {}).get("move"), "posted_at": rd.get("posted_at"), "read_at": S.iso(now),
         "hours_since_post": hours, "reading": reading, "views": rd.get("views"), "likes": rd.get("likes"),
         "replies": rd.get("replies"), "parent_views": rd.get("parent_views"),
+        "thread_rank": rd.get("thread_rank"), "thread_replies_seen": rd.get("thread_replies_seen"),
+        "share_of_parent": rd.get("share_of_parent"),
         "parent_views_at_capture": (it or {}).get("parent_views_at_capture"),
         # None = not known (the answer lookup ran out of pages): kept as null, never counted as no answer
         "author_answered": None if rd.get("author_answered") is None else bool(rd.get("author_answered")),
@@ -595,6 +598,69 @@ def cmd_period(a):
     print(json.dumps({"wrote": str(path), "verdict": verdict, "posted": posted, "share": round(share, 2)}))
 
 
+# ---------- weekly summary ("Last week" block of the Monday mail) ------------------------------
+def last_readings(rows):
+    """One row per posted pipeline reply: its 48 h reading, else its 24 h reading."""
+    best = {}
+    for r in rows:
+        if r.get("arm") != "pipeline" or not r.get("reply_url"):
+            continue
+        cur = best.get(r["reply_url"])
+        if cur is None or (r.get("reading") == "48h" and cur.get("reading") != "48h"):
+            best[r["reply_url"]] = r
+    return list(best.values())
+
+
+def group_line(title, groups):
+    """One plain line: each group with its count, median views and author answers, or too few to tell."""
+    parts = []
+    for name, g in groups:
+        if len(g) < 5:
+            parts.append(f"{name}: too few replies to tell ({len(g)})")
+        else:
+            ans = sum(1 for r in g if r.get("author_answered") is True)
+            parts.append(f"{name}: {len(g)} replies, median {median([r.get('views') for r in g])} views, {ans} answered")
+    return f"- {title}: " + "; ".join(parts) + "."
+
+
+def hook_names():
+    try:
+        from target_filter import parse_hooks
+        return parse_hooks(Path(S.env_path("PIPELINE_PATTERNS", S.C / "reply_patterns.md")).read_text())["allowed"]
+    except (OSError, ImportError):
+        return {}
+
+
+def cmd_weekly(a):
+    end = dt.date.fromisoformat(a.end)
+    start = end - dt.timedelta(days=6)
+    rows = [r for r in last_readings(S.reply_log())
+            if (d := S.local_date_of(r.get("posted_at"))) is not None and start <= d <= end]
+    big = P["measure"].get("big_post_views", 20000)
+    names = hook_names()
+    pv = lambda r: r.get("parent_views") if r.get("parent_views") is not None else r.get("parent_views_at_capture")
+    ranked = [r for r in rows if isinstance(r.get("thread_rank"), (int, float))]
+    out = [f"# Last week, {start} to {end}", "",
+           f"- Replies posted: {len(rows)}. Median views: {median([r.get('views') for r in rows]) or 0}. "
+           f"The author answered {sum(1 for r in rows if r.get('author_answered') is True)}."]
+    for r in sorted(rows, key=lambda r: -(r.get("views") or 0))[:3]:
+        words = " ".join((r.get("text_posted") or "").split()[:12])
+        hook = names.get(r.get("hook") or "", "") or "no hook"
+        rank = r.get("thread_rank")
+        out.append(f"- Top: \"{words}\" {r.get('views') or 0} views, {hook}, tier {r.get('tier') or '?'}, "
+                   f"{f'thread rank {rank}' if rank is not None else 'thread rank unknown'}.")
+    out.append(group_line("By the size of the post", [
+        (f"posts under {big:,} views", [r for r in rows if (pv(r) or 0) < big]),
+        (f"posts of {big:,} views and more", [r for r in rows if (pv(r) or 0) >= big])]))
+    out.append(group_line("By the reply's rank in its thread", [
+        ("top third", [r for r in ranked if r["thread_rank"] > 200 / 3]),
+        ("the rest", [r for r in ranked if r["thread_rank"] <= 200 / 3])]))
+    A.mkdir(parents=True, exist_ok=True)
+    f = A / f"weekly_summary_{end.isoformat()}.md"
+    f.write_text("\n".join(out) + "\n")
+    print(json.dumps({"written": str(f), "replies": len(rows), "ranked": len(ranked)}))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -619,12 +685,14 @@ def main():
     p = sub.add_parser("period")
     p.add_argument("--end", required=True)
     p.add_argument("--day", type=int, choices=[14, 28])
+    p = sub.add_parser("weekly")
+    p.add_argument("--end", required=True)
     a = ap.parse_args()
     if a.cmd == "marks" and not (a.from_json or a.item):
         die("marks needs --from-json F or --item ID")
     {"init": cmd_init, "due": cmd_due, "merge": cmd_merge, "tripwire": cmd_tripwire, "marks": cmd_marks,
      "gate-change": cmd_gate_change, "agreement": cmd_agreement, "import-export": cmd_import_export,
-     "period": cmd_period}[a.cmd](a)
+     "period": cmd_period, "weekly": cmd_weekly}[a.cmd](a)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ A plain-language reference for the @ogrizkov reply pipeline. Binding sources: `c
 
 ## 1. What it is
 
-Two runs a day find fresh discussions where @ogrizkov can add one checkable thing, draft a short starter for each, judge them with deterministic gates, a cross-family critic and a fresh-context interest reviewer, and mail only the passed items to the operator (iCloud → iCloud through Mail.app). He writes each reply in his own words on his phone (delivery mode B). **It never posts to X.** The mail carries only real items; nothing is sent when nothing passes, and no error or status mail exists.
+Two runs a day find fresh discussions where @ogrizkov can add one checkable thing, draft a finished reply in his voice for each, judge them with deterministic gates, a cross-family critic and a fresh-context interest reviewer, and mail only the passed items to the operator (iCloud → iCloud through Mail.app). He writes each reply in his own words on his phone (delivery mode B). **It never posts to X.** The mail carries only real items; nothing is sent when nothing passes, and no error or status mail exists.
 
 Goal: replies a stranger in the thread finds worth reading, which earn profile visits. Volume is a ceiling, never a quota.
 
@@ -29,7 +29,7 @@ It is NOT the Hermes marketing pipeline (`05_Marketing_System/`).
 - **What the thread lacks comes first.** The Matcher quotes the claim, names the open point and the move, and only then asks whether a project fact is the missing thing. Yes: a Deep item (at most 1 recommended a day; the fact then rests 30 days). No: a Clean item — the default — with no project fact and no implied experience, inside his authority zones (`voice.md`).
 - **Discovery:** grok is used only for the discovery search (at most `cost.max_grok_calls` a run): a watchlist of answering authors and of large accounts (`agents/watchlist.json`), plus topic vectors on his authority zones and project vectors. Every read of a known post goes through `bin/fetch_posts.py` (public endpoint), grok only as the fallback.
 - **Targets and ranking:** fresh posts first (under 90 minutes; 91-210 only when the fresh band yields nothing), up to 40 replies, authors 1k-20k then 20k-125k, ranked by two signals: authors who answer and post momentum. A large-account lane (125k+, posts under 60 minutes) is measured on its own.
-- **Hooks:** every starter opens with a pattern from `reply_patterns.md` (read-only; written by the hook study). The mail shows the hook as one plain "How to open" line.
+- **Hooks:** every reply opens with a pattern from `reply_patterns.md` (read-only; written by the hook study). The hook is logged for measurement; the mail shows only the reply, ready to retype and post.
 - **Delivery and posting are separate:** up to 6 passed items per run, best first, in trial and live mode; the mail recommends how many to post today and marks those items. Stages (2, 4, 6 pipeline items a day) open only on posting conditions; a tripwire sets the recommendation to 0 for 7 days while items keep coming for review.
 - **Timing:** windows 16:30-18:30 and 21:00-23:00 Israel; runs start earlier (15:30 and 20:00 to begin with) so the mail is in Sent when a window opens; post-by = the earliest of send + 120 minutes, window end and post time + 360 minutes.
 - **Reliability:** preflight (probes, lock, branch guard, Mail readiness), verified delivery (in Sent, not in Outbox or Drafts; incident I-9), slot log, `STATUS.md`, alarms in the daily log, timeouts, one owner for the unattended rules.
@@ -54,7 +54,7 @@ It is NOT the Hermes marketing pipeline (`05_Marketing_System/`).
 | 1 | Scout | grok (`grok -p`) | Discovery search only: call A (watchlist + large accounts), call B (vectors). |
 | 1b | Post reader | script | `bin/fetch_posts.py`: snapshots, his reply count, readings, author answers. |
 | 2 | Matcher | Opus 4.8 | Claim-first fit test, Deep or Clean, zone, source logging, drops with reasons. |
-| 3 | Drafter | Sonnet 4.6 | One starter per target with a hook, a quoted line, a one-line point, optional "Yours?". |
+| 3 | Drafter | Sonnet 4.6 | One finished reply per target in his voice, opening on a hook; the quoted line, point and optional "Yours?" are logged, not mailed. |
 | 4 | Critic | non-Claude rung of `critic_ladder.json` via `agy -p` | Rubric v1.4 from the persisted snapshot, plus the interest question; 2 probes per call. |
 | 4b | Interest reviewer | Opus 4.8, fresh per draft | Rule 11: "what does a builder learn?"; "nothing" rejects. |
 | 5 | Gatekeeper | scripts | `bin/gate.sh` v2.5 and `bin/target_filter.py`. |
@@ -146,7 +146,7 @@ The time budget to hold; estimates until the phone walk-through measures them (`
 | Once, before the trial | Test mail walk-through on the phone | 15 |
 | Each day, stage 1 | Post the 2 recommended replies, about 7 minutes each (read the thread, write, post) | 14 |
 | Each day, stage 1 | One follow-up when an author answers | 3 |
-| Each day | Read the other items, up to 10, about 1 minute each (quoted line, angle, starter) | 10 |
+| Each day | Read the other items, up to 10, about 1 minute each (the reply and the post) | 10 |
 | Each day | Feedback marks: one reply per mail, two mails | 5 |
 | Each day, stage 1 | Total: posting part 17, with reading and marks up to 32 | 32 |
 | Each week | Visits and follows into `weekly.md` | 5 |

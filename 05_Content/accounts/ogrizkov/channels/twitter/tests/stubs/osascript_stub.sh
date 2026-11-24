@@ -11,7 +11,10 @@
 #                            error_after_send / hang_after_send -> the same, once a send was made
 #   accounts                 prints "iCloud" (exit 1 when STUB_MAIL_DEAD=1)
 #   outbox_count             number of messages in the Outbox
-#   drafts_pipeline          number of Drafts whose subject contains "Twitter repl"
+#   drafts_pipeline          number of Drafts whose subject contains "Twitter repl" and is not in Sent
+#   trash_leftovers          moves every "Twitter repl" draft whose subject is in Sent to mail_trash;
+#                            prints "trashed=N"
+#   STUB_MAIL_MODE=deliver_leftover: like deliver, plus a draft copy of the message (the 2026-11-24 case)
 #   feedback ADDR            prints $STUB_FEEDBACK (canned replies in the <<<MSG>>> format)
 # Mailboxes are plain files in $STUB_DIR: mail_sent, mail_outbox, mail_drafts (one subject per line).
 set -uo pipefail
@@ -25,6 +28,7 @@ case "$action" in
     n=$(cat "$D/sends.count" 2>/dev/null || echo 0); echo $((n+1)) > "$D/sends.count"
     case "${STUB_MAIL_MODE:-deliver}" in
       deliver) printf '%s\n' "$1" >> "$D/mail_sent" ;;
+      deliver_leftover) printf '%s\n' "$1" >> "$D/mail_sent"; printf '%s\n' "$1" >> "$D/mail_drafts" ;;
       stuck)   printf '%s\n' "$1" >> "$D/mail_outbox"; printf '%s\n' "$1" >> "$D/mail_drafts" ;;
       hang)    sleep "${STUB_HANG_S:-30}" ;;
       error)   echo "Mail got an error: AppleEvent timed out." >&2; exit 1 ;;
@@ -41,7 +45,14 @@ case "$action" in
     echo "sent=$(count mail_sent "$1") outbox=$(count mail_outbox "$1") drafts=$(count mail_drafts "$1")" ;;
   accounts) [ "${STUB_MAIL_DEAD:-0}" = "1" ] && { echo "Not authorized to send Apple events to Mail." >&2; exit 1; }; echo "iCloud" ;;
   outbox_count) grep -c . "$D/mail_outbox" 2>/dev/null || true ;;
-  drafts_pipeline) grep -c "Twitter repl" "$D/mail_drafts" 2>/dev/null || true ;;
+  drafts_pipeline) grep "Twitter repl" "$D/mail_drafts" 2>/dev/null | grep -cvxF -f "$D/mail_sent" 2>/dev/null || true ;;
+  trash_leftovers)
+    touch "$D/mail_trash"; n=0; keep=""
+    while IFS= read -r l; do
+      if [[ "$l" == *"Twitter repl"* ]] && grep -qxF -- "$l" "$D/mail_sent"; then printf '%s\n' "$l" >> "$D/mail_trash"; n=$((n+1))
+      else keep+="$l"$'\n'; fi
+    done < "$D/mail_drafts"
+    printf '%s' "$keep" > "$D/mail_drafts"; echo "trashed=$n" ;;
   feedback) cat "${STUB_FEEDBACK:?osascript_stub: STUB_FEEDBACK not set}" ;;
   *) echo "osascript_stub: unknown action '$action'" >&2; exit 1 ;;
 esac

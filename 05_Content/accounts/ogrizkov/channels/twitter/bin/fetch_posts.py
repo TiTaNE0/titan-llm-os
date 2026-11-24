@@ -12,6 +12,9 @@ grok as the caller's fallback. Only public post ids and the public handle are se
 my-reply and the partial count follow the conversation cursor up to endpoint.max_pages pages
 (default 5). When his reply is not found and a cursor remains after the limit, my-reply returns
 found: null with note "unknown" (not "no reply"); measure.py never counts an unknown reading.
+A found reply also carries thread_rank (percentile of its views among the thread's replies the fetch
+returned, 100 = most viewed; null when pages were left unread or under 5 replies were seen),
+thread_replies_seen and share_of_parent (his views / the parent's views).
 
 Endpoint layout (learned 2026-11-23 from live answers, saved as tests/fixtures/fx_*.json):
   /2/conversation/ID -> {code, status, thread[] (ancestors), replies[] (direct replies, ranked), author, cursor}
@@ -262,9 +265,25 @@ def replies_of(pid, handle):
     return find_by(replies, handle), more
 
 
+def thread_rank(mine, replies, more):
+    """(percentile of his reply's views among the thread's replies, 100 = most viewed; replies seen).
+    None when pages were left unread or fewer than 5 replies were seen."""
+    n = len(replies)
+    if more or n < 5:
+        return None, n
+    v = mine.get("views") or 0
+    return round(100 * sum(1 for r in replies if (r.get("views") or 0) <= v) / n), n
+
+
+def share_of_parent(mine, parent):
+    v, pv = mine.get("views"), parent.get("views")
+    return round(v / pv, 4) if isinstance(v, int) and isinstance(pv, int) and pv > 0 else None
+
+
 def cmd_my_reply(a):
     handle = a.handle.lstrip("@")
-    parent, replies, more = conversation_pages(post_id(a.parent), by(handle))
+    # all pages (up to max_pages), not only up to his reply: the thread rank needs the whole thread
+    parent, replies, more = conversation_pages(post_id(a.parent))
     mine = find_by(replies, handle)
     if not mine:
         note = f"unknown: a cursor remains after {EP.get('max_pages', 5)} pages" if more else "no reply"
@@ -272,10 +291,12 @@ def cmd_my_reply(a):
                 "detail": note, "parent_views": parent.get("views")}
     answer, more_a = replies_of(mine["id"], author(parent))
     follow, _ = replies_of(answer["id"], handle) if answer else (None, False)
+    rank, seen = thread_rank(mine, replies, more)
     return {
         "parent_url": a.parent, "found": True, "reply_url": mine.get("url"), "text": body_text(mine),
         "posted_at": when(mine), "views": mine.get("views"), "likes": mine.get("likes"),
         "replies": mine.get("replies"), "parent_views": parent.get("views"),
+        "thread_rank": rank, "thread_replies_seen": seen, "share_of_parent": share_of_parent(mine, parent),
         "author_answered": True if answer else (None if more_a else False),
         "author_answer_text": body_text(answer) if answer else None,
         "follow_up": ({"url": follow.get("url"), "text": body_text(follow), "posted_at": when(follow)}

@@ -165,15 +165,16 @@ et = fresh(PIPELINE_NOW="2026-11-24T18:41:00Z")
 rc_t, out_t, _ = email(FX / "replies_trial.md", "--slot", "2026-11-24_2000", env=et)
 ht = html_of(et)
 case("trial subject starts [TRIAL]", lambda: rc_t == 0 and out_t.startswith("[TRIAL] 2 Twitter reply ideas (2026-11-24 20:00)"))
-case("trial header says TRIAL RUN and every item has a TRIAL badge", lambda: "TRIAL RUN" in ht and ht.count(">TRIAL<") == 2)
+case("trial header says TRIAL RUN", lambda: ">TRIAL RUN. Post today: 1<" in ht)
 for name, h in (("live", hb), ("trial", ht)):
-    case(f"{name} header: Post today: 1, today total, follow-up line",
-         lambda h=h: "Post today: 1" in h and "Today in total: 2 more replies, yours included" in h
-         and "If the author answers, reply once the same day" in h)
-case("recommended item shows 'Recommended to post' and comes first; the other 'For review'",
-     lambda: hb.find("Recommended to post") != -1 and hb.find("Recommended to post") < hb.find("For review"))
+    case(f"{name} header: Post today: 1, one short follow-up line at the bottom",
+         lambda h=h: "Post today: 1" in h and "Today in total" not in h
+         and h.find("If the author answers, reply once the same day.") > h.rfind(">Open post<"))
+case("recommended item shows 'Post this' and comes first; the other 'For review'",
+     lambda: hb.find(">Post this<") != -1 and hb.find(">Post this<") < hb.find(">For review<"))
 case("a lane item shows 'Large account'", lambda: "Large account" in ht)
-case("every item shows the post's views at capture", lambda: hb.count("views at capture") == 2 and "48969 views at capture" in hb)
+case("every item shows one meta line: @author, followers, post age and views",
+     lambda: "@nateherk &middot; 18,157 followers &middot; 30 min old &middot; 48,969 views" in hb and hb.count(" views</div>") == 2)
 paused = (FX / "replies_mode_b.md").read_text().replace("post_today: 1", "post_today: 0").replace(
     "post_reason: stage 1: up to 1 per run, 2 pipeline items a day",
     "post_reason: tripwire: the last 5 posted replies had 8 views or fewer at 24 hours; back on 2026-12-01").replace(
@@ -184,18 +185,28 @@ hp = Path(T / "paused" / "email.html").read_text()
 case("paused header: 'Post today: 0, tripwire' with reason and date; items still for review",
      lambda: "Post today: 0, tripwire: the last 5 posted replies had 8 views or fewer at 24 hours; back on 2026-12-01" in hp
      and hp.count("For review") == 2)
-case("without post_short the header has no 'Why only' line", lambda: "Why only" not in hb)
+case("without post_short the header has no reason", lambda: ">Post today: 1<" in hb)
 shorted = (FX / "replies_mode_b.md").read_text().replace("post_today: 1\n", "post_today: 1\npost_short: only 1 item passed\n")
 es = fresh(PIPELINE_NOW="2026-11-24T13:50:00Z")
 email(write(T / "shorted" / "replies_to_post.md", shorted), "--slot", SLOT, env=es)
 hs = Path(T / "shorted" / "email.html").read_text()
-case("with post_short the header says 'Why only 1: only 1 item passed.'", lambda: "Why only 1: only 1 item passed." in hs)
+case("with post_short the header gives the reason: 'Post today: 1 (only 1 item passed)'", lambda: ">Post today: 1 (only 1 item passed)<" in hs)
 case("a stage_note line is shown in the header", lambda: "Stage 1 again: tripwire pause until 2026-11-20" in hb)
-case("each item: link, quoted line, angle, How to open, starter, post-by",
-     lambda: all(hb.count(s) == 2 for s in ("They wrote:", "Angle:", "How to open:", "Starter (rewrite in your own words):", "Post by "))
-     and "https://x.com/sristhi_saha/status/2124017472831389724" in hb)
+REMOVED = ("They wrote:", "Angle:", "How to open:", "Starter", "Yours?", "Source:", "Why it holds:", "in your own words",
+           "Have you seen a compaction drop", "Today in total")
+case("each item: the reply text, post-by and the button carrying the link; none of the removed lines",
+     lambda: hb.count("Post by ") == 2 and 'href="https://x.com/sristhi_saha/status/2124017472831389724"' in hb
+     and "Mine was lat/lng rounded to 3 decimals." in hb and not any(x in hb for x in REMOVED))
+case("no URL is shown as text (the button carries the link)",
+     lambda: not re.search(r">[^<]*https?://", hb + ht))
+SIZES = ("font-size:18px", "font-size:22px;line-height:1.45", "font-size:15px", "font-size:14px;font-weight:bold",
+         "font-size:19px;font-weight:bold", "padding:16px", "width:100%", "font-size:20px;font-weight:bold",
+         '<meta name="viewport" content="width=device-width,initial-scale=1">')
+case("mobile layout: body 18px, reply 22px/1.45, meta 15px, badges 14px bold, button 19px with 16px padding full width, header 20px bold, viewport",
+     lambda: all(x in hb for x in SIZES) and not re.search(r"font-size:1[0-3]px", hb))
+case("no fixed width wider than a phone forces sideways scrolling", lambda: not re.search(r"(?<!max-)width:\s*\d{3,}px", hb))
 case("no hook id appears anywhere in the mail", lambda: not re.search(r"\b[HX]\d\b", hb + ht))
-case("a 'Yours?' line is shown when the item has one", lambda: "Yours?" in hb and "Have you seen a compaction drop" in hb)
+case("the YOURS line stays in the file and is not mailed", lambda: "- YOURS: " in (FX / "replies_mode_b.md").read_text() and "Yours?" not in hb)
 for field in ("HOOK", "OPEN"):
     md = (FX / "replies_mode_b.md").read_text()
     first = md.index("### 1.")
@@ -209,8 +220,9 @@ case("post-by: post time + 360 wins (item 2 posted 11:00 -> 17:00)", lambda: "Po
 ew = fresh(PIPELINE_NOW="2026-11-24T14:40:00Z")
 email(FX / "replies_mode_b.md", "--slot", SLOT, env=ew)
 case("post-by: the window end wins (sent 16:40 -> 18:30)", lambda: "Post by 18:30 or skip" in html_of(ew))
-case("the mail ends with the feedback line and the status line",
-     lambda: hb.rfind("Open post") < hb.find("Feedback: reply to this mail, one line per item") < hb.find("Since the last mail: 3 slots"))
+case("the mail ends with the follow-up line, the feedback line and the status line",
+     lambda: hb.rfind("Open post") < hb.find("If the author answers, reply once the same day.")
+     < hb.find("Feedback: reply with the item number") < hb.find("Since the last mail: 3 slots"))
 # delivery scenarios
 ed = fresh(PIPELINE_NOW="2026-11-24T13:50:00Z", STUB_MAIL_MODE="deliver")
 sends = lambda env: int((Path(env["STUB_DIR"]) / "sends.count").read_text()) if (Path(env["STUB_DIR"]) / "sends.count").exists() else 0
@@ -824,7 +836,7 @@ RS = C / "agents" / "role_specs"
 RB = C / "skill" / "twitter-reply-orchestrate.md"
 pairs = [(RS / "matcher.md", "Claim-first fit test"), (RS / "matcher.md", "Reply types (Deep and Clean)"),
          (RS / "critic.md", "Rubric v1.4"), (RS / "critic.md", "Interest review (rule 11)"), (RS / "critic.md", "Calibration probes"),
-         (RS / "drafter.md", "Interest first"), (RS / "drafter.md", "Starter draft rules"), (RS / "scout.md", "Target limits (rule 10)"),
+         (RS / "drafter.md", "Interest first"), (RS / "drafter.md", "Reply rules"), (RS / "scout.md", "Target limits (rule 10)"),
          (RS / "wins.md", "Pattern refresh")] + [(RB, h) for h in ("UNATTENDED MODE", "DELIVERY", "MAINTENANCE", "MEASUREMENT", "LEARNING", "TRIAL AND LAUNCH")]
 for f, h in pairs:
     case(f"grep_section {f.name} '{h}' populated", lambda f=f, h=h: run(["bash", GS, f, h, "populated"], dict(os.environ))[0] == 0)

@@ -138,7 +138,7 @@ def shortfall(n, want, passed, blocked):
         return ""
     if not blocked:
         return f"only {passed} item{'' if passed == 1 else 's'} passed"
-    return f"only {n} of {passed} passed items can be recommended ({', '.join(sorted(blocked))})"
+    return f"only {n} of {passed} passed items can be recommended: {', '.join(sorted(blocked))}"
 
 
 def item_lines(n, it, names):

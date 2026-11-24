@@ -193,8 +193,16 @@ end run'
 OSA_OUTBOX='on run argv
   tell application "Mail" to return count of messages of outbox
 end run'
+# a pipeline draft whose subject is in Sent is a leftover copy of a delivered mail, not a stuck send
 OSA_DRAFTS='on run argv
-  tell application "Mail" to return count of (messages of drafts mailbox whose subject contains "Twitter repl")
+  set n to 0
+  tell application "Mail"
+    repeat with m in (messages of drafts mailbox whose subject contains "Twitter repl")
+      set s to subject of m
+      if (count of (messages of sent mailbox whose subject is s)) = 0 then set n to n + 1
+    end repeat
+  end tell
+  return n
 end run'
 tmo 30 "$OSA" -e "$OSA_ACCOUNTS" accounts >/dev/null 2>&1 || stop 9 preflight_failed "Mail automation does not answer"
 ob="$(tmo 30 "$OSA" -e "$OSA_OUTBOX" outbox_count 2>/dev/null | tr -dc '0-9')"

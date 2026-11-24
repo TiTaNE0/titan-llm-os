@@ -13,6 +13,15 @@ URL, HOOK, OPEN, QUOTE, POINT and DRAFT (a public_source item also SOURCE and BA
 --send goes iCloud -> iCloud through Mail.app on this Mac. Gmail is not used: it rewrites every link
 through google.com/url, which stops a tap from opening the X app. A send counts only when the
 message is in Mail's Sent mailbox and neither Outbox nor Drafts holds it (incident I-9).
+The first reply mail after a Sunday carries the "Last week" block under the items (measure.py weekly
+for the 7 days to that Sunday; written when missing); a verified send records it in
+runs/_index/weekly_carried.json, so later mails of that week do not repeat it. No mail is ever sent
+for the summary alone, and a week with no posted reply has no block.
+A message found in Sent is delivered, whatever else exists. A pipeline draft whose subject is in
+Sent is a leftover copy, not a stuck send: it is moved to Trash and reported. stuck_draft and
+stuck_outbox apply only when the message is not in Sent. --verify-delivery takes the subject from
+--subject, the slot's sent marker, or the slot's batch file (runs/SLOT_ID_batch, then _a2_batch),
+and writes the sent marker when the message is in Sent.
 Exit: 0 built, or sent and verified; 2 usage or test guard; 3 nothing sendable (silent);
 4 not delivered (reason on stderr: not_in_sent, stuck_outbox, stuck_draft, send_error, state_unknown,
 send_state_unknown, timeout); 6 slot already sent.
@@ -43,12 +52,15 @@ BIN = Path(__file__).resolve().parent
 C = BIN.parent
 STUBS = (C / "tests" / "stubs").resolve()
 STATE = Path(os.environ.get("PIPELINE_STATE_DIR") or C / "runs" / "_index")
+RUNS = Path(os.environ.get("PIPELINE_RUNS_DIR") or C / "runs")
+ANALYTICS = Path(os.environ.get("PIPELINE_ANALYTICS_DIR") or C / "runs" / "_analytics")
 PARAMS = json.loads(Path(os.environ.get("PIPELINE_PARAMS") or C / "agents" / "params.json").read_text())
 TZ = ZoneInfo(PARAMS["timezone"])
 OSASCRIPT = os.environ.get("OSASCRIPT_BIN") or "osascript"
 REQUIRED = ("HOOK", "OPEN", "QUOTE", "POINT", "DRAFT")
-FEEDBACK_LINE = ("Feedback: reply to this mail, one line per item: the number, then + or -, then a word: "
-                 "good, boring, forced, wrong post, too late. Example: 1 + good / 2 - forced")
+FEEDBACK_LINE = ("Feedback: reply with the item number, + or -, and a word: good, boring, forced, wrong post, "
+                 "too late. Example: 1 + good")
+FOLLOW_UP_LINE = "If the author answers, reply once the same day."
 REASON_WORDS = ("good", "boring", "forced", "wrong post", "too late")
 
 # Every script takes the action tag as item 1, so one stand-in can answer all of them in tests.
@@ -76,6 +88,24 @@ on run argv
     set d to count of (messages of drafts mailbox whose subject is theSubject)
   end tell
   return "sent=" & s & " outbox=" & o & " drafts=" & d
+end run"""
+
+# Mail can leave a draft copy of a message it has sent (seen 2026-11-24: Sent held the mail, Drafts a
+# copy dated one second later). A pipeline draft whose subject is in Sent is such a leftover.
+TRASH_LEFTOVERS_SCRIPT = """
+on run argv
+  set n to 0
+  tell application "Mail"
+    set ds to (messages of drafts mailbox whose subject contains "Twitter repl")
+    repeat with m in ds
+      set s to subject of m
+      if (count of (messages of sent mailbox whose subject is s)) > 0 then
+        delete m
+        set n to n + 1
+      end if
+    end repeat
+  end tell
+  return "trashed=" & n
 end run"""
 
 FEEDBACK_SCRIPT = """
@@ -182,64 +212,60 @@ def esc(s):
     return html.escape(s or "")
 
 
-def line(label, value, size=15):
-    return (f'<div style="font-size:{size}px;line-height:1.45;color:#3b2a1a;margin-bottom:10px;">'
-            f'<span style="color:#7a6248;">{esc(label)}</span> {esc(value)}</div>')
+INK, MUTED, CARD, EDGE, DARK, LIGHT = "#3b2a1a", "#7a6248", "#f3e7d1", "#c9b18a", "#5b3f24", "#f7ecd8"
 
 
-def card(it, trial, slot_id, sent_at):
+def badge(text, colour):
+    return (f'<span style="display:inline-block;background-color:{colour};color:{LIGHT};font-size:14px;font-weight:bold;'
+            f'border-radius:6px;padding:3px 9px;margin:0 6px 6px 0;">{esc(text)}</span>')
+
+
+def age_text(m):
+    m = int(m) if str(m).isdigit() else None
+    if m is None:
+        return ""
+    return f"{m} min old" if m < 60 else f"{m // 60} h {m % 60} min old"
+
+
+def count_text(v):
+    return f"{int(v):,}" if str(v).isdigit() else esc(v)
+
+
+def card(it, slot_id, sent_at):
+    """One item: number and badges, a small meta line, the reply text, the post-by time and the button.
+    The hook, the opening instruction, the point, the quoted line and Yours? stay in the file, not here."""
     rec = it.get("mark") == "recommended"
-    badges = [("Recommended to post" if rec else "For review", "#5b3f24" if rec else "#9a8466")]
+    badges = badge("Post this" if rec else "For review", DARK if rec else "#9a8466")
     if it.get("lane") == "large":
-        badges.append(("Large account", "#8a4b1f"))
-    if trial:
-        badges.append(("TRIAL", "#6b6b6b"))
-    badge_html = "".join(f'<span style="display:inline-block;background-color:{c};color:#f7ecd8;font-size:12px;'
-                         f'border-radius:6px;padding:2px 8px;margin:0 6px 6px 0;">{esc(t)}</span>' for t, c in badges)
-    meta = (f"#{it['n']} &middot; @{esc(it.get('author'))} &middot; {esc(it.get('followers'))} followers &middot; "
-            f"tier {esc(it.get('tier'))} &middot; {esc(it.get('age_min'))} min old &middot; {esc(it.get('views'))} views at capture")
-    parts = [f'<div style="font-size:13px;color:#7a6248;margin-bottom:6px;">{meta}</div>', f"<div>{badge_html}</div>",
-             f'<div style="font-size:13px;margin-bottom:10px;word-break:break-all;"><a href="{esc(it["url"])}" style="color:#8a4b1f;">{esc(it["url"])}</a></div>',
-             line("They wrote:", it["QUOTE"]), line("Angle:", it["POINT"]), line("How to open:", it["OPEN"]),
-             line("Starter (rewrite in your own words):", it["DRAFT"], 17)]
-    if it.get("YOURS"):
-        parts.append(line("Yours?", it["YOURS"]))
-    if it.get("claim") == "public_source":
-        parts.append(f'<div style="font-size:14px;margin-bottom:6px;word-break:break-all;"><span style="color:#7a6248;">Source:</span> '
-                     f'<a href="{esc(it["SOURCE"])}" style="color:#8a4b1f;">{esc(it["SOURCE"])}</a></div>')
-        parts.append(line("Why it holds:", it["BASIS"], 14))
+        badges += badge("Large account", "#8a4b1f")
+    meta = " &middot; ".join(x for x in (f"@{esc(it.get('author'))}", f"{count_text(it.get('followers'))} followers",
+                                          esc(age_text(it.get("age_min"))), f"{count_text(it.get('views'))} views") if x)
+    parts = [f'<div style="font-size:18px;font-weight:bold;color:{INK};margin:0 0 6px 0;">{esc(it["n"])}. {badges}</div>',
+             f'<div style="font-size:15px;line-height:1.4;color:{MUTED};margin:0 0 12px 0;">{meta}</div>',
+             f'<div style="font-size:22px;line-height:1.45;color:{INK};margin:0 0 14px 0;word-wrap:break-word;'
+             f'overflow-wrap:break-word;">{esc(it["DRAFT"])}</div>']
     for v in it["VERIFY"]:
-        parts.append(line("VERIFY:", v, 13))
-    parts.append(line("", f"Post by {post_by(it, slot_id, sent_at)} or skip", 14))
-    parts.append(f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#5b3f24" align="center" style="background-color:#5b3f24;border-radius:10px;padding:12px;">'
-                 f'<a href="{esc(it["url"])}" style="color:#f7ecd8;text-decoration:none;font-size:15px;display:block;">Open post</a></td></tr></table>')
-    return ('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f3e7d1" style="background-color:#f3e7d1;border:1px solid #c9b18a;border-radius:14px;margin:0 0 16px 0;"><tr><td bgcolor="#f3e7d1" style="background-color:#f3e7d1;padding:16px;border-radius:14px;">'
+        parts.append(f'<div style="font-size:18px;line-height:1.45;color:#8a2b1f;margin:0 0 10px 0;">Check first: {esc(v)}</div>')
+    parts.append(f'<div style="font-size:18px;line-height:1.45;color:{MUTED};margin:0 0 12px 0;">'
+                 f'Post by {post_by(it, slot_id, sent_at)} or skip</div>')
+    parts.append(f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+                 f'<td bgcolor="{DARK}" align="center" style="background-color:{DARK};border-radius:10px;padding:16px;">'
+                 f'<a href="{esc(it["url"])}" style="color:{LIGHT};text-decoration:none;font-size:19px;font-weight:bold;'
+                 f'display:block;width:100%;">Open post</a></td></tr></table>')
+    return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{CARD}" '
+            f'style="background-color:{CARD};border:1px solid {EDGE};border-radius:14px;margin:0 0 16px 0;"><tr>'
+            f'<td bgcolor="{CARD}" style="background-color:{CARD};padding:16px;border-radius:14px;">'
             + "".join(parts) + "</td></tr></table>")
 
 
 def header_text(h, n):
+    """The header line ("Post today: N", with its reason when N is lower than expected) and the stage note."""
     k = h.get("post_today", "0")
-    reason = h.get("post_reason", "")
-    if k.isdigit() and int(k) > 0:
-        post = f"Post today: {k}, marked 'recommended to post'; the others are for review."
-    elif reason.startswith("tripwire"):
-        post = f"Post today: 0, {reason}. All items are for review."
-    elif reason:
-        post = f"Post today: 0 ({reason}). All items are for review."
-    else:
-        post = "Post today: 0. All items are for review."
-    more = h.get("today_more", "")
-    total = (f"Today in total: {more} more replies, yours included." if more.isdigit()
-             else f"Today in total: {more}, yours included.")
-    lines = [f"{n} items. {post} {total} If the author answers, reply once the same day, in your own words. "
-             "Write each reply in your own words."]
-    if k.isdigit() and int(k) > 0 and h.get("post_short"):
-        lines.append(f"Why only {k}: {h['post_short']}.")
-    if h.get("stage_note"):
-        lines.append(h["stage_note"])
-    if h.get("mode") == "trial":
-        lines.insert(0, "TRIAL RUN.")
-    return lines
+    k = k if k.isdigit() else "0"
+    reason = h.get("post_reason", "") if k == "0" else h.get("post_short", "")
+    why = (f", {reason}" if reason.startswith("tripwire") else f" ({reason})") if reason else ""
+    line1 = ("TRIAL RUN. " if h.get("mode") == "trial" else "") + f"Post today: {k}{why}"
+    return [line1] + ([h["stage_note"]] if h.get("stage_note") else [])
 
 
 def subject_for(h, n, slot_id):
@@ -250,7 +276,37 @@ def subject_for(h, n, slot_id):
     return f"{n} Twitter replies to write ({stamp})"
 
 
-def build(md, slot_id, sent_at):
+def week_due(today):
+    """The Sunday that ends the last full week, when its "Last week" block has not gone out in a mail yet."""
+    end = today - dt.timedelta(days=today.weekday() + 1)
+    carried = (json.loads((STATE / "weekly_carried.json").read_text()) if (STATE / "weekly_carried.json").exists()
+               else {}).get("week_end")
+    return None if carried == end.isoformat() else end
+
+
+def weekly_lines(end):
+    """The summary lines of measure.py weekly for the week ending `end` (written when missing); [] when
+    no reply was posted that week."""
+    f = ANALYTICS / f"weekly_summary_{end.isoformat()}.md"
+    if not f.exists():
+        subprocess.run([sys.executable, str(BIN / "measure.py"), "weekly", "--end", end.isoformat()],
+                       capture_output=True, text=True, timeout=60)
+    lines = [l[2:].strip() for l in (f.read_text().splitlines() if f.exists() else []) if l.startswith("- ")]
+    return [] if not lines or lines[0].startswith("Replies posted: 0.") else lines
+
+
+def weekly_block(lines):
+    return (f"<p style='font-size:20px;font-weight:bold;line-height:1.35;color:{INK};margin:8px 0 8px 0'>Last week</p>"
+            + "".join(f"<p style='font-size:18px;line-height:1.45;color:{INK};margin:0 0 10px 0'>{esc(t)}</p>" for t in lines))
+
+
+def mark_week_carried(end):
+    STATE.mkdir(parents=True, exist_ok=True)
+    (STATE / "weekly_carried.json").write_text(json.dumps({"week_end": end.isoformat()}) + "\n")
+
+
+def build(md, slot_id, sent_at, weekly=False):
+    """(subject, html, items, week_end of the "Last week" block carried, or None)."""
     h, _ = parse_header(md)
     if "mode" not in h or re.search(r"HELD|DO NOT POST", h.get("status", "")):
         return None
@@ -258,18 +314,22 @@ def build(md, slot_id, sent_at):
     if not items:
         return None
     slot_id = slot_id or h.get("slot", "")
-    trial = h.get("mode") == "trial"
-    top = "".join(f"<p style='font-size:15px;color:#5a4630;margin:0 0 12px 0'>{esc(t)}</p>" for t in header_text(h, len(items)))
-    foot = (f"<p style='font-size:14px;color:#5a4630;margin:12px 0 6px 0'>{esc(FEEDBACK_LINE)}</p>"
-            f"<p style='font-size:13px;color:#7a6248;margin:0'>{esc(h.get('status_line', ''))}</p>")
-    body = wrap(top + "".join(card(i, trial, slot_id, sent_at) for i in items) + foot)
-    return subject_for(h, len(items), slot_id), body, len(items)
+    head = header_text(h, len(items))
+    top = (f"<p style='font-size:20px;font-weight:bold;line-height:1.35;color:{INK};margin:0 0 12px 0'>{esc(head[0])}</p>"
+           + "".join(f"<p style='font-size:18px;line-height:1.45;color:{INK};margin:0 0 12px 0'>{esc(t)}</p>" for t in head[1:]))
+    foot = "".join(f"<p style='font-size:18px;line-height:1.45;color:{MUTED};margin:12px 0 0 0'>{esc(t)}</p>"
+                   for t in (FOLLOW_UP_LINE, FEEDBACK_LINE, h.get("status_line", "")) if t)
+    end = week_due(sent_at.astimezone(TZ).date()) if weekly else None
+    lines = weekly_lines(end) if end else []
+    block = weekly_block(lines) if lines else ""
+    body = wrap(top + "".join(card(i, slot_id, sent_at) for i in items) + block + foot)
+    return subject_for(h, len(items), slot_id), body, len(items), end if lines else None
 
 
 def wrap(inner):
     return f"""<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body bgcolor="#e8d9bf" style="margin:0;padding:0;background-color:#e8d9bf;font-family:-apple-system,Helvetica,Arial,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e8d9bf" style="background-color:#e8d9bf;"><tr><td bgcolor="#e8d9bf" style="background-color:#e8d9bf;padding:12px;">
+<body bgcolor="#e8d9bf" style="margin:0;padding:0;background-color:#e8d9bf;font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:18px;-webkit-text-size-adjust:100%;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#e8d9bf" style="background-color:#e8d9bf;width:100%;"><tr><td bgcolor="#e8d9bf" style="background-color:#e8d9bf;padding:12px;">
 <div style="max-width:560px;margin:0 auto;">{inner}</div></td></tr></table></body></html>"""
 
 
@@ -309,7 +369,24 @@ def stuck_reason(st, issued=False):
 
 
 def delivered(st):
-    return bool(st) and st["sent"] > 0 and not st["outbox"] and not st["drafts"]
+    """A message found in Sent is delivered, whatever else exists."""
+    return bool(st) and st["sent"] > 0
+
+
+def trash_leftovers(st, subject):
+    """Move draft copies of sent pipeline messages to Trash and say so; never touches a draft not in Sent."""
+    if st and st["drafts"] == 0:
+        time.sleep(PARAMS["delivery"]["verify_poll_s"])  # the leftover copy can appear a moment after the send
+        st = mail_state(subject) or st
+    if not st or not st["drafts"]:
+        return
+    try:
+        r = osa(TRASH_LEFTOVERS_SCRIPT, "trash_leftovers")
+    except MailTimeout:
+        print("leftover draft copy not moved (Mail did not answer); the message is in Sent", file=sys.stderr)
+        return
+    m = re.search(r"trashed=(\d+)", r.stdout)
+    print(f"leftover draft copy of a sent message moved to Trash ({m.group(1) if m else '?'})")
 
 
 def poll(subject):
@@ -333,6 +410,43 @@ def write_marker(slot_id, subject, n, urls):
                              "verified_at": now_utc().strftime("%Y-%m-%dT%H:%M:%SZ")}) + "\n")
 
 
+def slot_batches(slot_id):
+    """(subject, items, urls) of each batch file of the slot, first attempt first."""
+    out = []
+    for name in (f"{slot_id}_batch", f"{slot_id}_a2_batch"):
+        f = RUNS / name / "replies_to_post.md"
+        if f.exists():
+            md = f.read_text()
+            built = build(md, slot_id, now_utc())
+            if built:
+                out.append((built[0], built[2], [i["url"] for i in parse_items(md)]))
+    return out
+
+
+def verify_delivery(slot_id, subject=None):
+    """Re-check a slot without sending; a message found in Sent writes the sent marker."""
+    if subject:
+        cands = [(subject, None, [])]
+    elif marker_path(slot_id).exists():
+        cands = [(json.loads(marker_path(slot_id).read_text()).get("subject"), None, [])]
+    else:
+        cands = slot_batches(slot_id)  # no marker yet: the subject comes from the slot's batch file
+    if not cands:
+        print("not_in_sent (no subject: no marker and no batch file for the slot)", file=sys.stderr)
+        return NOT_DELIVERED
+    st = None
+    for subj, n, urls in cands:
+        st = mail_state(subj)
+        if delivered(st):
+            if not marker_path(slot_id).exists():
+                write_marker(slot_id, subj, n, urls)
+            print(f"delivered: {subj}")
+            trash_leftovers(st, subj)
+            return 0
+    print(stuck_reason(st), file=sys.stderr)
+    return NOT_DELIVERED
+
+
 def send_verified(slot_id, subject, body, n, urls):
     """Send only when a state check proves the message is in none of Sent, Outbox and Drafts."""
     if slot_id and marker_path(slot_id).exists():
@@ -346,6 +460,7 @@ def send_verified(slot_id, subject, body, n, urls):
         if slot_id:
             write_marker(slot_id, subject, n, urls)
         print("already in Sent; no second send")
+        trash_leftovers(st, subject)
         return 0
     issued = False
     if not (st["outbox"] or st["drafts"]):
@@ -367,6 +482,7 @@ def send_verified(slot_id, subject, body, n, urls):
     if slot_id:
         write_marker(slot_id, subject, n, urls)
     print(f"sent to {ICLOUD} and verified in Sent")
+    trash_leftovers(st, subject)
     return 0
 
 
@@ -437,18 +553,7 @@ def dispatch(a):
     if a.verify_delivery:
         if not a.slot:
             sys.exit("--verify-delivery needs --slot")
-        subject = a.subject
-        if not subject and marker_path(a.slot).exists():
-            subject = json.loads(marker_path(a.slot).read_text()).get("subject")
-        if not subject:
-            print("not_in_sent", file=sys.stderr)
-            sys.exit(NOT_DELIVERED)
-        st = mail_state(subject)
-        if delivered(st):
-            print(f"delivered: {subject}")
-            return
-        print(stuck_reason(st), file=sys.stderr)
-        sys.exit(NOT_DELIVERED)
+        sys.exit(verify_delivery(a.slot, a.subject))
     if a.test:
         if not a.send:
             sys.exit("--test needs --send")
@@ -465,11 +570,11 @@ def dispatch(a):
         print(f"nothing to send: cannot read {src}", file=sys.stderr)
         sys.exit(NOTHING_TO_SEND)
     sent_at = now_utc()
-    built = build(md, a.slot, sent_at)
+    built = build(md, a.slot, sent_at, weekly=not a.test)
     if built is None:
         print("nothing to send: no complete item, no mode line, or batch held", file=sys.stderr)
         sys.exit(NOTHING_TO_SEND)
-    subject, body, n = built
+    subject, body, n, week_end = built
     if a.test:
         subject = f"[TEST] Twitter reply email check ({sent_at.astimezone(TZ).strftime('%Y-%m-%d %H:%M')})"
     out_html = src.parent / "email.html" if src.name == "replies_to_post.md" else STATE / "email.html"
@@ -478,7 +583,10 @@ def dispatch(a):
     print(subject)
     if a.send:
         urls = [i["url"] for i in parse_items(md)]
-        sys.exit(send_verified(None if a.test else a.slot, subject, body, n, urls))
+        rc = send_verified(None if a.test else a.slot, subject, body, n, urls)
+        if rc == 0 and week_end and not a.test:
+            mark_week_carried(week_end)  # the "Last week" block went out in this mail
+        sys.exit(rc)
 
 
 if __name__ == "__main__":

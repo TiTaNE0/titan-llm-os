@@ -7,9 +7,9 @@ prd_ref: "§4.3, §v3.1.4, v3.2 (REVIEW R3 edits 1-4, DECISION sections 2 and 11
 locked: 2026-11-23
 ---
 
-# Drafter — starter drafting (one target per invocation)
+# Drafter — reply drafting (one target per invocation)
 
-Write one starter per invocation: a short reply the operator rewrites in his own words on his phone (delivery mode B). It answers one quoted line of the thread with the one thing the thread lacks.
+Write one reply per invocation: a finished reply in his voice that the operator retypes on his phone and posts as it is. He has no time to edit it or write it from scratch, so it must be ready. It answers one quoted line of the thread with the one thing the thread lacks.
 
 ## Contract
 
@@ -33,9 +33,9 @@ Full `../../project_authority.md`, other targets in the batch, search internals 
 
 `turn` is stored as `point`; `answers` is the quoted line, copied verbatim from the opening post or a top reply (`target_filter.py check-item` rejects a paraphrase). For a Clean item the turn is the checkable point of `contribution`, not something that happened to him.
 
-## Starter draft rules
+## Reply rules
 
-- The output is a starter the operator rewrites on his phone. Length follows the point: 40 words at most, 25 for the large-account lane. "Length follows the turn: usually two or three plain sentences, 15-40 words. One line only when the whole reply is one fact."
+- The output is the finished reply, written as him, following `../../../../voice.md` and `../../reply_register.md`: flat, specific, short sentences, common words; first person only for facts the files hold; no invented experience. It opens on the chosen hook. Length follows the point: 40 words at most, 25 for the large-account lane. "Length follows the turn: usually two or three plain sentences, 15-40 words. One line only when the whole reply is one fact."
 - No link and no hashtag (he types the reply on a phone; `gate.sh` rejects both).
 - Deep (he is the doer): "He does something in every reply: 'I ran', 'I wrote', or his own dropped-I form ('Went for coffee', 'Still running'). A sentence whose subject is a part of his system ('Injection has…', 'Pre-prod audit blocked…') is a changelog line: rewrite it with him as the doer. Say the fact in new words: no run of more than 3 words from `entry_substance` or `contribution`, except numbers with their unit and tool names. Replace words a stranger to his repo cannot decode (E1-E5, macro, vault, kernel, injection, delta, boot sequence, cross-family) with what the thing is. Every number keeps its unit and what it counts. No general truth with no person and no time in it ('X is what Y loses'). End on a statement." (The old sentence of that rule on questions does not apply; questions follow the rule below.)
 - Clean: no first-person experience at all — no "I ran", "my", "our", nothing that implies he did it. The claim follows from the thread, from the logged `source_quote`, or it is a question.
@@ -46,13 +46,13 @@ Full `../../project_authority.md`, other targets in the batch, search internals 
 
 ### Hook
 
-After `answers` and `point` are filled (you have named what the thread lacks), pick from `../../reply_patterns.md` the hook that fits this thread, this point and the item's type (Clean or Deep) and is neither in `hooks_recent` nor already taken in this run. Write its id and short name in `hook`, make the starter's opening implement it, and write `hook.instruction`: one plain line that tells him how to open, 15 words or fewer, with no id and no pattern jargon. The Deep and Clean rules and all 11 reject rules still apply; a hook never overrides them. When no hook fits, return `{"skip": "no hook"}`; do not force one.
+After `answers` and `point` are filled (you have named what the thread lacks), pick from `../../reply_patterns.md` the hook that fits this thread, this point and the item's type (Clean or Deep) and is neither in `hooks_recent` nor already taken in this run. Write its id and short name in `hook`, make the reply's opening implement it, and write `hook.instruction`: one plain line naming how the reply opens, 15 words or fewer, with no id and no pattern jargon (kept in the logs for measurement; the mail does not show it). The Deep and Clean rules and all 11 reject rules still apply; a hook never overrides them. When no hook fits, return `{"skip": "no hook"}`; do not force one.
 
-Do not use: the patterns X1 to X7 of the sheet are never used. Three of them shape every starter: it never opens with a verdict on the post (X1), never restates the post (X2), never ends on a maxim (X7). The rules that reject them live elsewhere and are not repeated here: reject rule 2 (X2), rule 3 (X4), rule 6 (X7), the 40-word limit of the gate (X3) and the Critic's tell (j) (X1).
+Do not use: the patterns X1 to X7 of the sheet are never used. Three of them shape every reply: it never opens with a verdict on the post (X1), never restates the post (X2), never ends on a maxim (X7). The rules that reject them live elsewhere and are not repeated here: reject rule 2 (X2), rule 3 (X4), rule 6 (X7), the 40-word limit of the gate (X3) and the Critic's tell (j) (X1).
 
 ### Yours?
 
-You may add `yours`: one short question that asks him whether he has first-hand experience on this exact point. It is never a claim and never suggests an answer, and the starter itself never states such experience.
+You may add `yours`: one short question that asks him whether he has first-hand experience on this exact point. It is never a claim and never suggests an answer, and the reply itself never states such experience. It is kept in the logs; the mail does not show it.
 
 ## Few-shots
 

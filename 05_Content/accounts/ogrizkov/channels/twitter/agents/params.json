@@ -35,7 +35,7 @@
   "alarm": {"window_runs": 10, "max_empty": 1},
   "trial": {"min_weekdays": 5, "min_weekend_days": 2, "pass_share": 0.9, "marks_needed": 26, "marks_agree": 21},
   "hooks": {"rotation_window": 2},
-  "measure": {"read_hours": [24, 48], "wins_pages_max": 3, "period_days": 14, "patterns_refresh_days": 14, "patterns_sample": 40},
+  "measure": {"read_hours": [24, 48], "wins_pages_max": 3, "period_days": 14, "patterns_refresh_days": 14, "patterns_sample": 40, "big_post_views": 20000},
   "cost": {
     "max_grok_calls": 3,
     "max_grok_calls_day": 6,

@@ -235,7 +235,7 @@ Drafter sees ONE target at a time (see `role_specs/drafter.md`). Fields per draf
 - `answers` — the quoted line the reply answers, verbatim from the opening post or a top reply
 - `point` — one line, 12 words or fewer: what the reply adds
 - `hook` — `{id, name, instruction}`: the hook id and short name from `reply_patterns.md`, and one plain line (15 words or fewer, no id) that tells him how to open
-- `draft` — the starter (gate: 5–40 words, 25 in the large-account lane; no `!`, no link, no hashtag)
+- `draft` — the reply: finished text in his voice that he posts as it is (gate: 5–40 words, 25 in the large-account lane; no `!`, no link, no hashtag)
 - `yours` — optional: one short question to him about his own experience on this exact point
 - `verify_flags` — array of `[VERIFY]` strings; empty array if none
 - or `{"url", "skip": "no turn"}` / `{"url", "skip": "no hook"}`
@@ -347,6 +347,8 @@ Header lines: `slot:`, `mode:` (trial|live), `stage:`, `post_today:` (the number
 Per delivered item under `### N. URL`: `- author:`, `- followers:`, `- tier:`, `- mark:` (recommended or review), `- lane:` (large, on large-account items only), `- type:`, `- claim:`, `- bound:`, `- views:` (the post's views at capture), `- posted_at:`, `- age_min:`, `- HOOK:` (id, a middle dot, short name; for the logs, never shown in the mail), `- OPEN:` (the instruction line), `- QUOTE:`, `- POINT:`, `- DRAFT:`, optional `- YOURS:`, for `claim: public_source` `- SOURCE:` and `- BASIS:`, optional `- VERIFY:`.
 
 Then `## Skipped` (skipped, dropped and over-cap items with reasons) and `## Quarantined` (reject history). Only the text before `## Skipped` / `## Quarantined` is ever mailed.
+
+The mail shows per item only the number, the badge ("Post this" or "For review", plus "Large account"), one line with @author, followers, post age and views, the reply (`- DRAFT:`), VERIFY notes when present, the post-by time and the "Open post" button. `- HOOK:`, `- OPEN:`, `- POINT:`, `- QUOTE:`, `- YOURS:`, `- SOURCE:` and `- BASIS:` stay in this file and the logs for measurement and are not mailed.
 
 ---
 
