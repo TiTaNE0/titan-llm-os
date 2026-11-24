@@ -1,7 +1,7 @@
 # AGENTS.md (Root OS Loader)
 
 ## 0. GLOBAL ENGINE
-- **BOOTSTRAP:** You MUST read and adopt all rules, macros, and protocols from `./03_Brain/System_Agents.md` BEFORE proceeding. *(Note: no .vault_link prefix needed here since we are at the root)*
+- **BOOTSTRAP:** Kit subagents (`planner`, `builder`, `backend-builder`, `frontend-builder`, `researcher`, `story-writer`, `spec-writer`, `test-verifier`, `validator`, `pm-reviewer`, `failure-panel`) skip `BOOTSTRAP` and obey their Vault firewall + `CLAUDE.md` — do NOT read `./03_Brain/System_Agents.md`. Top-level sessions follow `./03_Brain/Context_Injection_Protocol.md`: build-chain invocations (`/new_task`, `/execute_task`, `/close_task`, `/orchestrator_tick`) read `./03_Brain/System_Agents.md` only up to and including `<!-- CONTENT PIPELINE` (`Context_Injection_Protocol.md § 3`, e.g. `EndLine: 200` / `sed -n '1,/<!-- CONTENT PIPELINE/p' ./03_Brain/System_Agents.md`) and read content/maintenance macros after that marker on demand; non-build-chain / content sessions (or if the marker is missing) load it in full BEFORE proceeding. *(Note: no .vault_link prefix needed here since we are at the root)*
 
 ## 0.1 HERMES VAULT BRIDGE
 - **Vault path:** `/Users/titane0/Library/Mobile Documents/iCloud~md~obsidian/Documents/Mission_Control/`
