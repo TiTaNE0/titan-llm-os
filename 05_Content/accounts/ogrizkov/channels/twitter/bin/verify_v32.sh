@@ -140,6 +140,7 @@ def z(t):
 # test params: same as the live file, with short Mail waits so the delivery cases run in seconds
 params = json.loads((C / "agents" / "params.json").read_text())
 params["delivery"].update({"verify_wait_s": 2, "verify_poll_s": 1, "send_timeout_s": 2})
+params["cost"]["enforce_grok_caps"] = True   # the suite checks the enforced behaviour; the live file may have the caps off
 PARAMS_T = wjson(T / "params_test.json", params)
 NOW = "2026-11-24T13:41:00Z"      # 15:41 Israel, slot 15:30
 SLOT = "2026-11-24_1530"

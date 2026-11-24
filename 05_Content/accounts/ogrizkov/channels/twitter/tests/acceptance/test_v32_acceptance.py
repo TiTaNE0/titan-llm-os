@@ -39,7 +39,7 @@ SHEET.write_text("## Hooks\n\n" + "".join(f"### H{i} - Hook name {i}\n\nDescript
 PARAMS = json.loads((C / "agents" / "params.json").read_text())
 PARAMS["delivery"].update({"verify_wait_s": 3, "verify_poll_s": 1, "send_timeout_s": 3, "query_timeout_s": 1})
 PARAMS_T = ROOT / "params_test.json"
-PARAMS_T.write_text(json.dumps(PARAMS))
+PARAMS_T.write_text(json.dumps(dict(PARAMS, cost=dict(PARAMS["cost"], enforce_grok_caps=True))))
 EMPTY_WL = ROOT / "wl_empty.json"
 EMPTY_WL.write_text(json.dumps({"authors": [], "large": []}))
 _n = [0]
@@ -977,7 +977,7 @@ class MailStateUnknown(unittest.TestCase):
         self.assertNotIn("()", html)
 
 
-DAY_CAP = json.loads((C / "agents" / "params.json").read_text())["cost"]["max_grok_calls_day"]
+DAY_CAP = PARAMS["cost"]["max_grok_calls_day"]
 
 
 class GrokBudgetInCode(unittest.TestCase):
@@ -1023,6 +1023,17 @@ class GrokBudgetInCode(unittest.TestCase):
         self.assertIn("(today)", err)
         tomorrow = dict(env, PIPELINE_NOW="2026-11-25T13:41:00Z")
         self.assertEqual(budget(tomorrow)["grok_calls_left_today"], DAY_CAP)
+
+    def test_caps_off_nothing_is_refused_and_every_call_is_logged(self):
+        env = fresh()
+        off = Path(env["_DIR"]) / "params_caps_off.json"
+        off.write_text(json.dumps(dict(PARAMS, cost=dict(PARAMS["cost"], enforce_grok_caps=False))))
+        env = dict(env, PIPELINE_PARAMS=str(off))
+        for _ in range(DAY_CAP + 2):
+            self.assertEqual(self.call(env, "discovery")[0], 0)
+        rows = [json.loads(l) for l in (Path(env["PIPELINE_STATE_DIR"]) / "grok_calls.jsonl").read_text().splitlines() if l.strip()]
+        self.assertEqual(len([r for r in rows if not r.get("refused")]), DAY_CAP + 2)
+        self.assertEqual(run([BASH, BIN / "preflight.sh"], env)[0], 0)
 
     def test_a_second_attempt_reuses_the_first_discovery(self):
         env = fresh()

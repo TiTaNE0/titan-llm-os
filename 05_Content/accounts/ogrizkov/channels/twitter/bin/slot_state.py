@@ -458,6 +458,9 @@ def posting_recommendation(s, day, posted, known):
 
 
 # ---------- grok budget --------------------------------------------------------------
+NO_CAP = 999  # reported as "left" when cost.enforce_grok_caps is false
+
+
 def grok_rows():
     return read_jsonl(state_file("grok_calls.jsonl"))
 
@@ -468,6 +471,9 @@ def grok_left(slot_id, day):
     run = sum(1 for r in spent if r.get("slot_id") == slot_id and r.get("purpose") in RUN_PURPOSES)
     maint = sum(1 for r in spent if r.get("slot_id") == slot_id and r.get("purpose") == "maintenance")
     today = sum(1 for r in spent if local_date_of(r.get("ts")) == day)
+    if not P["cost"].get("enforce_grok_caps", True):
+        # caps are advisory: every call is still written to the ledger, none is refused for a count
+        return (NO_CAP, NO_CAP, NO_CAP)
     left_day = max(0, P["cost"]["max_grok_calls_day"] - today)
     return (min(max(0, P["cost"]["max_grok_calls"] - run), left_day),
             min(max(0, P["cost"]["maintenance_grok_calls"] - maint), left_day), left_day)
