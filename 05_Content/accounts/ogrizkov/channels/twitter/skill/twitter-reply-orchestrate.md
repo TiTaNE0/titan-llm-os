@@ -31,7 +31,7 @@ Orchestrator **never ingests** `voice.md` / `reply_register.md` / grounding text
 
 ## CONTROL FLOW
 
-Grok rule: grok is used only for the discovery search, at most `max_grok_calls` (3) per run and `max_grok_calls_day` (6) a day; every read of a known post goes through `bin/fetch_posts.py`; grok is a fallback for a read only when the endpoint fails and a call is left. Every grok call goes through `bin/run_traced.sh --grok-slot SLOT_ID --grok-purpose discovery|widen|read|maintenance --grok-batch BATCH`, which spends the call through `slot_state.py grok-call` before it runs (a command named grok without these flags is refused with exit 64). Exit 75 means the budget is at 0: stop discovery, deliver what passed; the refusal is written to the slot log (`grok_stop`) by the next `slot_state.py log`. The preflight probe counts against the run's 3.
+Grok rule: grok is used only for the discovery search, at most `max_grok_calls` (3) per run and `max_grok_calls_day` (12) a day; every read of a known post goes through `bin/fetch_posts.py`; grok is a fallback for a read only when the endpoint fails and a call is left. Every grok call goes through `bin/run_traced.sh --grok-slot SLOT_ID --grok-purpose discovery|widen|read|maintenance --grok-batch BATCH`, which spends the call through `slot_state.py grok-call` before it runs (a command named grok without these flags is refused with exit 64). Exit 75 means the budget is at 0: stop discovery, deliver what passed; the refusal is written to the slot log (`grok_stop`) by the next `slot_state.py log`. The preflight probe counts against the run's 3.
 
 Never reject for a missing project fact. Never pass because of a project noun.
 
@@ -85,7 +85,7 @@ The single owner of the rules for a scheduled, unattended run (E24). `skill/sche
 - Critic unavailable, probe fails, or critic times out: `bin/preflight.sh --critic-only --exclude <telemetry_id>` picks the next rung of `agents/critic_ladder.json` (non-Claude only, keeps the cross-family veto). Never use a Claude or GPT model as Critic. Note the model used in `batch_report.md`.
 - Never pass `--dangerously-skip-permissions` to agy (it is blocked here and not needed).
 - CALIBRATION FAILED: re-run that critic call once as a fresh call. If a probe still mismatches, move to the next rung and re-judge. Never deliver drafts from an uncalibrated critic.
-- grok: a failed call is not repeated beyond the budget of 3 calls a run and 6 a day (`run_traced.sh` exit 75 = budget at 0: stop discovery). grok fully down: stop silently with a slot-log line (`infra`). A "402 ... balance exhausted" answer stops the run with the reason `grok_balance` and an alarm line.
+- grok: a failed call is not repeated beyond the budget of 3 calls a run and 12 a day (`run_traced.sh` exit 75 = budget at 0: stop discovery). grok fully down: stop silently with a slot-log line (`infra`). A "402 ... balance exhausted" answer stops the run with the reason `grok_balance` and an alarm line.
 - His reply count cannot be read: `budget --posted-today-unknown` (the mail then recommends at most one item).
 - Any other sub-agent failure: retry once with a fresh sub-agent, then treat as a new attempt.
 - Sub-agent tokens are traced through `bin/trace.sh` (the Agent tool returns them; E28); CLI calls through `bin/run_traced.sh --timeout`.

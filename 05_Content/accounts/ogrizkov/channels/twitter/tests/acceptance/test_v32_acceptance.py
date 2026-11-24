@@ -977,8 +977,16 @@ class MailStateUnknown(unittest.TestCase):
         self.assertNotIn("()", html)
 
 
+DAY_CAP = json.loads((C / "agents" / "params.json").read_text())["cost"]["max_grok_calls_day"]
+
+
 class GrokBudgetInCode(unittest.TestCase):
-    """Important 3 and 4: the grok cap is kept in code, the probe counts, 6 a day, a2 reuses candidates."""
+    """Important 3 and 4: the grok cap is kept in code, the probe counts, the day cap of params.json holds, a2 reuses candidates."""
+
+    def spend_the_day(self, env):
+        for i in range(DAY_CAP // 3):
+            for _ in range(3):
+                self.assertEqual(self.call(env, "discovery", slot=f"2026-11-24_{6 + i:02d}00")[0], 0)
 
     def call(self, env, purpose, slot=SLOT, batch=None):
         args = ["grok-call", "--slot", slot, "--purpose", purpose] + (["--batch", batch] if batch else [])
@@ -987,11 +995,11 @@ class GrokBudgetInCode(unittest.TestCase):
     def test_budget_reports_calls_left_and_the_probe_counts_against_the_run(self):
         env = fresh()
         b = budget(env)
-        self.assertEqual((b["grok_calls_left_run"], b["grok_calls_left_today"], b["grok_discovery_batch"]), (3, 6, None))
+        self.assertEqual((b["grok_calls_left_run"], b["grok_calls_left_today"], b["grok_discovery_batch"]), (3, DAY_CAP, None))
         self.assertEqual(run([BASH, BIN / "preflight.sh"], env)[0], 0)
         self.assertEqual(stub_count(env, "grok.count"), 1, "a fresh state needs the probe")
         b = budget(env)
-        self.assertEqual((b["grok_calls_left_run"], b["grok_calls_left_today"]), (2, 5))
+        self.assertEqual((b["grok_calls_left_run"], b["grok_calls_left_today"]), (2, DAY_CAP - 1))
 
     def test_a_fourth_run_call_is_refused_and_the_slot_log_says_so(self):
         env = fresh()
@@ -1005,19 +1013,16 @@ class GrokBudgetInCode(unittest.TestCase):
         self.assertEqual(line["grok_calls_left_run"], 0)
         self.assertIn("grok budget at 0", line["grok_stop"])
 
-    def test_the_daily_cap_is_six_across_slots(self):
+    def test_the_daily_cap_holds_across_slots(self):
         env = fresh()
-        for _ in range(3):
-            self.assertEqual(self.call(env, "discovery")[0], 0)
+        self.spend_the_day(env)
         env_eve = dict(env, PIPELINE_NOW=NOW_EVE)
-        for _ in range(3):
-            self.assertEqual(self.call(env_eve, "discovery", slot=SLOT_EVE)[0], 0)
         self.assertEqual(budget(env_eve)["grok_calls_left_today"], 0)
         rc, _, err = self.call(env_eve, "maintenance", slot=SLOT_EVE)
         self.assertEqual(rc, 1)
         self.assertIn("(today)", err)
         tomorrow = dict(env, PIPELINE_NOW="2026-11-25T13:41:00Z")
-        self.assertEqual(budget(tomorrow)["grok_calls_left_today"], 6)
+        self.assertEqual(budget(tomorrow)["grok_calls_left_today"], DAY_CAP)
 
     def test_a_second_attempt_reuses_the_first_discovery(self):
         env = fresh()
@@ -1055,10 +1060,7 @@ class GrokBudgetInCode(unittest.TestCase):
 
     def test_preflight_with_the_day_spent_stops_with_grok_budget_and_calls_nothing(self):
         env = fresh()
-        for _ in range(3):
-            self.call(env, "discovery", slot="2026-11-24_0930")
-        for _ in range(3):
-            self.call(env, "discovery", slot="2026-11-24_1100")
+        self.spend_the_day(env)
         rc, _, _ = run([BASH, BIN / "preflight.sh"], env)
         self.assertEqual(rc, 7)
         self.assertEqual(stub_count(env, "grok.count"), 0)

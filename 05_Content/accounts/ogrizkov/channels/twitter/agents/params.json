@@ -38,7 +38,7 @@
   "measure": {"read_hours": [24, 48], "wins_pages_max": 3, "period_days": 14, "patterns_refresh_days": 14, "patterns_sample": 40, "big_post_views": 20000},
   "cost": {
     "max_grok_calls": 3,
-    "max_grok_calls_day": 6,
+    "max_grok_calls_day": 12,
     "maintenance_grok_calls": 2,
     "grok_reply_count": false,
     "grok_own_arm": false,
