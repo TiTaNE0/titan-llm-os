@@ -288,7 +288,7 @@ EOF
 g mv old.txt renamed.txt
 irun Ren_Five --run-id r5
 rc_is "Orchestrator, staged rename, both listed" 0
-eq "on orch branch" "$(cur_branch)" "orch/r5"
+eq "on orch branch" "$(cur_branch)" "orch/r5/Ren_Five"
 eq "both ends committed" "$(committed)" "$(sorted old.txt renamed.txt)"
 
 # ===========================================================================
@@ -404,7 +404,7 @@ echo x >> "$REPO/a.txt"; echo junk > "$REPO/untracked-junk.txt"
 MAIN0="$(head_ref main)"; ORIGIN0="$(origin_state)"
 irun Orch_Remote --run-id run-123
 rc_is "Orchestrator happy path" 0
-eq "on orch/run-123" "$(cur_branch)" "orch/run-123"
+eq "on orch/run-123/Orch_Remote" "$(cur_branch)" "orch/run-123/Orch_Remote"
 eq "only the listed file committed" "$(committed)" "a.txt"
 eq "main ref unchanged" "$(head_ref main)" "$MAIN0"
 eq "origin byte-identical" "$(origin_state)" "$ORIGIN0"
@@ -413,14 +413,16 @@ hasnt "Orchestrator mode prints no WARN lines" "$OUT" "WARN_OUT_OF_LIST"
 has "commit message carries the run id" "$(g log -1 --format=%B)" "Orchestrator run: run-123"
 eq "orch branch parent is the old main tip" "$(g rev-parse HEAD~1)" "$MAIN0"
 
-# second task, same run: stacks on the existing orch branch, still no push
+# second task, same run: gets its own branch stacked on the first, still no push
 mk_task Orch_Second <<'EOF'
 - [EDIT] `c.txt`
 EOF
 echo x >> "$REPO/c.txt"
 irun Orch_Second --run-id run-123
 rc_is "second task in the same run" 0
-eq "stays on orch/run-123" "$(cur_branch)" "orch/run-123"
+eq "on orch/run-123/Orch_Second" "$(cur_branch)" "orch/run-123/Orch_Second"
+eq "run has exactly two branches" "$(g for-each-ref --format='%(refname)' refs/heads/orch/run-123/ | wc -l | tr -d ' ')" "2"
+eq "second branch parent is the first task tip" "$(g rev-parse HEAD~1)" "$(head_ref orch/run-123/Orch_Remote)"
 eq "main ref still unchanged" "$(head_ref main)" "$MAIN0"
 eq "origin still byte-identical" "$(origin_state)" "$ORIGIN0"
 
@@ -517,7 +519,7 @@ has "message says the default branch is ambiguous" "$ERR" "E3: default branch am
 eq "stdout empty on refusal" "$OUT" ""
 irun Both_On_Master --run-id run-1
 rc_is "main AND master, Orchestrator mode (orch/ target needs no default)" 0
-eq "Orchestrator commit lands on orch/run-1" "$(cur_branch)" "orch/run-1"
+eq "Orchestrator commit lands on orch/run-1/Both_On_Master" "$(cur_branch)" "orch/run-1/Both_On_Master"
 
 # both, sitting on main
 mk_repo main
@@ -575,7 +577,7 @@ eq "HEAD is the same commit" "$(g rev-parse HEAD)" "$H0"
 irun Merging --run-id run-1
 rc_is "merge in progress, Orchestrator mode" 3
 eq "Orchestrator refusal changed nothing" "$(snap)" "$S0"
-eq "no orch/ branch created" "$(g branch --list 'orch/*' | wc -l | tr -d ' ')" "0"
+eq "no orch/ branch created" "$(g for-each-ref --format='%(refname)' refs/heads/orch/ | wc -l | tr -d ' ')" "0"
 
 mk_repo main
 mk_task Marker_Dirs <<'EOF'
@@ -600,6 +602,48 @@ done
 eq "markers removed, repo identical to the start" "$(snap)" "$S0"
 irun Marker_Dirs
 rc_is "works again once the markers are gone" 0
+
+# ===========================================================================
+section "(b) Staging project: branches cut from staging, nothing pushed"
+# ===========================================================================
+mk_repo main remote
+g switch -q -c staging; echo stg > "$REPO/stg.txt"; g add -A; g commit -q -m staging-work
+g push -q -u origin staging 2>/dev/null
+STG_TIP="$(head_ref staging)"; MAIN_S="$(head_ref main)"
+g switch -q -c feature/y; echo y >> "$REPO/second.txt"; g commit -q -am feature-work
+ORIGIN_S="$(origin_state)"
+mk_task Stg_Inter <<'EOT'
+- [EDIT] `a.txt`
+EOT
+mk_task Stg_Orch <<'EOT'
+- [EDIT] `c.txt`
+EOT
+mk_task Stg_Orch2 <<'EOT'
+- [EDIT] `d.txt`
+EOT
+echo x >> "$REPO/a.txt"
+irun Stg_Inter
+rc_is "staging project, interactive from a feature branch" 0
+eq "on task/Stg_Inter" "$(cur_branch)" "task/Stg_Inter"
+eq "task branch parent is the staging tip" "$(g rev-parse HEAD~1)" "$STG_TIP"
+eq "staging ref unchanged" "$(head_ref staging)" "$STG_TIP"
+eq "main ref unchanged" "$(head_ref main)" "$MAIN_S"
+eq "origin byte-identical" "$(origin_state)" "$ORIGIN_S"
+eq "no upstream configured for the task branch" "$(g config --get branch.task/Stg_Inter.merge || true)" ""
+
+echo x >> "$REPO/c.txt"
+irun Stg_Orch --run-id run-s
+rc_is "staging project, Orchestrator run" 0
+eq "on orch/run-s/Stg_Orch" "$(cur_branch)" "orch/run-s/Stg_Orch"
+eq "orch branch parent is the staging tip" "$(g rev-parse HEAD~1)" "$STG_TIP"
+eq "origin still byte-identical" "$(origin_state)" "$ORIGIN_S"
+
+echo x >> "$REPO/d.txt"
+irun Stg_Orch2 --run-id run-s
+rc_is "second task of the same run in a staging project" 0
+eq "on orch/run-s/Stg_Orch2" "$(cur_branch)" "orch/run-s/Stg_Orch2"
+eq "stacked on the first task's branch" "$(g rev-parse HEAD~1)" "$(head_ref orch/run-s/Stg_Orch)"
+eq "staging ref still unchanged" "$(head_ref staging)" "$STG_TIP"
 
 section "(b) Every git invocation the atom made, across all runs above"
 FORBID=0
@@ -626,7 +670,7 @@ section "(d) Orchestrator refusals and no-ops leave HEAD / branches / index / wo
 refusal() { # refusal <desc> <expected-rc>  (call after settle+snap into S0)
   rc_is "$1" "$2"
   eq "$1: snapshot identical" "$(snap)" "$S0"
-  eq "$1: no orch/ branch created" "$(g branch --list 'orch/*' | wc -l | tr -d ' ')" "0"
+  eq "$1: no orch/ branch created" "$(g for-each-ref --format='%(refname)' refs/heads/orch/ | wc -l | tr -d ' ')" "0"
 }
 
 mk_repo main remote
@@ -636,11 +680,11 @@ EOF
 echo x >> "$REPO/a.txt"; echo x >> "$REPO/d.txt"
 irun Orch_Tracked --run-id run-1
 rc_is "tracked out-of-list change does not block" 0
-eq "on orch branch" "$(cur_branch)" "orch/run-1"
+eq "on orch branch" "$(cur_branch)" "orch/run-1/Orch_Tracked"
 eq "only the listed file is committed" "$(committed)" "a.txt"
 eq "d.txt still dirty and unstaged" "$(g status --porcelain=v1 d.txt)" " M d.txt"
 has "d.txt reported IGNORED" "$OUT" "IGNORED: d.txt (out-of-list, not committed)"
-has "COMMIT_BRANCH marker kept" "$OUT" "COMMIT_BRANCH=orch/run-1"
+has "COMMIT_BRANCH marker kept" "$OUT" "COMMIT_BRANCH=orch/run-1/Orch_Tracked"
 
 mk_repo main
 mk_task Orch_Tracked_Clean <<'EOF'
@@ -652,7 +696,7 @@ irun Orch_Tracked_Clean --run-id run-1
 rc_is "tracked out-of-list change while nothing listed is dirty" 0
 has "no-op reported" "$OUT" "COMMIT_SHA=none"
 eq "no-op: snapshot identical" "$(snap)" "$S0"
-eq "no orch branch created" "$(g branch --list 'orch/*')" ""
+eq "no orch branch created" "$(g for-each-ref --format='%(refname)' refs/heads/orch/ | wc -l | tr -d ' ')" "0"
 has "d.txt reported IGNORED" "$OUT" "IGNORED: d.txt (out-of-list, not committed)"
 
 mk_repo main
@@ -724,12 +768,26 @@ mk_repo main
 mk_task Orch_Branch_Conflict <<'EOF'
 - [EDIT] `a.txt`
 EOF
-g switch -q -c orch/run-1; echo other > "$REPO/a.txt"; g commit -q -am other; g switch -q main
+g switch -q -c orch/run-1/Orch_Branch_Conflict; echo other > "$REPO/a.txt"; g commit -q -am other; g switch -q main
 echo mine >> "$REPO/a.txt"
 settle; S0="$(snap)"
 irun Orch_Branch_Conflict --run-id run-1
 rc_is "existing orch branch that conflicts (E2)" 2
 eq "E2: snapshot identical" "$(snap)" "$S0"
+
+mk_repo main
+mk_task Orch_Blocked <<'EOF'
+- [EDIT] `a.txt`
+EOF
+g branch orch/run-1
+echo mine >> "$REPO/a.txt"
+settle; S0="$(snap)"
+irun Orch_Blocked --run-id run-1
+rc_is "orch/run-1 blocks orch/run-1/<slug> (E3)" 3
+eq "E3 on one stderr line" "$(errlines)" "1"
+has "message names the blocking branch" "$ERR" "orch/run-1"
+eq "stdout empty on refusal" "$OUT" ""
+eq "E3: snapshot identical" "$(snap)" "$S0"
 
 section "(d) Persona and argument refusals"
 mk_repo main

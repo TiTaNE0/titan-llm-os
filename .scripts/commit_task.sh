@@ -7,9 +7,13 @@
 # project's code repo (git toplevel of the CWD), never on the vault dir.
 # Never pushes, never integrates branches, never touches the vault bookkeeping.
 #
-# Branch: orch/<run-id> when --run-id is given (Orchestrator mode; out-of-list
-# tracked changes are left dirty and reported, never refused); otherwise
-# task/<slug> when HEAD is on the default branch, else the current branch.
+# Branch: staging project (local `staging`, else `origin/staging`): task/<slug> cut
+# from staging whatever HEAD is; --run-id gives orch/<run-id>/<slug>, cut from
+# staging, or stacked on HEAD when HEAD is already on a branch of the same run.
+# Otherwise --run-id gives orch/<run-id>/<slug> cut from HEAD (Orchestrator mode;
+# out-of-list tracked changes are left dirty and reported, never refused);
+# interactive gives task/<slug> on the default branch, else the current branch.
+# New branches never track a remote. No fetch: staging detection is local refs only.
 #
 # Contract: Tool_Registry.md § commit_task (registration is Architect-only,
 #           done via /graduate — Brain file not edited here).
@@ -27,6 +31,7 @@
 #      unclosed code fence in the Spec section,
 #      default branch not found or ambiguous (main and master, no origin/HEAD),
 #      invalid branch name,
+#      a branch blocks the new name (ref name conflict),
 #      staged paths outside the list
 #   4  source_persona != Executioner or live persona != Executioner (E4)
 #
@@ -38,13 +43,14 @@
 #   WARN_OUT_OF_LIST: <path>                                             (0..n)
 #   IGNORED: <path> (out-of-list, not committed)                         (0..n)
 #   WARN: swept into commit: <path>                                      (0..n)
-#   NOTE: committed onto orch/<id> without switching (...)               (0..1)
+#   NOTE: committed onto <branch> without switching (...)              (0..1)
 # Interactive runs print WARN_OUT_OF_LIST for dirty out-of-list paths; --run-id runs
 # print IGNORED for out-of-list TRACKED paths instead (others' edits never block).
 # WARN: swept into commit names a path outside the list that a hook or a concurrent
 # `git add` put into the commit (no reset: the atom never rewrites history).
-# When `git switch` onto an existing orch/<id> would overwrite others' edits, the
-# commit is built from a temporary index and the branch ref moved; HEAD stays put.
+# When `git switch` onto an existing orch/<id>/<slug> would overwrite others' edits, or
+# a new --run-id branch cut from staging cannot be switched to because of others' edits,
+# the commit is built from a temporary index and the branch ref moved; HEAD stays put.
 
 set -euo pipefail
 
@@ -60,7 +66,7 @@ Required:
   --source-persona <name>   Caller-claimed persona (must be Executioner)
 
 Optional:
-  --run-id <id>             Orchestrator mode: commit onto orch/<id>; out-of-list
+  --run-id <id>             Orchestrator mode: commit onto orch/<id>/<task-slug>; out-of-list
                             tracked changes are left dirty and reported (IGNORED)
 
 Run from inside the project's code repo.
@@ -371,8 +377,27 @@ fi
 # ---------------------------------------------------------------------------
 sanitize() { local s="${1//[^A-Za-z0-9._-]/-}"; printf '%s' "$s"; }
 
+SLUG="$(sanitize "$TASK_NAME")"
+BASE_REF=""
+if git show-ref --verify --quiet refs/heads/staging; then
+  BASE_REF="refs/heads/staging"
+elif git show-ref --verify --quiet refs/remotes/origin/staging; then
+  BASE_REF="refs/remotes/origin/staging"
+fi
+
+START=""
 if [[ -n "$RUN_ID" ]]; then
-  TARGET="orch/$(sanitize "$RUN_ID")"
+  RUN_SLUG="$(sanitize "$RUN_ID")"
+  TARGET="orch/$RUN_SLUG/$SLUG"
+  if [[ -n "$BASE_REF" ]]; then
+    case "$CUR_BRANCH" in
+      "orch/$RUN_SLUG/"*) ;;
+      *) START="$BASE_REF" ;;
+    esac
+  fi
+elif [[ -n "$BASE_REF" ]]; then
+  TARGET="task/$SLUG"
+  START="$BASE_REF"
 else
   DEFAULT_BRANCH=""
   if ref="$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"; then
@@ -391,30 +416,55 @@ else
   fi
   [[ -n "$DEFAULT_BRANCH" ]] || die 3 E3 "default branch not found (no origin/HEAD, main or master)"
   if [[ "$CUR_BRANCH" == "$DEFAULT_BRANCH" ]]; then
-    TARGET="task/$(sanitize "$TASK_NAME")"
+    TARGET="task/$SLUG"
   else
     TARGET="$CUR_BRANCH"
   fi
 fi
 git check-ref-format --branch "$TARGET" >/dev/null 2>&1 || die 3 E3 "invalid branch name: $TARGET"
 
+# check_ref_conflict — a new branch cannot coexist with a branch that is a path
+# prefix of it, or with branches nested under it.
+check_ref_conflict() {
+  local p="$TARGET" under
+  while [[ "$p" == */* ]]; do
+    p="${p%/*}"
+    if git show-ref --verify --quiet "refs/heads/$p"; then
+      die 3 E3 "branch '$p' exists and blocks '$TARGET' (ref name conflict)"
+    fi
+  done
+  under="$(git for-each-ref --count=1 --format='%(refname)' "refs/heads/$TARGET/")"
+  if [[ -n "$under" ]]; then
+    die 3 E3 "branch '${under#refs/heads/}' exists and blocks '$TARGET' (ref name conflict)"
+  fi
+}
+
+# switch_failed <label> — classify a failed switch (SW_OUT holds git's output).
+# Overlap on a listed path would make the fallback commit overwrite the branch's
+# version of it, so that stays a refusal naming every path git reported. Under
+# --run-id, overlap on out-of-list paths only sets NO_SWITCH instead.
+switch_failed() {
+  SW_PATHS="$(printf '%s\n' "$SW_OUT" | sed -n 's/^[[:space:]][[:space:]]*//p')"
+  if [[ -z "$RUN_ID" ]] || { [[ -n "$SW_PATHS" ]] && printf '%s\n' "$SW_PATHS" | grep -Fxq -f "$WORK/list_all"; } \
+     || [[ -z "$SW_PATHS" ]]; then
+    die 2 E2 "$1 failed: $(printf '%s' "${SW_PATHS:-$SW_OUT}" | tr '\n' ' ')"
+  fi
+  NO_SWITCH=1
+}
+
 NO_SWITCH=0
 if [[ "$TARGET" != "$CUR_BRANCH" ]]; then
   if git show-ref --verify --quiet "refs/heads/$TARGET"; then
     # Others' edits overlapping the target branch make the switch refuse; under
     # --run-id the commit is then built without touching HEAD or the worktree.
-    if ! SW_OUT="$(git switch -q "$TARGET" 2>&1)"; then
-      # Overlap on a listed path would make the fallback commit overwrite the branch's
-      # version of it, so that stays a refusal naming every path git reported.
-      SW_PATHS="$(printf '%s\n' "$SW_OUT" | sed -n 's/^[[:space:]][[:space:]]*//p')"
-      if [[ -z "$RUN_ID" ]] || { [[ -n "$SW_PATHS" ]] && printf '%s\n' "$SW_PATHS" | grep -Fxq -f "$WORK/list_all"; } \
-         || [[ -z "$SW_PATHS" ]]; then
-        die 2 E2 "git switch failed: $(printf '%s' "${SW_PATHS:-$SW_OUT}" | tr '\n' ' ')"
-      fi
-      NO_SWITCH=1
-    fi
+    if ! SW_OUT="$(git switch -q "$TARGET" 2>&1)"; then switch_failed "git switch"; fi
   else
-    SW_OUT="$(git switch -q -c "$TARGET" 2>&1)" || die 2 E2 "git switch -c failed: $(printf '%s' "$SW_OUT" | head -n 1)"
+    check_ref_conflict
+    if [[ -z "$START" ]]; then
+      SW_OUT="$(git switch -q -c "$TARGET" 2>&1)" || die 2 E2 "git switch -c failed: $(printf '%s' "$SW_OUT" | head -n 1)"
+    elif ! SW_OUT="$(git switch -q --no-track -c "$TARGET" "$START" 2>&1)"; then
+      switch_failed "git switch -c"
+    fi
   fi
 fi
 
@@ -446,8 +496,13 @@ finish() {
 # commit_without_switch — commit the in-list paths onto the existing $TARGET via a
 # temporary index; HEAD, the real index and the worktree stay untouched.
 commit_without_switch() {
-  local idx="$WORK/idx" parent sha rel
-  parent="$(git rev-parse "refs/heads/$TARGET")"
+  local idx="$WORK/idx" parent sha rel old=""
+  if git show-ref --verify --quiet "refs/heads/$TARGET"; then
+    parent="$(git rev-parse "refs/heads/$TARGET")"
+    old="$parent"
+  else
+    parent="$(git rev-parse "$START")"
+  fi
   GIT_INDEX_FILE="$idx" git read-tree "$parent" || die 2 E2 "git read-tree failed"
   while IFS= read -r rel; do
     if [[ -e "$TOP/$rel" || -L "$TOP/$rel" ]]; then
@@ -464,7 +519,7 @@ commit_without_switch() {
   fi
   build_message
   sha="$(git commit-tree "$tree" -p "$parent" -F "$WORK/msg")" || die 2 E2 "git commit-tree failed"
-  git update-ref "refs/heads/$TARGET" "$sha" "$parent" || die 2 E2 "git update-ref failed"
+  git update-ref "refs/heads/$TARGET" "$sha" "$old" || die 2 E2 "git update-ref failed"
   NOTE="committed onto $TARGET without switching (worktree has overlapping edits)"
   finish "$TARGET" "$sha"
 }
