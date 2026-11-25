@@ -53,6 +53,16 @@ DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ALLOWED_TAGS = {"b", "i", "code", "a", "blockquote"}
 ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 MSK = ZoneInfo("Europe/Moscow")
+# Already published 2026-11-25 prior to news_brief relevance gate; exempted until retired.
+LEGACY_NEWS_KEYS = {"news_20261125"}
+NEWS_OFFTOPIC_RE = re.compile(
+    r"(\bбет[аеуыо]\w*|\bbeta\b|субтитр|pkpass|диктовк|стикер|видеоредактор|редактор\w*\s+истор|в\s+историях|обои|эмодзи|нейросет|ии-агент|html-виджет|мини-игр|аватарк|liquid\s+glass)",
+    re.I,
+)
+NEWS_DOMAIN_RE = re.compile(
+    r"(связ[иью]|интернет|оператор|провайдер|сбо[йяеюи]|перебо|задержк|загрузк|медиа|соединен|мобильн\w*\s+сет|сет[иью]\s+оператор|маршрут|прокси|подключен|трафик|узл[аоуые]|stars|звёзд|звезд|fragment|premiumbot|оплат|пополнен|платёж|платеж)",
+    re.I,
+)
 
 
 def _parse_bound(raw: object, *, is_end: bool, tz: ZoneInfo) -> datetime | None:
@@ -119,20 +129,28 @@ class TelegramHTMLValidator(HTMLParser):
         self.stack: list[str] = []
         self.errors: list[str] = []
         self.text_parts: list[str] = []
+        self.blockquote_depth: int = 0
+        self.lead_text_parts: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag not in ALLOWED_TAGS:
             self.errors.append(f"disallowed HTML tag <{tag}>")
         self.stack.append(tag)
+        if tag == "blockquote":
+            self.blockquote_depth += 1
 
     def handle_endtag(self, tag: str) -> None:
         if not self.stack or self.stack[-1] != tag:
             self.errors.append(f"unbalanced HTML closing tag </{tag}>")
             return
         self.stack.pop()
+        if tag == "blockquote" and self.blockquote_depth > 0:
+            self.blockquote_depth -= 1
 
     def handle_data(self, data: str) -> None:
         self.text_parts.append(data)
+        if self.blockquote_depth == 0:
+            self.lead_text_parts.append(data)
 
 
 def validate_file(path: str) -> bool:
@@ -326,6 +344,22 @@ def validate_file(path: str) -> bool:
             and "звонки внутри мессенджера недоступны" not in lower_html
         ):
             fail(f"{key}: missing mandatory HARD_LIMITATION disclosure")
+
+        if post["rubric"] == "news_brief" and post["enabled"] and key not in LEGACY_NEWS_KEYS:
+            lead_text = "".join(parser.lead_text_parts).strip()
+            if m := NEWS_OFFTOPIC_RE.search(plain_text):
+                fail(f"{key}: active news_brief contains off-topic/beta term {m.group(0)!r}")
+            if not NEWS_DOMAIN_RE.search(lead_text):
+                fail(
+                    f"{key}: active news_brief headline/body outside <blockquote> lacks connectivity/Stars domain relevance"
+                )
+            if (
+                isinstance(post.get("priority"), int)
+                and not isinstance(post["priority"], bool)
+                and post["priority"] >= 10
+                and post.get("max_sends") != 1
+            ):
+                fail(f"{key}: urgent news_brief (priority >= 10) requires max_sends: 1")
 
     if file_failed:
         return False

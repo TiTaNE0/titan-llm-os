@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "channel": "@TitanMTProxyNews",
+  "register": "business_ru",
+  "posts": [
+    {
+      "key": "news_20261128",
+      "role": "rotational",
+      "rubric": "news_brief",
+      "silent": true,
+      "enabled": true,
+      "publish_from": "2026-11-28",
+      "publish_until": "2026-11-29",
+      "priority": 10,
+      "max_sends": 1,
+      "cta_text": "Открыть резерв в боте",
+      "start_param": "ch_news_20261128",
+      "html": "⚡ <b>Перебои у операторов и задержки в Telegram</b>\n\nЗа сутки в регионах участились сбои на узлах операторов — медиа и файлы в чатах открываются с задержкой.\n\n<blockquote>Резервный канал связи на 30 дней работает внутри Telegram без лишних программ.</blockquote>"
+    }
+  ]
+}

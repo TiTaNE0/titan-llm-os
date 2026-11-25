@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "channel": "@TitanMTProxyNews",
+  "register": "business_ru",
+  "posts": [
+    {
+      "key": "news_20261128",
+      "role": "rotational",
+      "rubric": "news_brief",
+      "silent": true,
+      "enabled": true,
+      "publish_from": "2026-11-28",
+      "publish_until": "2026-11-29",
+      "priority": 10,
+      "max_sends": 1,
+      "cta_text": "Открыть резерв в боте",
+      "start_param": "ch_news_20261128",
+      "html": "⚡ <b>Локальные субтитры к видео в бете Telegram</b>\n\nСборка 13.3.2 для Android распознаёт речь на смартфоне без отправки на серверы и открывает билеты .pkpass.\n\n<blockquote>Рабочие видео удобно читать без звука, а резервный канал на 30 дней доступен в @TitanTGProxy_bot.</blockquote>"
+    }
+  ]
+}

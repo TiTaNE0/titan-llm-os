@@ -82,3 +82,15 @@ The following substrings (case-insensitive) are prohibited:
 - **Two-tier plain-text length bounds (ultra-short Telegram feed discipline):**
   - **Standard rotational posts (`role == "rotational"` and `rubric` not in `{"onboarding", "offer_reference", "stars_guide"}`):** **`120–260` plain-text chars** (`2–3` short lines, max 2 micro-paragraphs, `18–38` words), or up to **`290` chars** (`120–290`) ONLY when carrying the mandatory `HARD_LIMITATION` disclosure.
   - **Pin & Reference posts (`role == "pin"` or `rubric` in `{"onboarding", "offer_reference", "stars_guide"}`):** **`300–600` plain-text chars** (`50–85` words, compact single-screen mobile card with zero scrolling).
+
+## 7. `news_brief` Topical Relevance & Anti-Noise Contract
+- **Default = NO-OP:** If the past 24 hours contain no verified event from the allowlist below, finish the run without editing `content/posts.json`.
+- **Strict 2-topic allowlist:**
+  1. **Confirmed Russia connectivity / Telegram media-delivery degradation:** corroborated spike across `>= 2` independent sources (`detector404.ru` / «Сбой.рф» + federal or tech media) — never routine baseline complaint noise, daily auto-updated SEO roundups, or localized 1–2 town incidents already resolved.
+  2. **Confirmed stable-release or billing infrastructure shift** directly affecting built-in Telegram proxy/connection stability or access payments via **Telegram Stars / `@PremiumBot` / `fragment.com`** (including App Store / Google Play fee or policy shifts for Stars).
+- **Hard exclusions (always NO-OP):**
+  - Beta/test builds (Android Beta, iOS Beta, macOS Beta, etc.).
+  - Unrelated Telegram UI/consumer features (subtitles, voice dictation, video/story editors, `.pkpass` tickets, stickers, reactions, wallpapers, profile themes, AI agents, HTML widgets, mini-games, news feeds, moderation counts, or bans in other countries).
+  - Generic evergreen utility tips (those belong in the weekly `weekly-tg-channel-batch`).
+- **Anti-Forced-Segue Rule:** The headline and main body **outside `<blockquote>`** MUST carry connectivity, media-delivery, or Stars billing relevance on their own — never glue `@TitanTGProxy_bot` onto unrelated news inside `<blockquote>`. Enforced deterministically by `bin/gate_telegram.sh`.
+- **Dispatch Priority:** Set `priority: 10` and `max_sends: 1` (immediate out-of-slot daytime dispatch) **ONLY** for active widespread connectivity/media outages or urgent Stars payment disruptions; use `priority: 5` (next scheduled slot) for non-urgent stable-release connectivity or Stars billing updates.

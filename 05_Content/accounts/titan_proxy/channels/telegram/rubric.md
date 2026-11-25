@@ -34,6 +34,11 @@ Used by the Critic (Gemini via `agy -p`) to evaluate candidate posts before upda
    - Pin and reference guides (`ch_pin`, `offer_reference`, `stars_guide`) fit on ONE mobile screen: **`300–600` plain-text chars** (compact 1-line steps/tiers, no multi-sentence boilerplate).
    - Balanced HTML (`@usernames` kept clickable without `<code>`), clean CTA matching `start_param`.
    - Seasonal/holiday visuals use photorealistic Russian winter/seasonal landscapes or Sapphire Dark scenes with zero text/logos/flags/landmarks.
+7. **`news_brief` Topical Relevance & Materiality (Binary Veto):**
+   - **Allowlist match (last 24h, verified publication date):** Active `news_brief` MUST cover either (a) a corroborated Russia connectivity/Telegram media-delivery degradation (`>= 2` independent sources, above baseline noise) or (b) a stable-release change affecting Telegram connection/proxy stability or Telegram Stars / `@PremiumBot` / `fragment.com` billing.
+   - **Zero hard-exclusion hits:** Reject any beta build (`Android Beta`, `iOS Beta`, `13.3.2` beta), unrelated UI/consumer feature (subtitles, `.pkpass`, dictation, stickers, stories, AI agents, profiles), or routine evergreen tip.
+   - **Anti-Forced-Segue Test:** Headline and body **outside `<blockquote>`** stand on connectivity/Stars relevance by themselves without relying on a `<blockquote>` bridge to `@TitanTGProxy_bot`.
+   - **Materiality & priority match:** Out-of-slot urgency (`priority >= 10`, `max_sends: 1`) is reserved strictly for active widespread outages or urgent Stars payment disruptions; default when uncertain is **NO-OP** (do not publish).
 
 ## Verdicts
 - **SHIP:** All criteria met. Ready for `bin/gate_telegram.sh`, `pytest`, and autonomous deploy.

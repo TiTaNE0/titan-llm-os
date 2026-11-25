@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "channel": "@TitanMTProxyNews",
+  "register": "business_ru",
+  "posts": [
+    {
+      "key": "news_20261128",
+      "role": "rotational",
+      "rubric": "news_brief",
+      "silent": true,
+      "enabled": true,
+      "publish_from": "2026-11-28",
+      "publish_until": "2026-11-29",
+      "priority": 10,
+      "max_sends": 1,
+      "cta_text": "Открыть резерв в боте",
+      "start_param": "ch_news_20261128",
+      "html": "⚡ <b>Новое оформление чатов и папок в Telegram</b>\n\nВ свежем релизе мессенджера обновили сортировку диалогов, боковую панель тем и быстрый поиск по заметкам.\n\n<blockquote>Удобнее разбирать рабочие переписки, а резервный канал связи на 30 дней доступен в @TitanTGProxy_bot.</blockquote>"
+    }
+  ]
+}
