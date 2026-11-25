@@ -2,8 +2,8 @@
 # budget_check.sh
 #
 # Purpose: Measure wall-clock elapsed time for an Orchestrator run and enforce
-# the budget.max_minutes ceiling. Reads the first '- ' digest line's timestamp,
-# computes elapsed minutes since that anchor, and exits 3 if the ceiling is
+# the budget.max_minutes ceiling. Anchors at the run start encoded in the run id
+# (falls back to the first '- ' digest line), computes elapsed minutes since it, and exits 3 if the ceiling is
 # breached. This makes the budget knob in Orchestrator_Config.yaml measurable.
 #
 # BSD date (macOS): epoch conversion MUST use TZ=UTC — without it, BSD date
@@ -67,8 +67,15 @@ if [[ ! -f "$DIGEST_FILE" ]]; then
   exit 2
 fi
 
-# Extract the first '- ' line timestamp using the pinned awk incantation
-TS=$(awk '/^- /{sub(/^- /,""); sub(/ \|.*/,""); print; exit}' "$DIGEST_FILE")
+# Anchor at the run start encoded in the id (run-YYYYMMDDTHHMMSSZ), so the time
+# spent on the first task counts. Fall back to the first '- ' digest line for
+# ids that carry no timestamp.
+TS=""
+if [[ "$RUN_ID" =~ ([0-9]{4})([0-9]{2})([0-9]{2})T([0-9]{2})([0-9]{2})([0-9]{2})Z ]]; then
+  TS="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}T${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}Z"
+else
+  TS=$(awk '/^- /{sub(/^- /,""); sub(/ \|.*/,""); print; exit}' "$DIGEST_FILE")
+fi
 
 if [[ -z "$TS" ]]; then
   echo "elapsed: n/a (no digest lines yet)"

@@ -383,7 +383,7 @@ This is the canonical list of atomic operations available to any macro. Adding a
 
 ### `budget_check`
 - **Inputs:** `--run-id <id>` `--ceiling <minutes>` `[--digest-dir <path>]`
-- **Outputs:** Wall-clock minutes since the run's first digest line, checked against `budget.max_minutes` (§3 BUDGET). Exit 0 under the ceiling (or no digest lines yet); exit 3 when elapsed >= ceiling → the tick writes a `stop` line.
+- **Outputs:** Wall-clock minutes since the run start encoded in the run id (`run-YYYYMMDDTHHMMSSZ`; falls back to the first digest line for ids without a timestamp), checked against `budget.max_minutes` (§3 BUDGET). Exit 0 under the ceiling (or no digest lines yet); exit 3 when elapsed >= ceiling → the tick writes a `stop` line.
 - **Errors:** E2 invalid args / missing digest file / unparseable timestamp; E3 ceiling reached.
 - **Idempotent:** ✅ (read-only). **Persona Gate:** any. **Telemetry:** none.
 - **Script:** `.vault_link/.scripts/budget_check.sh`
