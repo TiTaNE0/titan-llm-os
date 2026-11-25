@@ -38,11 +38,15 @@ rc=0; "$RD" --run-id only 2>/dev/null || rc=$?
 
 # --- config schema: required keys present ----------------------------------
 [[ -f "$CFG" ]] || fail "config template missing"
-for k in 'scope:' 'max_tasks_per_run:' 'host:' 'dispatch:' 'degraded_spec_gate:'; do
+for k in 'scope:' 'max_tasks_per_run:' 'host:' 'dispatch:' 'degraded_spec_gate:' 'auto_integrate_projects:'; do
   grep -qE "^$k" "$CFG" || fail "config template missing key: $k"
 done
 # host is the subscription loop, not an API-credit path
 grep -qE '^host: loop$' "$CFG" || fail "config host must be 'loop'"
+# integrate opt-in defaults to empty, is declared once, and never lists stagepass
+grep -qE '^auto_integrate_projects: \[\]$' "$CFG" || fail "auto_integrate_projects must default to []"
+[[ "$(grep -c '^auto_integrate_projects:' "$CFG")" -eq 1 ]] || fail "auto_integrate_projects must appear exactly once"
+if grep '^auto_integrate_projects:' "$CFG" | grep -q stagepass; then fail "auto_integrate_projects must not list stagepass"; fi
 # at least one scope entry
 grep -qE '^  - .+' "$CFG" || fail "config scope must list >=1 project"
 

@@ -35,3 +35,10 @@ dispatch: execute_task
 # auto-close shipped 2026-06-15, so the default is now false: the loop completes tasks.
 # Set true only to deliberately run the loop in escalate-everything mode.
 degraded_spec_gate: false
+
+# INTEGRATE — staging projects whose Orchestrator closes are squash-integrated onto
+# `staging` by /close_task Step 4.7 (integrate_task.sh: push staging, keep the Release
+# PR current). One-line flow list only, e.g. [ProjA, ProjB]; a missing key or any other
+# form counts as empty (fail closed). Projects without a `staging` branch are never
+# integrated. Default empty: opt in per project.
+auto_integrate_projects: []
