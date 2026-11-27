@@ -132,6 +132,21 @@ check_prompt() {
   return 0
 }
 
+# Step 7 write order: the facts.jsonl.next bullet must precede the .synthesis.json and .synthesis.md bullets.
+check_step7_order() { # file
+  local b nx js md
+  CHK_WHY=""
+  [ -f "$1" ] || why "runbook missing" || return 1
+  b="$(step_block "$1" 7)"
+  nx="$(printf '%s\n' "$b" | grep -n '^- `facts.jsonl.next`' | head -1 | cut -d: -f1)"
+  js="$(printf '%s\n' "$b" | grep -n '^- `<W>.synthesis.json`' | head -1 | cut -d: -f1)"
+  md="$(printf '%s\n' "$b" | grep -n '^- `<W>.synthesis.md`' | head -1 | cut -d: -f1)"
+  [ -n "$nx" ] && [ -n "$js" ] && [ -n "$md" ] || why "Step 7 lacks a facts.jsonl.next, .synthesis.json or .synthesis.md bullet" || return 1
+  [ "$nx" -lt "$js" ] || why "facts.jsonl.next bullet is not before .synthesis.json" || return 1
+  [ "$nx" -lt "$md" ] || why "facts.jsonl.next bullet is not before .synthesis.md" || return 1
+  return 0
+}
+
 # Copy of the runbook with every line holding $4 deleted inside Step $3.
 drop_in_step() { # src dst n literal
   awk -v h="### Step $3 - ${STEP_NAMES[$(($3 - 1))]}" -v lit="$4" '
@@ -268,6 +283,16 @@ drop_in_step "$RUNBOOK" "$TMP/red_itpl.md" 9 '(interactive): error <class> at <s
 chk_no "RED: interactive error template deleted from Step 9 fails check_runbook" check_runbook "$TMP/red_itpl.md"
 grep -vF 'surfacing lines appended' "$RUNBOOK" > "$TMP/red_e4.md"
 chk_no "RED: scope-E4 surfacing sentence removed fails check_unattended" check_unattended "$TMP/red_e4.md"
+# Step 7 order: the old order (md, json, next) must fail.
+chk_yes "Step 7 writes facts.jsonl.next before .synthesis.json and .synthesis.md" check_step7_order "$RUNBOOK"
+awk '
+  /^### Step 7 - Output$/ { p = 1 }
+  p && /^- `facts.jsonl.next`/ { nx = $0; next }
+  p && /^- `<W>.synthesis.md`/ { md = $0; next }
+  p && /^- `<W>.synthesis.json`/ { js = $0; next }
+  p && /^`facts.jsonl.next` goes first/ { print md; print js; print nx; print ""; p = 0 }
+  { print }' "$RUNBOOK" > "$TMP/red_order.md"
+chk_no "RED: old Step 7 order (md, json, next) fails check_step7_order" check_step7_order "$TMP/red_order.md"
 
 echo "== DoD 7: pointer prompt and scheduling gate"
 chk_yes "prompt passes check_prompt" check_prompt "$PROMPT"

@@ -58,10 +58,12 @@ Apply all four rules of the `03_Brain/Memory_Schema.md` section 3 table:
 - two facts with status `contradicted`: record the pair in `contradictions` with status `open`. This is the "halt; surface to user for resolution" rule, and Step 8 performs it.
 
 ### Step 7 - Output
-Write three files under `03_Brain/Weekly_Synthesis/`:
-- `<W>.synthesis.md`: the human report with sections Summary, Facts, Contradictions, Rule Proposals (layout of `2026-W20.synthesis.md`).
-- `<W>.synthesis.json`: keys `iso_week`, `dates`, `synthesized_at`, `persona`, `logs_read`, `facts_added`, `contradictions`, `rule_proposals`.
+Write three files under `03_Brain/Weekly_Synthesis/`, in this order:
 - `facts.jsonl.next`: the full updated fact store, one JSON object per line with at least `id` and `claim`.
+- `<W>.synthesis.json`: keys `iso_week`, `dates`, `synthesized_at`, `persona`, `logs_read`, `facts_added`, `contradictions`, `rule_proposals`.
+- `<W>.synthesis.md`: the human report with sections Summary, Facts, Contradictions, Rule Proposals (layout of `2026-W20.synthesis.md`).
+
+`facts.jsonl.next` goes first so that any partial write leaves a stale `.next` that the `plan` guard catches; a run that died after the two synthesis files but before `.next` would otherwise exit 6 on rerun and its facts would never reach `facts.jsonl`.
 
 Then validate:
 
