@@ -267,7 +267,7 @@ The executable form lives at `project-template/.claude/commands/orchestrator_tic
 
 ### `/synthesize [iso_week]`
 1. **Persona Gate:** Must be `Synthesizer` (or fail E4).
-2. **Inputs:** ISO week (e.g., `2026-W18`); defaults to the current week.
+2. **Inputs:** ISO week (e.g., `2026-W18`); defaults to the previous ISO week (the value `synthesize_run.sh week` prints). A week whose Sunday is on or after the Israel date is refused (E3). *(Amended via /graduate 2026-11-27 by [[Synthesize - refuse an unfinished week]].)*
 3. **Read:** All log files in `04_Logs/` matching that week.
 4. **Extract:** Candidate facts using [[Memory_Schema]] format.
 5. **Reconcile:** Match against `03_Brain/Weekly_Synthesis/facts.jsonl` (increment citations, detect contradictions).
