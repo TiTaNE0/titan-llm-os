@@ -11,7 +11,7 @@
 #
 # Subcommands:
 #   week  [--today YYYY-MM-DD]           previous ISO week of (today - 7 days)
-#   plan  --week YYYY-Www                week bounds, logs to read, output paths
+#   plan  --week YYYY-Www [--today YYYY-MM-DD]  week bounds, logs to read, output paths
 #   report --week YYYY-Www [--unattended]  validate outputs, render log lines
 #   scope --session-id <id> [--head <sha>] list writes outside the allowed paths
 #
@@ -20,7 +20,8 @@
 #   1  E1 blocker (Weekly_Synthesis or facts.jsonl missing, no session marker,
 #      python3 missing)
 #   3  E3 malformed input or inconsistent outputs, or an unresolved
-#      facts.jsonl.next from a failed run (usage errors too)
+#      facts.jsonl.next from a failed run, or (plan only) a week that has not
+#      ended (its Sunday is on or after the Israel date) (usage errors too)
 #   4  E4 scope violation (scope only)
 #   6  plan only: both outputs already exist (already_synthesized)
 #
@@ -38,7 +39,7 @@ usage() {
 Usage: $(basename "$0") <subcommand> [args]
 
   week   [--today YYYY-MM-DD]
-  plan   --week YYYY-Www
+  plan   --week YYYY-Www [--today YYYY-MM-DD]
   report --week YYYY-Www [--unattended]
   scope  --session-id <id> [--head <sha>]
 EOF
@@ -93,10 +94,11 @@ PY
 }
 
 cmd_plan() {
-  local week=""
+  local week="" today=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --week) [[ $# -ge 2 ]] || die3 "--week needs a value"; week="$2"; shift 2 ;;
+      --today) [[ $# -ge 2 ]] || die3 "--today needs a value"; today="$2"; shift 2 ;;
       *) die3 "unknown arg: $1" ;;
     esac
   done
@@ -107,6 +109,14 @@ cmd_plan() {
   bounds="$(week_bounds "$week")" || die3 "week '$week' does not exist in the ISO calendar"
   monday="${bounds%% *}"
   sunday="${bounds##* }"
+
+  [[ -n "$today" ]] || today="$(TZ=Asia/Jerusalem date +%Y-%m-%d)"
+  [[ "$today" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || die3 "malformed --today '$today' (expected YYYY-MM-DD)"
+  local trc=0
+  python3 -I -c 'import sys, datetime; datetime.date.fromisoformat(sys.argv[1])' "$today" 2>/dev/null || trc=$?
+  [[ $trc -eq 0 ]] || { [[ $trc -eq 1 ]] && die3 "impossible --today '$today'"; exit 1; }
+  [[ "$sunday" < "$today" ]] \
+    || die3 "week $week is not finished: its Sunday $sunday is on or after today $today (Asia/Jerusalem)"
 
   [[ -d "$SYN_DIR" ]] || die1 "$SYN_REL/ is missing"
   [[ -f "$SYN_DIR/facts.jsonl" ]] || die1 "$SYN_REL/facts.jsonl is missing"

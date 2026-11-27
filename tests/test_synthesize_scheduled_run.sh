@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_synthesize_scheduled_run.sh - regression test for the scheduled weekly /synthesize.
 # Covers: runbook presence and per-step content, the UNATTENDED MODE section, the pointer
-# prompt, the synthesize_run.sh helper, and the unattended write scope (driven in mktemp
+# prompt, the synthesize_run.sh helper (including the refusal of an unfinished week), and the unattended write scope (driven in mktemp
 # sandboxes only). Never invokes claude, never touches ~/.claude/scheduled-tasks/, never
 # writes the live vault. No skip env: it runs no other suite.
 set -uo pipefail
@@ -39,7 +39,7 @@ step_block() { # file n -> body lines of "### Step n - <name>" up to the next st
 step_literals() {
   case "$1" in
     1) printf '%s\n' 'persona_check.sh Synthesizer' ;;
-    2) printf '%s\n' 'synthesize_run.sh plan' 'Recovery is delete-only' 'delete `facts.jsonl.next`' 'rerun `/synthesize <W>` interactively' ;;
+    2) printf '%s\n' 'synthesize_run.sh plan' 'synthesize_run.sh week' 'not finished' 'Recovery is delete-only' 'delete `facts.jsonl.next`' 'rerun `/synthesize <W>` interactively' ;;
     3) printf '%s\n' 'log=' ;;
     4) printf '%s\n' 'Memory_Schema' ;;
     5) printf '%s\n' 'facts.jsonl' 'contradicted' ;;
@@ -73,6 +73,7 @@ check_step2_exits() { # block
       *) want='step plan' ;;
     esac
     printf '%s\n' "$line" | grep -qF "$want" || { CHK_WHY="Step 2 '- Exit $k:' lacks '$want'"; return 1; }
+    if [ "$k" = 3 ]; then printf '%s\n' "$line" | grep -qF 'not finished' || { CHK_WHY="Step 2 '- Exit 3:' lacks 'not finished'"; return 1; }; fi
   done
   return 0
 }
@@ -81,6 +82,7 @@ check_runbook() {
   local f="$1" i prev=0 ln block
   CHK_WHY=""
   [ -f "$f" ] || why "runbook missing: $f" || return 1
+  ! grep -qF 'current week' "$f" || why "runbook still defaults to the current week" || return 1
   grep -q '^description: ' "$f" || why "no description: frontmatter" || return 1
   for i in 1 2 3 4 5 6 7 8 9; do
     ln="$(grep -nxF -- "### Step $i - ${STEP_NAMES[$((i - 1))]}" "$f" | head -1 | cut -d: -f1)"
@@ -278,6 +280,10 @@ chk_no "RED: contradicted rule line deleted from Step 6 fails" check_runbook "$T
 awk '/Recovery is delete-only/ { print "If plan exits 3 with unresolved facts.jsonl.next, repair them and run Step 7'"'"'s `mv`."; next } { print }' "$RUNBOOK" > "$TMP/red_repair.md"
 chk_no "RED: revision 2 repair wording in Step 2 fails check_runbook" check_runbook "$TMP/red_repair.md"
 sed 's/^\(- Exit 3:.*\)go to Step 9/\1go on/' "$RUNBOOK" > "$TMP/red_exit3.md"
+sed 's/The interactive default is the previous ISO week.*(see Exit 3)\./The interactive default is the current week, per the kernel./' "$RUNBOOK" > "$TMP/red_curweek.md"
+chk_no "RED: Step 2 default sentence reverted to the current week fails check_runbook" check_runbook "$TMP/red_curweek.md"
+sed '/^- Exit 3:/s/not finished/unfinished/' "$RUNBOOK" > "$TMP/red_nf.md"
+chk_no "RED: 'not finished' stripped from the Exit 3 line fails check_runbook" check_runbook "$TMP/red_nf.md"
 chk_no "RED: 'go to Step 9' removed from the Exit 3 line fails check_runbook" check_runbook "$TMP/red_exit3.md"
 drop_in_step "$RUNBOOK" "$TMP/red_itpl.md" 9 '(interactive): error <class> at <step>'
 chk_no "RED: interactive error template deleted from Step 9 fails check_runbook" check_runbook "$TMP/red_itpl.md"
@@ -309,6 +315,8 @@ fi
 
 echo "== DoD 6/4: static runbook claims"
 grep -qF 'Monday 09:00' "$RUNBOOK" && pass "runbook names Monday 09:00" || fail "runbook lacks Monday 09:00"
+grep -qF 'current week' "$RUNBOOK" && fail "runbook no longer defaults to the current week" || pass "runbook no longer defaults to the current week"
+grep -m1 '^  - E3:' "$RUNBOOK" | grep -qF 'not finished' && pass "UNATTENDED MODE E3 bullet lists the not-finished reason" || fail "UNATTENDED MODE E3 bullet lacks 'not finished'"
 grep -qF 'No backfill' "$RUNBOOK" && pass "runbook names No backfill" || fail "runbook lacks No backfill"
 grep -qF '04_Logs/<Israel date>.md' "$RUNBOOK" && pass "runbook names the daily log as the surfacing channel" || fail "runbook does not name the daily log channel"
 if grep -qF 'loads that log into every session' "$RUNBOOK"; then fail "runbook overclaims boot loading"; else pass "runbook does not overclaim boot loading"; fi
@@ -325,7 +333,7 @@ bash "$H" bogus >/dev/null 2>&1; eq "unknown subcommand exits 3" "$?" "3"
 
 make_sandbox "$TMP/sb_a"
 H="$SB/.scripts/synthesize_run.sh"
-P53="$(sbrun bash "$H" plan --week 2026-W53)"
+P53="$(sbrun bash "$H" plan --week 2026-W53 --today 2027-01-04)"
 case "$P53" in *monday=2026-12-28*sunday=2027-01-03*) pass "plan 2026-W53 bounds" ;; *) fail "plan 2026-W53 bounds: $P53" ;; esac
 sbrun bash "$H" plan --week 2025-W53 >/dev/null 2>&1; eq "plan 2025-W53 (no such week) exits 3" "$?" "3"
 sbrun bash "$H" plan --week 2026-47 >/dev/null 2>&1; eq "plan malformed week exits 3" "$?" "3"
@@ -440,12 +448,42 @@ sbx synthesize_run.sh plan --week 2026-W47 >"$TMP/stale.out" 2>"$TMP/stale.err";
 grep -qF 'unresolved facts.jsonl.next' "$TMP/stale.err" && pass "stale: stderr names unresolved facts.jsonl.next" || fail "stale: stderr: $(cat "$TMP/stale.err")"
 eq "stale: exact stderr" "$(cat "$TMP/stale.err")" "E3: unresolved facts.jsonl.next from a failed run; delete it and the failed week's outputs, then rerun /synthesize interactively"
 eq "stale: nothing on stdout" "$(wc -c < "$TMP/stale.out" | tr -d ' ')" "0"
-sbx synthesize_run.sh plan --week 2026-W48 >/dev/null 2>&1; eq "RED: plan next week with stale .next exits 3" "$?" "3"
+sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-30 >/dev/null 2>&1; eq "RED: plan next week with stale .next exits 3" "$?" "3"
 rm -f "$W/facts.jsonl.next" "$W/2026-W47.synthesis.md" "$W/2026-W47.synthesis.json"
 sbx synthesize_run.sh plan --week 2026-W47 >/dev/null 2>&1; eq "GREEN: after delete-only recovery plan W47 exits 0" "$?" "0"
-sbx synthesize_run.sh plan --week 2026-W48 >/dev/null 2>&1; eq "GREEN: after delete-only recovery plan W48 exits 0" "$?" "0"
+sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-30 >/dev/null 2>&1; eq "GREEN: after delete-only recovery plan W48 exits 0" "$?" "0"
 write_w47 full; rm -f "$W/facts.jsonl.next"
 sbx synthesize_run.sh plan --week 2026-W47 >/dev/null 2>&1; eq "GREEN: valid outputs and no .next still exit 6" "$?" "6"
+
+echo "== unfinished week: plan refuses a week that has not ended (sandbox)"
+make_sandbox "$TMP/sb_unfin"
+W="$SB/03_Brain/Weekly_Synthesis"
+manifest "$SB" > "$TMP/unfin.before"
+sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-27 >"$TMP/u.out" 2>"$TMP/u.err"; eq "unfinished: current week exits 3" "$?" "3"
+eq "unfinished: nothing on stdout" "$(wc -c < "$TMP/u.out" | tr -d ' ')" "0"
+eq "unfinished: exact stderr" "$(cat "$TMP/u.err")" "E3: week 2026-W48 is not finished: its Sunday 2026-11-29 is on or after today 2026-11-27 (Asia/Jerusalem)"
+sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-29 >/dev/null 2>"$TMP/u.err"; eq "unfinished: today is the Sunday exits 3" "$?" "3"
+grep -qF 'is not finished' "$TMP/u.err" && pass "unfinished: Sunday boundary stderr" || fail "unfinished: Sunday boundary stderr: $(cat "$TMP/u.err")"
+sbx synthesize_run.sh plan --week 2026-W53 --today 2026-11-27 >/dev/null 2>"$TMP/u.err"; eq "unfinished: future week exits 3" "$?" "3"
+grep -qF 'week 2026-W53 is not finished' "$TMP/u.err" && pass "unfinished: future week stderr" || fail "unfinished: future week stderr: $(cat "$TMP/u.err")"
+sbx synthesize_run.sh plan --week 2099-W01 >/dev/null 2>"$TMP/u.err"; eq "unfinished: default date path exits 3" "$?" "3"
+grep -qF 'is not finished' "$TMP/u.err" && pass "unfinished: default date stderr" || fail "unfinished: default date stderr: $(cat "$TMP/u.err")"
+manifest "$SB" > "$TMP/unfin.after"
+eq "unfinished: refusals write nothing" "$(diff "$TMP/unfin.before" "$TMP/unfin.after" | wc -l | tr -d ' ')" "0"
+eq "unfinished: Weekly_Synthesis holds only facts.jsonl" "$(ls "$W")" "facts.jsonl"
+: > "$W/2026-W48.synthesis.md"; : > "$W/2026-W48.synthesis.json"
+sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-27 >/dev/null 2>"$TMP/u.err"; eq "unfinished: refusal wins over exit 6" "$?" "3"
+grep -qF 'is not finished' "$TMP/u.err" && pass "unfinished: refusal text with outputs present" || fail "unfinished: refusal text with outputs present"
+sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-30 >/dev/null 2>&1; eq "finished week with both outputs still exits 6" "$?" "6"
+rm -f "$W/2026-W48.synthesis.md" "$W/2026-W48.synthesis.json"
+P48="$(sbx synthesize_run.sh plan --week 2026-W48 --today 2026-11-30)"; eq "finished week accepted: exits 0" "$?" "0"
+printf '%s\n' "$P48" | grep -qx 'week=2026-W48' && printf '%s\n' "$P48" | grep -qx 'sunday=2026-11-29' && pass "finished week accepted: week and sunday printed" || fail "finished week output: $P48"
+P47="$(sbx synthesize_run.sh plan --week 2026-W47 --today 2026-11-23)"; eq "finished W47 accepted: exits 0" "$?" "0"
+printf '%s\n' "$P47" | grep -qx 'logs=2' && pass "finished W47: logs=2" || fail "finished W47 output: $P47"
+sbx synthesize_run.sh plan --week 2026-W47 --today 2026-13-01 >/dev/null 2>"$TMP/u.err"; eq "--today impossible date exits 3" "$?" "3"
+grep -qF "impossible --today '2026-13-01'" "$TMP/u.err" && pass "--today impossible stderr" || fail "--today impossible stderr: $(cat "$TMP/u.err")"
+sbx synthesize_run.sh plan --week 2026-W47 --today nope >/dev/null 2>"$TMP/u.err"; eq "--today malformed exits 3" "$?" "3"
+grep -qF "malformed --today 'nope'" "$TMP/u.err" && pass "--today malformed stderr" || fail "--today malformed stderr: $(cat "$TMP/u.err")"
 
 echo "== fix 2: facts.jsonl.next is gitignored"
 GI="$REPO_ROOT/.gitignore"

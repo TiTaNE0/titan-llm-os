@@ -15,7 +15,7 @@ expect="$(python3 -c "import datetime;d=datetime.datetime.now(__import__('zonein
 [ -n "$expect" ] && eq "default today is the Asia/Jerusalem date" "$live" "$expect"
 
 SB="$TMP/sb"; mk_sandbox "$SB"
-p="$(cd "$SB" && ./.vault_link/.scripts/synthesize_run.sh plan --week 2026-W53)"; rc=$?
+p="$(cd "$SB" && ./.vault_link/.scripts/synthesize_run.sh plan --week 2026-W53 --today 2027-01-04)"; rc=$?
 eq "plan W53 2026 exit 0" "$rc" "0"
 echo "$p" | grep -q '^monday=2026-12-28$' && echo "$p" | grep -q '^sunday=2027-01-03$' && pass "W53 bounds" || fail "W53 bounds"
 p="$(cd "$SB" && ./.vault_link/.scripts/synthesize_run.sh plan --week 2026-W47)"
@@ -39,10 +39,10 @@ syn "$ST" report --week 2026-W47 >/dev/null 2>&1; eq "stale: report with a bad .
 syn "$ST" plan --week 2026-W47 >"$TMP/st.out" 2>"$TMP/st.err"; eq "RED: plan same week with stale .next exits 3, not 6" "$?" "3"
 grep -qF 'unresolved facts.jsonl.next' "$TMP/st.err" && pass "stale: stderr names unresolved facts.jsonl.next" || fail "stale: stderr: $(cat "$TMP/st.err")"
 eq "stale: nothing on stdout" "$(wc -c < "$TMP/st.out" | tr -d ' ')" "0"
-syn "$ST" plan --week 2026-W48 >/dev/null 2>&1; eq "RED: plan next week with stale .next exits 3" "$?" "3"
+syn "$ST" plan --week 2026-W48 --today 2026-11-30 >/dev/null 2>&1; eq "RED: plan next week with stale .next exits 3" "$?" "3"
 rm -f "$sw/facts.jsonl.next" "$sw/2026-W47.synthesis.md" "$sw/2026-W47.synthesis.json"
 syn "$ST" plan --week 2026-W47 >/dev/null 2>&1; eq "GREEN: after delete-only recovery plan W47 exits 0" "$?" "0"
-syn "$ST" plan --week 2026-W48 >/dev/null 2>&1; eq "GREEN: after delete-only recovery plan W48 exits 0" "$?" "0"
+syn "$ST" plan --week 2026-W48 --today 2026-11-30 >/dev/null 2>&1; eq "GREEN: after delete-only recovery plan W48 exits 0" "$?" "0"
 write_w47 "$ST"; rm -f "$sw/facts.jsonl.next"
 syn "$ST" plan --week 2026-W47 >/dev/null 2>&1; eq "GREEN: valid outputs and no .next still exit 6" "$?" "6"
 step2="$(awk '/^### Step 2 - /{on=1;next} /^(###|##) /{on=0} on' "$RUNBOOK")"

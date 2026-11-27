@@ -5,7 +5,7 @@ allowed-tools: Bash, Read, Write
 
 # /synthesize [iso_week]
 
-The Brain owns the contract (`03_Brain/System_Agents.md` section 7, `/synthesize`), and this file owns the runnable form, the same split as the kit commands. The runbook is vault-local and not a kit command, for three reasons: the macro needs `03_Brain/` and exists only in this vault, kit commands propagate to every onboarded project, and the kit is a separate repo outside this change. Run the macro from this file, not from the section 7 summary. Paths below use the `.vault_link/.scripts/` prefix; run every command from the vault root. Argument: `$ARGUMENTS` (an ISO week such as `2026-W47`; empty means the current week in interactive mode).
+The Brain owns the contract (`03_Brain/System_Agents.md` section 7, `/synthesize`), and this file owns the runnable form, the same split as the kit commands. The runbook is vault-local and not a kit command, for three reasons: the macro needs `03_Brain/` and exists only in this vault, kit commands propagate to every onboarded project, and the kit is a separate repo outside this change. Run the macro from this file, not from the section 7 summary. Paths below use the `.vault_link/.scripts/` prefix; run every command from the vault root. Argument: `$ARGUMENTS` (an ISO week such as `2026-W47`; empty means the previous ISO week, the value `synthesize_run.sh week` prints, in interactive mode).
 
 Scheduled runs follow `## UNATTENDED MODE`, which owns every rule of that mode. Everything else in `## STEPS` applies to both modes.
 
@@ -21,7 +21,7 @@ Start (kernel section 1.2): capture the start instant before any work.
 Run `./.vault_link/.scripts/persona_check.sh Synthesizer` (prefix `TITAN_SESSION_ID=<id>` when the session has a keyed id). It fails with E4 when the live persona is not `Synthesizer`. Never switch persona silently; interactive mode asks the operator to handshake as Synthesizer.
 
 ### Step 2 - Inputs
-The week argument is an ISO week `YYYY-Www`. The interactive default is the current week, per the kernel. Unattended mode passes the week explicitly. Then run:
+The week argument is an ISO week `YYYY-Www`. The interactive default is the previous ISO week, the value `./.vault_link/.scripts/synthesize_run.sh week` prints. A week that is not finished yet is refused (see Exit 3). Unattended mode passes the week explicitly. Then run:
 
 ```bash
 ./.vault_link/.scripts/synthesize_run.sh plan --week <W>
@@ -31,7 +31,7 @@ Every early exit goes to Step 9, so each run appends exactly one summary line:
 - Exit 0: ready; continue with Step 3.
 - Exit 6: already synthesized. Write no outputs and go to Step 9 with the skipped, already synthesized line (success).
 - Exit 1: E1 (`Weekly_Synthesis/` or `facts.jsonl` missing; never create them). Write no outputs, write the error report, and go to Step 9 with the error line, step plan.
-- Exit 3: E3 (malformed week, exactly one output exists, or an unresolved `facts.jsonl.next`). Write no outputs, write the error report, and go to Step 9 with the error line, step plan.
+- Exit 3: E3 (malformed week, a week that is not finished (its Sunday is on or after the Israel date; run it from the Monday after), exactly one output exists, or an unresolved `facts.jsonl.next`). Write no outputs, write the error report, and go to Step 9 with the error line, step plan.
 
 Recovery is delete-only: if `plan` exits 3 with `unresolved facts.jsonl.next`, a previous run failed after Step 7 began writing. In an interactive Synthesizer session, delete `facts.jsonl.next` and that week's `<W>.synthesis.md` and `<W>.synthesis.json`, then rerun `/synthesize <W>` interactively.
 
@@ -112,7 +112,7 @@ This section is the single owner of every rule for a scheduled, unattended run. 
 - Every error path writes one report to `04_Logs/Errors/<date>_E<n>_synthesize_<W>.md` (from `00_Templates/Error_Report_Template.md`; the report basename is that file name without `.md`), appends its summary line, emits `emit_telemetry.sh synthesize error auto <class> Synthesizer`, and stops (except the scope-E4 surfacing, see the E4 bullet). Nothing is retried except E2, which is retried once. When the failing step is `log` itself (append_log failed twice), the line cannot be written; telemetry is still emitted and the final message says the line is missing. Per class:
   - E1: `week` exit 1 (step `week`), or `plan` exit 1 (step `plan`).
   - E2: an atom or tool command fails unexpectedly: session_state_write (step `handshake`), append_log (step `log`), or a file write (step `synthesis`). Retry once, then report.
-  - E3: `plan` exit 3 (step `plan`) or `report` exit 3 (step `report`). Leave `facts.jsonl.next` and never repair it. `plan` exit 3 for `unresolved facts.jsonl.next` is reported, never deleted; recovery is delete-only per Step 2.
+  - E3: `plan` exit 3 (step `plan`, including a week that is not finished, which `synthesize_run.sh week` never prints) or `report` exit 3 (step `report`). Leave `facts.jsonl.next` and never repair it. `plan` exit 3 for `unresolved facts.jsonl.next` is reported, never deleted; recovery is delete-only per Step 2.
   - E4: persona_check fails (step `persona`), or `scope` exits 4 (step `scope`, where the reason lists the offending paths). Nothing is reverted. When `scope` exits 4 after `report` exited 0 (Step 7's `mv` has landed), the run still appends every contradiction line and proposal line that `report` printed, after its error summary line, because a later `plan` for that week exits 6 and those lines would otherwise never reach the daily log. The error summary line uses the generic template with the reason `out-of-scope writes <paths>; synthesis written, <n> surfacing lines appended` (n = contradiction lines + proposal lines, 0 allowed). Telemetry is `emit_telemetry.sh synthesize error auto E4 Synthesizer`, and the error report is written as for any E4.
   - E5: context saturation (step `synthesis`). Stop with no resume.
   - Not errors: `plan` exit 6 gives `Synthesize <W> (unattended): skipped, already synthesized.` A run with `logs=0` writes no outputs and gives `Synthesize <W> (unattended): skipped, no logs in <monday>..<sunday>.` Both emit success.
