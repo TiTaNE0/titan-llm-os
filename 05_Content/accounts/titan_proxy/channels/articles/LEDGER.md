@@ -3,7 +3,7 @@ type: channel_ledger
 channel: articles
 account: titan_proxy
 status: active
-updated: 2026-11-24
+updated: 2026-11-26
 ---
 
 # Titan Proxy — Articles Publication Ledger
@@ -30,3 +30,6 @@ Single source of truth for all published articles across the three apex domains.
 | `tcp-bbr-vs-cubic` | a | titanproxy.tech | docs | TCP BBR и CUBIC: почему меняется скорость загрузки медиа в Telegram | 2026-11-24 | - | - | live |
 | `telegram-remote-team` | b | bestproxy.deals | compare | Telegram для удаленной команды: стабильность рабочих чатов и файлов | 2026-11-24 | - | - | live |
 | `video-circles-telegram-stuck` | c | mtproxy.guru | help | Кружочки в Telegram не воспроизводятся или тормозят: простое решение | 2026-11-24 | - | - | live |
+| `telegram-desktop-proxy-setup` | a | titanproxy.tech | docs | Прокси в Telegram Desktop на Linux, macOS и Windows: настройка | 2026-11-26 | - | - | live |
+| `proxy-battery-drain-comparison` | b | bestproxy.deals | compare | Прокси и заряд батареи смартфона: влияние фоновых процессов | 2026-11-26 | - | - | live |
+| `share-proxy-with-family` | c | mtproxy.guru | help | Как отправить ссылку на доступ родителям и близким в Telegram | 2026-11-26 | - | - | live |
