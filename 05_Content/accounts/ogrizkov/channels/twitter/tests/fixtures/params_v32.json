@@ -1,0 +1,152 @@
+{
+  "version": "3.2",
+  "updated": "2026-11-23",
+  "timezone": "Asia/Jerusalem",
+  "slots": [
+    {
+      "starts": [
+        "15:30"
+      ],
+      "window": [
+        "16:30",
+        "18:30"
+      ]
+    },
+    {
+      "starts": [
+        "20:00"
+      ],
+      "window": [
+        "21:00",
+        "23:00"
+      ]
+    }
+  ],
+  "runs_per_window": 1,
+  "slot_grace_min": 60,
+  "timing": {
+    "send_margin_min": 5,
+    "post_within_min": 120,
+    "land_within_min": 360
+  },
+  "capture": {
+    "fresh_min": 90,
+    "max_age_min": 210,
+    "max_replies": 40,
+    "min_followers": 1000
+  },
+  "ranking": {
+    "momentum_views": 20000,
+    "momentum_project_min": 180
+  },
+  "tiers": {
+    "t1_max_followers": 20000,
+    "t2_max_followers": 125000,
+    "large": {
+      "per_run": 3,
+      "max_age_min": 240,
+      "max_words": 25,
+      "min_parent_views": 20000,
+      "watch_max_age_min": 90,
+      "allowed_post_types": [
+        "announcement"
+      ]
+    }
+  },
+  "volume": {
+    "deliver_per_run": 6,
+    "stages": [
+      {
+        "post_per_run": 1,
+        "pipeline_per_day": 2,
+        "all_replies_per_day": 4,
+        "large_per_day": 1
+      },
+      {
+        "post_per_run": 2,
+        "pipeline_per_day": 4,
+        "all_replies_per_day": 6,
+        "large_per_day": 1
+      },
+      {
+        "post_per_run": 3,
+        "pipeline_per_day": 6,
+        "all_replies_per_day": 10,
+        "large_per_day": 1
+      }
+    ],
+    "allowance_avg_plus": 2,
+    "stage2_posting_days": 7,
+    "author_per_day": 1,
+    "deep_per_day": 1,
+    "follow_up_per_thread_per_day": 1
+  },
+  "reuse_days": 14,
+  "thin_run": {
+    "widen_passes": 1,
+    "widen_below": 2
+  },
+  "tripwire": {
+    "run_length": 5,
+    "max_views": 8,
+    "at_hours": 24,
+    "pause_days": 7,
+    "min_parent_views": 2000
+  },
+  "alarm": {
+    "window_runs": 10,
+    "max_empty": 1
+  },
+  "trial": {
+    "min_weekdays": 5,
+    "min_weekend_days": 2,
+    "pass_share": 0.9,
+    "marks_needed": 26,
+    "marks_agree": 21
+  },
+  "hooks": {
+    "rotation_window": 2
+  },
+  "measure": {
+    "read_hours": [
+      24,
+      48
+    ],
+    "wins_pages_max": 3,
+    "period_days": 14,
+    "patterns_refresh_days": 14,
+    "patterns_sample": 40,
+    "big_post_views": 20000
+  },
+  "cost": {
+    "enforce_grok_caps": false,
+    "max_grok_calls": 3,
+    "max_grok_calls_day": 12,
+    "maintenance_grok_calls": 2,
+    "grok_reply_count": false,
+    "grok_own_arm": false,
+    "attempts_per_slot": 2,
+    "attempts_per_day": 4,
+    "slot_deadline_min": 75,
+    "scout_vectors_per_run": 4,
+    "thread_fetch_max": 10,
+    "bind_extra": 2
+  },
+  "endpoint": {
+    "base": "https://api.fxtwitter.com",
+    "timeout_s": 20,
+    "parallel": 6,
+    "max_pages": 5
+  },
+  "delivery": {
+    "send_attempts": 3,
+    "verify_wait_s": 90,
+    "verify_poll_s": 5,
+    "send_timeout_s": 120,
+    "query_timeout_s": 60
+  },
+  "lock_stale_min": 120,
+  "critic_qualified_days": 7,
+  "probes_per_call": 2,
+  "note": "Frozen parameters for the test suites: the v3.2 numbers the tests were written for, plus the big-thread lane keys of 2026-11-24. Live tuning lives in agents/params.json."
+}
