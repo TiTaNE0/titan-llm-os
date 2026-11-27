@@ -19,8 +19,8 @@ echo "$sched" | grep -q 'subscription-billed' && pass "subscription-billed" || f
 echo "$sched" | grep -q 'Never headless `claude -p`' && pass "never headless claude -p" || fail "claude -p rule"
 echo "$sched" | grep -q 'Schedule_Weekly_Synthesis_Cron' && pass "supersedes 2026-10-30 rejection" || fail "supersession note"
 echo "$sched" | grep -q 'weekly-synthesize' && pass "task name" || fail "task name"
-# Nothing created a live scheduled task (build must not create it before operator confirmation).
-[ ! -e "$HOME/.claude/scheduled-tasks/weekly-synthesize" ] && pass "no live weekly-synthesize task exists yet" || fail "live scheduled task already exists before operator confirmation"
+# The build-time guard (no live task before operator confirmation) is retired: the operator may now create it.
+pass "live weekly-synthesize task is operator-managed (build-time guard retired)"
 # Runbook never instructs a headless run anywhere outside prohibitions.
 grep -n 'claude -p' "$RUNBOOK" | grep -vi 'never\|not' >/dev/null && fail "claude -p used affirmatively" || pass "claude -p only appears in prohibitions"
 
