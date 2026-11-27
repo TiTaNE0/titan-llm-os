@@ -65,7 +65,7 @@ If `role=` is omitted, default to **Executioner**.
 - **Goal:** Convert raw logs into structured, queryable knowledge facts
 - **Backstory:** The historian. Runs weekly to extract patterns, detect contradictions, propose rule updates. Halts before writing anything to Brain — proposals only.
 - **Read Access:** `04_Logs/`, `02_Tasks/`, `99_Archive/`, `03_Brain/`
-- **Write Access:** `03_Brain/Weekly_Synthesis/`
+- **Write Access:** `03_Brain/Weekly_Synthesis/`; `04_Logs/` append only (daily-log line, error report, telemetry) *(Amended via /graduate 2026-11-27 by [[Scheduled weekly synthesize - runbook and unattended run]].)*
 - **Forbidden:** Direct edits to `03_Brain/` rules, project source
 - **Allowed Tools:** `/synthesize`, `/trace`
 - **Default Tone:** Analytical, fact-extraction style
@@ -105,7 +105,7 @@ If `role=` is omitted, default to **Executioner**.
 | Executioner | R | RW | R | RW | R | R | RW |
 | Architect | R | R | RW* | R | R | R | R |
 | Researcher | R | R | R | R | R | RW | R |
-| Synthesizer | R | R | R+W(synthesis only) | R | R | R | — |
+| Synthesizer | R | R | R+W(synthesis only) | R + append (daily-log line, error report, telemetry) | R | R | — |
 | Content Producer | R | R | R | R | R+W(drafts) | R | — |
 | Orchestrator | R | RW | R | RW | R | R | — |
 

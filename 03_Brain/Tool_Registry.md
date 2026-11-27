@@ -465,6 +465,16 @@ This is the canonical list of atomic operations available to any macro. Adding a
 - **Script:** `.vault_link/.scripts/codemap_refresh.sh`
 - *(Implemented by [[CODEMAP_Per_Project_Refresh_At_Close]]; registered via /graduate 2026-11-09. Called by `/close_task` Step 4.6; the planner reads CODEMAP.md first.)*
 
+### `synthesize_run`
+- **Inputs:** subcommand `week [--today YYYY-MM-DD]` | `plan --week YYYY-Www` | `report --week YYYY-Www [--unattended]` | `scope --session-id <id> [--head <sha>]`
+- **Outputs:** stdout only (key=value lines, rendered log lines, `SCOPE: clean|...`); errors print `E<n>: ...` to stderr. Writes nothing.
+- **Errors:** exit 1 = E1 blocker (Weekly_Synthesis or facts.jsonl missing, no session marker, python3 missing); exit 3 = E3 malformed input or inconsistent outputs, an unresolved `facts.jsonl.next`, or a usage error; exit 4 = E4 scope violation (`scope` only); exit 6 = `plan` only, both outputs already exist (already_synthesized).
+- **Idempotent:** ✅ (read-only)
+- **Persona Gate:** Any
+- **Telemetry:** None (read-only helper of the `/synthesize` runbook)
+- **Script:** `.vault_link/.scripts/synthesize_run.sh`
+- *(Implemented by [[Scheduled weekly synthesize - runbook and unattended run]]; registered via /graduate 2026-11-27. Called by the `/synthesize` runbook `.scripts/runbooks/synthesize.md`.)*
+
 ---
 
 ## Tool Composition Rules

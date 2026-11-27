@@ -274,7 +274,7 @@ The executable form lives at `project-template/.claude/commands/orchestrator_tic
 6. **Decay:** Apply rules from [[Memory_Schema]] § Decay Rules.
 7. **Output:** Two files per week:
    - `03_Brain/Weekly_Synthesis/<iso_week>.synthesis.md` (human report)
-   - `03_Brain/Weekly_Synthesis/<iso_week>.synthesis.json` (structured: facts_added, contradictions, proposals)
+   - `03_Brain/Weekly_Synthesis/<iso_week>.synthesis.json` (structured: facts_added, contradictions, rule_proposals) *(Amended via /graduate 2026-11-27 by [[Scheduled weekly synthesize - runbook and unattended run]].)*
 8. **HALT:** If proposals[] non-empty, stop and surface to user. Promotion to Brain rules requires Architect + `/graduate`.
 9. **Telemetry:** Emit `synthesize` record.
 
